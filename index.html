@@ -24,7 +24,7 @@ header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
 header .total{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--amber)}
 header .total span{display:block;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:#B8C2C8;font-weight:400}
 nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:9}
-nav button{flex:1;padding:13px 8px;border:none;background:none;font-size:15px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent}
+nav button{flex:1;padding:13px 6px;border:none;background:none;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent}
 nav button.active{color:var(--ink);border-bottom-color:var(--amber)}
 main{max-width:900px;margin:0 auto;padding:18px}
 .view{display:none}
@@ -72,6 +72,18 @@ tr:last-child td{border-bottom:none}
 .cart-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px dashed var(--line);font-size:14px}
 .cart-item:last-child{border-bottom:none}
 .cart-item small{display:block;color:var(--ink-soft);font-size:12px}
+.cat-group{margin-bottom:14px}
+.cat-group h4{margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px}
+.prod-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.prod-row:last-child{border-bottom:none}
+.prod-row .pname{flex:1;font-size:14px}
+.prod-row .pname small{display:block;color:var(--ink-soft);font-size:12px}
+.prod-row input[type=number]{width:70px;flex:none;padding:8px}
+.prod-row .psub{width:80px;flex:none;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft)}
+.prod-admin-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.prod-admin-row:last-child{border-bottom:none}
+.prod-admin-row.inactivo{opacity:.5}
+.prod-admin-row .pname{flex:1}
 dialog{border:none;border-radius:var(--radius);padding:0;max-width:460px;width:92%}
 dialog::backdrop{background:rgba(30,42,50,.5)}
 .modal-body{padding:20px;max-height:85vh;overflow-y:auto}
@@ -91,48 +103,38 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
   <button class="active" data-view="registrar">Registrar</button>
   <button data-view="hoy">Hoy</button>
   <button data-view="reportes">Reportes</button>
+  <button data-view="productos">Productos</button>
 </nav>
 
 <main>
   <!-- REGISTRAR -->
   <section class="view active" id="view-registrar">
     <div class="card">
-      <div class="row">
-        <div class="field">
-          <label for="f-categoria">Categoría del ítem</label>
-          <select id="f-categoria">
-            <option value="">Elegir…</option>
-            <option value="Impresión">Impresión</option>
-            <option value="Fotocopia">Fotocopia</option>
-            <option value="Otros">Otros (librería)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="f-subcategoria">Subcategoría</label>
-          <select id="f-subcategoria"><option value="">— elegí categoría —</option></select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field" style="max-width:120px">
-          <label for="f-cantidad">Cantidad</label>
-          <input type="number" id="f-cantidad" min="1" value="1">
-        </div>
-        <div class="field">
-          <label for="f-precio">Precio unitario (S/)</label>
-          <input type="number" id="f-precio" min="0" step="0.10" placeholder="0.00">
-        </div>
-      </div>
-      <div class="field">
-        <label for="f-descripcion">Descripción del producto/servicio</label>
-        <input type="text" id="f-descripcion" placeholder="Ej. Cuaderno A4, DNI de cliente…">
-      </div>
-      <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddItem">+ Agregar ítem a la venta</button></div>
-      <div id="cartList"></div>
-      <div class="summary-bar"><span id="cartCount">0 ítems</span><span>Total de la venta: <b class="mono" id="cartTotal">S/ 0.00</b></span></div>
+      <div class="hint" style="margin:0 0 10px">Poné la cantidad vendida de cada producto. El subtotal se calcula solo.</div>
+      <div id="catalogoList"></div>
     </div>
     <div class="card">
+      <details>
+        <summary style="cursor:pointer;font-weight:600;font-size:14px">+ Ítem personalizado (algo que no está en la lista)</summary>
+        <div style="margin-top:12px">
+          <div class="row">
+            <div class="field">
+              <label for="f2-categoria">Categoría</label>
+              <select id="f2-categoria"><option value="Impresión">Impresión</option><option value="Fotocopia">Fotocopia</option><option value="Otros">Otros</option></select>
+            </div>
+            <div class="field" style="max-width:100px"><label for="f2-cantidad">Cantidad</label><input type="number" id="f2-cantidad" min="1" value="1"></div>
+            <div class="field"><label for="f2-precio">Precio unit. (S/)</label><input type="number" id="f2-precio" min="0" step="0.10" placeholder="0.00"></div>
+          </div>
+          <div class="field"><label for="f2-descripcion">Descripción</label><input type="text" id="f2-descripcion" placeholder="Ej. Producto nuevo aún no cargado"></div>
+          <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddCustom">+ Agregar ítem personalizado</button></div>
+          <div id="cartList"></div>
+        </div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="summary-bar" style="padding-top:0"><span id="cartCount">0 ítems</span><span>Total de la venta: <b class="mono" id="cartTotal">S/ 0.00</b></span></div>
       <form id="form">
-        <div class="row">
+        <div class="row" style="margin-top:8px">
           <div class="field">
             <label for="f-usuario">Registrado por</label>
             <select id="f-usuario"><option>Yo</option><option>Hermano</option></select>
@@ -199,7 +201,25 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
           <label class="btn btn-ghost" style="cursor:pointer;text-align:center">Restaurar<input type="file" id="fileRestore" accept="application/json" style="display:none"></label>
         </span>
       </div>
-      <p class="hint">Los datos se guardan en la nube (Firebase) y se sincronizan automáticamente entre todos los dispositivos que abran este link. "Migrar datos antiguos" sube los registros guardados antes en este navegador (localStorage). "Descargar respaldo" te da una copia extra en tu computadora.</p>
+      <p class="hint">Los datos se guardan en la nube (Firebase) y se sincronizan automáticamente entre todos los dispositivos que abran este link.</p>
+    </div>
+  </section>
+
+  <!-- PRODUCTOS -->
+  <section class="view" id="view-productos">
+    <div class="card">
+      <h3 style="margin-top:0;font-size:16px">Nuevo producto</h3>
+      <div class="row">
+        <div class="field"><label for="p-categoria">Categoría</label>
+          <select id="p-categoria"><option value="Impresión">Impresión</option><option value="Fotocopia">Fotocopia</option><option value="Otros">Otros</option></select>
+        </div>
+        <div class="field"><label for="p-nombre">Nombre del producto</label><input type="text" id="p-nombre" placeholder="Ej. Blanco y negro"></div>
+        <div class="field" style="max-width:140px"><label for="p-precio">Precio (S/)</label><input type="number" id="p-precio" min="0" step="0.05" placeholder="0.00"></div>
+      </div>
+      <div class="actions"><button type="button" class="btn btn-primary" id="btnAddProducto">+ Agregar producto</button></div>
+    </div>
+    <div class="card">
+      <div id="catalogoAdmin"></div>
     </div>
   </section>
 </main>
@@ -220,13 +240,13 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
     <h3>Editar venta</h3>
     <div class="row">
       <div class="field"><label>Categoría</label><select id="e-categoria"><option value="">Elegir…</option><option>Impresión</option><option>Fotocopia</option><option>Otros</option></select></div>
-      <div class="field"><label>Subcategoría</label><select id="e-subcategoria"><option value="">— elegí categoría —</option></select></div>
+      <div class="field"><label>Producto</label><select id="e-subcategoria"><option value="">— elegí categoría —</option></select></div>
     </div>
     <div class="row">
       <div class="field" style="max-width:110px"><label>Cantidad</label><input type="number" id="e-cantidad" min="1" value="1"></div>
       <div class="field"><label>Precio unitario (S/)</label><input type="number" id="e-precio" min="0" step="0.10"></div>
     </div>
-    <div class="field"><label>Descripción</label><input type="text" id="e-descripcion"></div>
+    <div class="field"><label>Descripción (opcional)</label><input type="text" id="e-descripcion"></div>
     <div class="actions"><button type="button" class="btn btn-ghost" id="btnEditAddItem">+ Agregar ítem</button></div>
     <div id="editCartList"></div>
     <div class="summary-bar"><span id="editCartCount">0 ítems</span><span>Total: <b class="mono" id="editCartTotal">S/ 0.00</b></span></div>
@@ -251,11 +271,6 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-firestore-compat.js"></script>
 <script>
 const STORAGE_KEY = 'ferreteria_trabajos';
-const SUBCATS = {
-  'Impresión': ['Color','Blanco y negro'],
-  'Fotocopia': ['Documento de identidad - Color','Documento de identidad - Blanco y negro','Normal - Color','Normal - Blanco y negro','Ampliada'],
-  'Otros': ['Útiles de escritorio','Empastado/Anillado','Otro artículo de librería']
-};
 const CORTE_TARDE_HORA = 14;
 
 // ---------- Firebase ----------
@@ -270,7 +285,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const fsdb = firebase.firestore();
 const trabajosRef = fsdb.collection('trabajos');
+const productosRef = fsdb.collection('productos');
 let jobs = [];
+let catalogo = [];
 let cart = [];
 let editCart = [];
 let editingId = null;
@@ -309,7 +326,6 @@ async function comprobanteToDataUrl(file){
   if(blob.size > 700000) throw new Error('La imagen sigue siendo muy grande incluso comprimida.');
   return await blobToDataUrl(blob);
 }
-
 function normalizeVenta(v){
   if(Array.isArray(v.items)) return v;
   const it={categoria:v.categoria,subcategoria:v.subcategoria,descripcion:v.descripcion||'',cantidad:v.cantidad||1,precioUnitario:v.monto,subtotal:v.monto};
@@ -328,6 +344,11 @@ firebase.auth().onAuthStateChanged(user=>{
       if(document.getElementById('view-hoy').classList.contains('active')) renderHoy();
       if(document.getElementById('view-reportes').classList.contains('active')) renderReportes();
     }, err=>{ console.error(err); setSyncStatus('⚠️ Sin conexión con la nube', false); });
+    productosRef.onSnapshot(snap=>{
+      catalogo = snap.docs.map(d=>d.data());
+      renderCatalogoRegistrar();
+      renderCatalogoAdmin();
+    }, err=>{ console.error(err); });
   }
 });
 firebase.auth().signInAnonymously().catch(err=>{ console.error(err); setSyncStatus('⚠️ No se pudo conectar', false); });
@@ -340,40 +361,71 @@ function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200);
 }
-function fillSubcats(catSelect, subSelect){
-  const cat = catSelect.value;
-  subSelect.innerHTML = cat ? SUBCATS[cat].map(s=>`<option>${s}</option>`).join('') : '<option value="">— elegí categoría —</option>';
-}
 function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function tagClass(cat){ return cat==='Impresión'?'print':(cat==='Fotocopia'?'copy':'other'); }
 
-// ---------- carrito ----------
-function addItem(cartArr, p){
-  const cat=document.getElementById(p+'-categoria').value;
-  const sub=document.getElementById(p+'-subcategoria').value;
-  const cant=Number(document.getElementById(p+'-cantidad').value)||1;
-  const precio=Number(document.getElementById(p+'-precio').value);
-  const desc=document.getElementById(p+'-descripcion').value.trim();
-  if(!cat||!sub||isNaN(precio)){ toast('Completá categoría, subcategoría y precio del ítem.'); return; }
-  cartArr.push({categoria:cat,subcategoria:sub,cantidad:cant,precioUnitario:precio,descripcion:desc,subtotal:+(cant*precio).toFixed(2)});
-  document.getElementById(p+'-descripcion').value='';
-  document.getElementById(p+'-cantidad').value=1;
-  document.getElementById(p+'-precio').value='';
+// ---------- catálogo: Registrar (lista con cantidades) ----------
+function renderCatalogoRegistrar(){
+  const wrap = document.getElementById('catalogoList');
+  const activos = catalogo.filter(p=>p.activo!==false);
+  if(!activos.length){ wrap.innerHTML='<div class="empty">Todavía no hay productos en el catálogo. Agrégalos en la pestaña "Productos".</div>'; return; }
+  const cats = ['Impresión','Fotocopia','Otros'];
+  wrap.innerHTML = cats.map(cat=>{
+    const items = activos.filter(p=>p.categoria===cat);
+    if(!items.length) return '';
+    return `<div class="cat-group"><h4>${cat}</h4>${items.map(p=>`
+      <div class="prod-row">
+        <div class="pname">${escapeHtml(p.nombre)}<small>${money(p.precio)} c/u</small></div>
+        <input type="number" class="catqty" min="0" placeholder="0" data-id="${p.id}" data-categoria="${cat}" data-nombre="${escapeHtml(p.nombre)}" data-precio="${p.precio}">
+        <span class="psub mono" id="catsub-${p.id}">S/ 0.00</span>
+      </div>`).join('')}</div>`;
+  }).join('');
+  wrap.querySelectorAll('.catqty').forEach(inp=>inp.addEventListener('input', updateVentaTotal));
+  updateVentaTotal();
 }
-function renderCartUI(cartArr, listId, totalId, countId){
+function gatherCatalogItems(){
+  return Array.from(document.querySelectorAll('.catqty')).map(inp=>{
+    const cant = Number(inp.value)||0;
+    if(cant<=0) return null;
+    const precio = Number(inp.dataset.precio);
+    return {categoria:inp.dataset.categoria, subcategoria:inp.dataset.nombre, descripcion:'', cantidad:cant, precioUnitario:precio, subtotal:+(cant*precio).toFixed(2)};
+  }).filter(Boolean);
+}
+function updateVentaTotal(){
+  document.querySelectorAll('.catqty').forEach(inp=>{
+    const cant=Number(inp.value)||0, precio=Number(inp.dataset.precio);
+    document.getElementById('catsub-'+inp.dataset.id).textContent = money(cant*precio);
+  });
+  const total = gatherCatalogItems().reduce((s,i)=>s+i.subtotal,0) + cart.reduce((s,i)=>s+i.subtotal,0);
+  const count = gatherCatalogItems().length + cart.length;
+  document.getElementById('cartTotal').textContent = money(total);
+  document.getElementById('cartCount').textContent = count+' ítem'+(count!==1?'s':'');
+}
+
+// ---------- ítem personalizado (carrito manual) ----------
+document.getElementById('btnAddCustom').addEventListener('click', ()=>{
+  const cat=document.getElementById('f2-categoria').value;
+  const cant=Number(document.getElementById('f2-cantidad').value)||1;
+  const precio=Number(document.getElementById('f2-precio').value);
+  const desc=document.getElementById('f2-descripcion').value.trim();
+  if(isNaN(precio)||!desc){ toast('Completá la descripción y el precio del ítem personalizado.'); return; }
+  cart.push({categoria:cat, subcategoria:'Personalizado', descripcion:desc, cantidad:cant, precioUnitario:precio, subtotal:+(cant*precio).toFixed(2)});
+  document.getElementById('f2-descripcion').value='';
+  document.getElementById('f2-cantidad').value=1;
+  document.getElementById('f2-precio').value='';
+  renderCartUI(cart,'cartList','cartTotal','cartCount'); updateVentaTotal();
+});
+function renderCartUI(cartArr, listId){
   const list=document.getElementById(listId);
   list.innerHTML = cartArr.length ? cartArr.map((it,idx)=>`
     <div class="cart-item">
       <span>${it.cantidad}× ${escapeHtml(it.descripcion||it.subcategoria)}<small>${it.categoria} · ${it.subcategoria}</small></span>
       <span class="mono">${money(it.subtotal)}</span>
       <button type="button" class="icon-btn" data-rm="${idx}">✕</button>
-    </div>`).join('') : '<div class="hint" style="margin:8px 0">Todavía no agregaste ítems.</div>';
+    </div>`).join('') : '';
   list.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
-    cartArr.splice(Number(b.dataset.rm),1); renderCartUI(cartArr,listId,totalId,countId);
+    cartArr.splice(Number(b.dataset.rm),1); renderCartUI(cartArr,listId); updateVentaTotal(); updateEditTotal();
   }));
-  const total = cartArr.reduce((s,i)=>s+i.subtotal,0);
-  document.getElementById(totalId).textContent = money(total);
-  document.getElementById(countId).textContent = cartArr.length+' ítem'+(cartArr.length!==1?'s':'');
 }
 
 // ---------- navegación ----------
@@ -389,28 +441,23 @@ document.querySelectorAll('nav button').forEach(btn=>{
 });
 
 // ---------- formulario registrar ----------
-const fCat=document.getElementById('f-categoria'), fSub=document.getElementById('f-subcategoria'), fTurno=document.getElementById('f-turno');
-fCat.addEventListener('change', ()=>fillSubcats(fCat, fSub));
+const fTurno=document.getElementById('f-turno');
 fTurno.value = turnoAuto();
-document.getElementById('btnAddItem').addEventListener('click', ()=>{
-  addItem(cart,'f'); renderCartUI(cart,'cartList','cartTotal','cartCount');
-});
-renderCartUI(cart,'cartList','cartTotal','cartCount');
 document.getElementById('f-pago').addEventListener('change', e=>{
   document.getElementById('comprobanteField').style.display = e.target.value==='Yape' ? '' : 'none';
 });
 
 document.getElementById('form').addEventListener('submit', async e=>{
   e.preventDefault();
-  if(!cart.length){ toast('Agregá al menos un ítem a la venta.'); return; }
+  const items = [...gatherCatalogItems(), ...cart.map(i=>({...i}))];
+  if(!items.length){ toast('Agregá al menos un producto con cantidad, o un ítem personalizado.'); return; }
   const now = new Date();
   const venta = {
     id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
     fecha: todayISO(), hora: now.toTimeString().slice(0,5),
     turno: fTurno.value, usuario: document.getElementById('f-usuario').value,
     pago: document.getElementById('f-pago').value,
-    items: cart.map(i=>({...i})),
-    total: +cart.reduce((s,i)=>s+i.subtotal,0).toFixed(2)
+    items, total: +items.reduce((s,i)=>s+i.subtotal,0).toFixed(2)
   };
   const fileInput = document.getElementById('f-comprobante');
   if(venta.pago==='Yape' && fileInput.files[0]){
@@ -419,12 +466,12 @@ document.getElementById('form').addEventListener('submit', async e=>{
   }
   trabajosRef.doc(venta.id).set(venta).catch(err=>{ console.error(err); toast('No se pudo guardar en la nube.'); });
   toast('Venta registrada ✓');
-  cart=[]; renderCartUI(cart,'cartList','cartTotal','cartCount');
+  document.querySelectorAll('.catqty').forEach(inp=>inp.value='');
+  cart=[]; renderCartUI(cart,'cartList'); updateVentaTotal();
   fTurno.value = turnoAuto();
   document.getElementById('f-pago').value='Efectivo';
   document.getElementById('comprobanteField').style.display='none';
   fileInput.value='';
-  fCat.focus();
 });
 
 // ---------- header total ----------
@@ -465,7 +512,7 @@ function renderHoy(){
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit)));
 }
 
-// ---------- eliminar ----------
+// ---------- eliminar venta ----------
 let pendingDelete=null;
 const confirmDialog=document.getElementById('confirmDialog');
 function askDelete(id){ pendingDelete=id; confirmDialog.showModal(); }
@@ -477,49 +524,107 @@ document.getElementById('confirmYes').addEventListener('click',()=>{
 });
 document.getElementById('confirmNo').addEventListener('click',()=>confirmDialog.close());
 
-// ---------- editar ----------
+// ---------- editar venta ----------
 const editDialog=document.getElementById('editDialog');
-const eCat=document.getElementById('e-categoria'), eSub=document.getElementById('e-subcategoria');
-eCat.addEventListener('change', ()=>fillSubcats(eCat, eSub));
-document.getElementById('e-pago').addEventListener('change', e=>{
-  document.getElementById('editComprobanteField').style.display = e.target.value==='Yape' ? '' : 'none';
+const eCat=document.getElementById('e-categoria'), eSub=document.getElementById('e-subcategoria'), ePrecio=document.getElementById('e-precio');
+function fillCatalogoSelect(catSelect, subSelect){
+  const cat = catSelect.value;
+  const opts = catalogo.filter(p=>p.categoria===cat && p.activo!==false);
+  subSelect.innerHTML = cat ? (opts.length ? opts.map(p=>`<option value="${escapeHtml(p.nombre)}" data-precio="${p.precio}">${escapeHtml(p.nombre)}</option>`).join('') : '<option value="">(sin productos, usá descripción)</option>') : '<option value="">— elegí categoría —</option>';
+}
+eCat.addEventListener('change', ()=>fillCatalogoSelect(eCat, eSub));
+eSub.addEventListener('change', ()=>{
+  const opt = eSub.selectedOptions[0];
+  if(opt && opt.dataset.precio) ePrecio.value = opt.dataset.precio;
 });
+function updateEditTotal(){
+  const total = editCart.reduce((s,i)=>s+i.subtotal,0);
+  document.getElementById('editCartTotal').textContent = money(total);
+  document.getElementById('editCartCount').textContent = editCart.length+' ítem'+(editCart.length!==1?'s':'');
+}
 document.getElementById('btnEditAddItem').addEventListener('click', ()=>{
-  addItem(editCart,'e'); renderCartUI(editCart,'editCartList','editCartTotal','editCartCount');
+  const cat=eCat.value, sub=eSub.value, cant=Number(document.getElementById('e-cantidad').value)||1;
+  const precio=Number(ePrecio.value), desc=document.getElementById('e-descripcion').value.trim();
+  if(!cat||!sub||isNaN(precio)){ toast('Completá categoría, producto y precio.'); return; }
+  editCart.push({categoria:cat, subcategoria:sub, descripcion:desc, cantidad:cant, precioUnitario:precio, subtotal:+(cant*precio).toFixed(2)});
+  document.getElementById('e-descripcion').value=''; document.getElementById('e-cantidad').value=1; ePrecio.value='';
+  renderCartUI(editCart,'editCartList'); updateEditTotal();
 });
 function openEdit(id){
   const v = jobs.find(x=>x.id===id); if(!v) return;
   editingId=id;
   editCart = v.items.map(i=>({...i}));
-  renderCartUI(editCart,'editCartList','editCartTotal','editCartCount');
+  renderCartUI(editCart,'editCartList'); updateEditTotal();
   document.getElementById('e-pago').value = v.pago||'Efectivo';
   document.getElementById('editComprobanteField').style.display = (v.pago==='Yape') ? '' : 'none';
   document.getElementById('editComprobanteActual').innerHTML = v.comprobanteUrl ? `<a href="${v.comprobanteUrl}" target="_blank" rel="noopener">Ver comprobante actual</a> (elegí un archivo para reemplazarlo)` : 'Sin comprobante adjunto.';
   document.getElementById('e-comprobante').value='';
   eCat.value=''; eSub.innerHTML='<option value="">— elegí categoría —</option>';
-  document.getElementById('e-cantidad').value=1;
-  document.getElementById('e-precio').value='';
-  document.getElementById('e-descripcion').value='';
+  document.getElementById('e-cantidad').value=1; ePrecio.value=''; document.getElementById('e-descripcion').value='';
   editDialog.showModal();
 }
 document.getElementById('editSave').addEventListener('click', async ()=>{
   if(!editCart.length){ toast('La venta debe tener al menos un ítem.'); return; }
-  const cambios = {
-    items: editCart.map(i=>({...i})),
-    total: +editCart.reduce((s,i)=>s+i.subtotal,0).toFixed(2),
-    pago: document.getElementById('e-pago').value
-  };
+  const cambios = { items: editCart.map(i=>({...i})), total: +editCart.reduce((s,i)=>s+i.subtotal,0).toFixed(2), pago: document.getElementById('e-pago').value };
   const fileInput = document.getElementById('e-comprobante');
   if(cambios.pago==='Yape' && fileInput.files[0]){
     try{ toast('Procesando comprobante…'); cambios.comprobanteUrl = await comprobanteToDataUrl(fileInput.files[0]); }
     catch(err){ console.error(err); toast('No se pudo procesar la foto, se guardaron los demás cambios.'); }
   }
-  trabajosRef.doc(editingId).update(cambios)
-    .then(()=>toast('Cambios guardados'))
-    .catch(err=>{ console.error(err); toast('No se pudo guardar.'); });
+  trabajosRef.doc(editingId).update(cambios).then(()=>toast('Cambios guardados')).catch(err=>{ console.error(err); toast('No se pudo guardar.'); });
   editDialog.close();
 });
 document.getElementById('editCancel').addEventListener('click',()=>editDialog.close());
+
+// ---------- PRODUCTOS (catálogo) ----------
+document.getElementById('btnAddProducto').addEventListener('click', ()=>{
+  const categoria=document.getElementById('p-categoria').value;
+  const nombre=document.getElementById('p-nombre').value.trim();
+  const precio=Number(document.getElementById('p-precio').value);
+  if(!nombre||isNaN(precio)){ toast('Completá el nombre y el precio del producto.'); return; }
+  const id = Date.now()+'-'+Math.random().toString(36).slice(2,7);
+  productosRef.doc(id).set({id, categoria, nombre, precio, activo:true})
+    .then(()=>toast('Producto agregado ✓'))
+    .catch(err=>{ console.error(err); toast('No se pudo guardar el producto.'); });
+  document.getElementById('p-nombre').value=''; document.getElementById('p-precio').value='';
+});
+function renderCatalogoAdmin(){
+  const wrap = document.getElementById('catalogoAdmin');
+  if(!catalogo.length){ wrap.innerHTML='<div class="empty">Todavía no agregaste productos.</div>'; return; }
+  const cats = ['Impresión','Fotocopia','Otros'];
+  wrap.innerHTML = cats.map(cat=>{
+    const items = catalogo.filter(p=>p.categoria===cat);
+    if(!items.length) return '';
+    return `<div class="cat-group"><h4>${cat}</h4>${items.map(p=>`
+      <div class="prod-admin-row ${p.activo===false?'inactivo':''}">
+        <span class="pname">${escapeHtml(p.nombre)}</span>
+        <span class="mono">${money(p.precio)}</span>
+        <div class="row-actions">
+          <button class="icon-btn" data-edit-p="${p.id}" title="Editar">✏️</button>
+          <button class="icon-btn" data-toggle-p="${p.id}" title="${p.activo===false?'Activar':'Desactivar'}">${p.activo===false?'👁️':'🚫'}</button>
+          <button class="icon-btn" data-del-p="${p.id}" title="Eliminar definitivamente">🗑️</button>
+        </div>
+      </div>`).join('')}</div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-edit-p]').forEach(b=>b.addEventListener('click',()=>{
+    const p = catalogo.find(x=>x.id===b.dataset.editP); if(!p) return;
+    const nuevoNombre = prompt('Nombre del producto:', p.nombre);
+    if(nuevoNombre===null) return;
+    const nuevoPrecioStr = prompt('Precio unitario (S/):', p.precio);
+    if(nuevoPrecioStr===null) return;
+    const nuevoPrecio = Number(nuevoPrecioStr);
+    if(!nuevoNombre.trim()||isNaN(nuevoPrecio)){ toast('Datos inválidos, no se guardó.'); return; }
+    productosRef.doc(p.id).update({nombre:nuevoNombre.trim(), precio:nuevoPrecio}).then(()=>toast('Producto actualizado ✓')).catch(err=>{console.error(err);toast('No se pudo actualizar.');});
+  }));
+  wrap.querySelectorAll('[data-toggle-p]').forEach(b=>b.addEventListener('click',()=>{
+    const p = catalogo.find(x=>x.id===b.dataset.toggleP); if(!p) return;
+    productosRef.doc(p.id).update({activo: p.activo===false}).catch(err=>{console.error(err);toast('No se pudo actualizar.');});
+  }));
+  wrap.querySelectorAll('[data-del-p]').forEach(b=>b.addEventListener('click',()=>{
+    if(!confirm('¿Eliminar este producto definitivamente del catálogo? Las ventas ya registradas con él no se ven afectadas.')) return;
+    productosRef.doc(b.dataset.delP).delete().then(()=>toast('Producto eliminado')).catch(err=>{console.error(err);toast('No se pudo eliminar.');});
+  }));
+}
 
 // ---------- REPORTES ----------
 document.getElementById('r-desde').value = todayISO();
@@ -530,7 +635,6 @@ document.getElementById('btnHoyRapido').addEventListener('click', ()=>{
   document.getElementById('r-hasta').value = todayISO();
   renderReportes();
 });
-
 function filteredJobs(){
   const desde=document.getElementById('r-desde').value, hasta=document.getElementById('r-hasta').value;
   const turno=document.getElementById('r-turno').value, usuario=document.getElementById('r-usuario').value;
@@ -544,37 +648,26 @@ function filteredJobs(){
     return true;
   }).sort((a,b)=> (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
 }
-
 function renderReportes(){
   const list = filteredJobs();
   const wrap = document.getElementById('repTableWrap');
   if(!list.length){
     wrap.innerHTML='<div class="empty">No hay ventas en este período/filtro.</div>';
-    document.getElementById('repSubtotals').innerHTML='';
-    document.getElementById('repTotal').textContent=money(0);
-    document.getElementById('repShiftCompare').innerHTML='';
-    return;
+    document.getElementById('repSubtotals').innerHTML=''; document.getElementById('repTotal').textContent=money(0);
+    document.getElementById('repShiftCompare').innerHTML=''; return;
   }
   wrap.innerHTML = `<table><thead><tr><th>Fecha</th><th>Hora</th><th>Turno</th><th>Tipo</th><th>Detalle</th><th>Usuario</th><th>Pago</th><th>Monto</th></tr></thead><tbody>
     ${list.map(v=>`<tr>
       <td class="mono">${v.fecha}</td><td class="mono">${v.hora}</td>
       <td style="text-transform:capitalize">${v.turno}</td>
-      <td>${ventaTags(v)}</td>
-      <td>${ventaSummary(v)}</td>
-      <td>${v.usuario}</td>
+      <td>${ventaTags(v)}</td><td>${ventaSummary(v)}</td><td>${v.usuario}</td>
       <td><span class="pay ${(v.pago||'Efectivo')==='Yape'?'yape':''}">${v.pago||'Efectivo'}</span>${comprobanteLink(v)}</td>
       <td class="amount">${money(v.total)}</td>
     </tr>`).join('')}</tbody></table>`;
-
   const groups = {};
-  list.forEach(v=>v.items.forEach(i=>{
-    const key = i.categoria+' — '+i.subcategoria;
-    groups[key] = (groups[key]||0) + i.subtotal;
-  }));
-  document.getElementById('repSubtotals').innerHTML = Object.entries(groups)
-    .sort((a,b)=>b[1]-a[1])
+  list.forEach(v=>v.items.forEach(i=>{ const key = i.categoria+' — '+i.subcategoria; groups[key] = (groups[key]||0) + i.subtotal; }));
+  document.getElementById('repSubtotals').innerHTML = Object.entries(groups).sort((a,b)=>b[1]-a[1])
     .map(([k,v])=>`<div><span>${k}</span><span class="mono">${money(v)}</span></div>`).join('');
-
   const total = list.reduce((s,v)=>s+v.total,0);
   document.getElementById('repTotal').textContent = money(total);
   const manana = list.filter(v=>v.turno==='mañana').reduce((s,v)=>s+v.total,0);
@@ -588,7 +681,7 @@ function renderReportes(){
     <div class="box">Yape<b class="mono">${money(yape)}</b></div>`;
 }
 
-// ---------- CSV (una fila por ítem) ----------
+// ---------- CSV ----------
 document.getElementById('btnCsv').addEventListener('click', ()=>{
   const list = filteredJobs();
   if(!list.length){ toast('No hay datos para exportar.'); return; }
