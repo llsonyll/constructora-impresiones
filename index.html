@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registro de ventas — Ferretería</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F3EE; --surface:#FFFFFF; --ink:#1E2A32; --ink-soft:#5A6B75;
+  --line:#DEDAD0; --amber:#D98B2B; --amber-ink:#7A4B10;
+  --print:#2F5FA8; --print-bg:#E7EEF9;
+  --copy:#1F7A63; --copy-bg:#E4F2EC;
+  --other:#6B4FA0; --other-bg:#EDE7F6;
+  --danger:#B3452C; --danger-bg:#F7E7E2;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:16px;line-height:1.4}
+.mono{font-family:'IBM Plex Mono',monospace}
+header{background:var(--ink);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:10}
+header h1{font-size:17px;margin:0;font-weight:600;letter-spacing:.2px}
+header .total{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--amber)}
+header .total span{display:block;font-family:'IBM Plex Sans',sans-serif;font-size:11px;color:#B8C2C8;font-weight:400}
+nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:57px;z-index:9}
+nav button{flex:1;padding:13px 8px;border:none;background:none;font-size:15px;font-weight:600;color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent}
+nav button.active{color:var(--ink);border-bottom-color:var(--amber)}
+main{max-width:900px;margin:0 auto;padding:18px}
+.view{display:none}
+.view.active{display:block}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.field{flex:1;min-width:140px;margin-bottom:12px}
+.field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:5px;font-weight:500}
+select,input,button.btn{font:inherit;font-size:16px;padding:11px 12px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff;color:var(--ink)}
+select:focus,input:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber)}
+.actions{display:flex;gap:10px;margin-top:4px}
+.btn{cursor:pointer;font-weight:600;border:none;width:auto;padding:13px 22px}
+.btn-primary{background:var(--amber);color:#231404}
+.btn-primary:hover{background:#c17d24}
+.btn-ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid #e3c3b8}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;padding:9px 8px;color:var(--ink-soft);font-weight:500;border-bottom:1px solid var(--line);font-size:12px}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:600;margin:1px 3px 1px 0}
+.tag.print{background:var(--print-bg);color:var(--print)}
+.tag.copy{background:var(--copy-bg);color:var(--copy)}
+.tag.other{background:var(--other-bg);color:var(--other)}
+.pay{display:inline-block;font-size:12px;color:var(--ink-soft)}
+.pay.yape{color:#6B4FA0;font-weight:600}
+.amount{font-family:'IBM Plex Mono',monospace;font-weight:600;white-space:nowrap}
+.row-actions{display:flex;gap:6px}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:4px 6px;border-radius:6px}
+.icon-btn:hover{background:var(--bg)}
+.empty{text-align:center;color:var(--ink-soft);padding:30px 10px;font-size:14px}
+.summary-bar{display:flex;justify-content:space-between;align-items:center;padding:10px 4px 0;font-size:14px;color:var(--ink-soft)}
+.summary-bar b{color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:16px}
+.filters{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.filters .field{min-width:150px}
+.subtotals{margin-top:14px;border-top:1px dashed var(--line);padding-top:12px}
+.subtotals div{display:flex;justify-content:space-between;padding:4px 0;font-size:14px}
+.grand-total{display:flex;justify-content:space-between;padding-top:10px;margin-top:6px;border-top:2px solid var(--ink);font-size:18px;font-weight:700}
+.shift-compare{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+.shift-compare .box{flex:1;min-width:90px;background:var(--bg);border-radius:8px;padding:12px;text-align:center}
+.shift-compare .box b{display:block;font-family:'IBM Plex Mono',monospace;font-size:19px;margin-top:4px}
+.toolbar{display:flex;gap:10px;justify-content:flex-end;margin-bottom:14px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--ink-soft);margin-top:10px;line-height:1.5}
+.cart-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px dashed var(--line);font-size:14px}
+.cart-item:last-child{border-bottom:none}
+.cart-item small{display:block;color:var(--ink-soft);font-size:12px}
+dialog{border:none;border-radius:var(--radius);padding:0;max-width:460px;width:92%}
+dialog::backdrop{background:rgba(30,42,50,.5)}
+.modal-body{padding:20px;max-height:85vh;overflow-y:auto}
+.modal-body h3{margin-top:0}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+.toast.show{opacity:1}
+@media(max-width:520px){.row-actions{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ferretería · Registro de ventas</h1>
+  <div class="total mono" id="headerTotal">S/ 0.00<span>total de hoy</span></div>
+</header>
+<nav>
+  <button class="active" data-view="registrar">Registrar</button>
+  <button data-view="hoy">Hoy</button>
+  <button data-view="reportes">Reportes</button>
+</nav>
+
+<main>
+  <!-- REGISTRAR -->
+  <section class="view active" id="view-registrar">
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="f-categoria">Categoría del ítem</label>
+          <select id="f-categoria">
+            <option value="">Elegir…</option>
+            <option value="Impresión">Impresión</option>
+            <option value="Fotocopia">Fotocopia</option>
+            <option value="Otros">Otros (librería)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-subcategoria">Subcategoría</label>
+          <select id="f-subcategoria"><option value="">— elegí categoría —</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field" style="max-width:120px">
+          <label for="f-cantidad">Cantidad</label>
+          <input type="number" id="f-cantidad" min="1" value="1">
+        </div>
+        <div class="field">
+          <label for="f-precio">Precio unitario (S/)</label>
+          <input type="number" id="f-precio" min="0" step="0.10" placeholder="0.00">
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-descripcion">Descripción del producto/servicio</label>
+        <input type="text" id="f-descripcion" placeholder="Ej. Cuaderno A4, DNI de cliente…">
+      </div>
+      <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddItem">+ Agregar ítem a la venta</button></div>
+      <div id="cartList"></div>
+      <div class="summary-bar"><span id="cartCount">0 ítems</span><span>Total de la venta: <b class="mono" id="cartTotal">S/ 0.00</b></span></div>
+    </div>
+    <div class="card">
+      <form id="form">
+        <div class="row">
+          <div class="field">
+            <label for="f-usuario">Registrado por</label>
+            <select id="f-usuario"><option>Yo</option><option>Hermano</option></select>
+          </div>
+          <div class="field">
+            <label for="f-turno">Turno</label>
+            <select id="f-turno"><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
+          </div>
+          <div class="field">
+            <label for="f-pago">Método de pago</label>
+            <select id="f-pago"><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select>
+          </div>
+        </div>
+        <div class="field" id="comprobanteField" style="display:none">
+          <label for="f-comprobante">Foto del comprobante de Yape (opcional)</label>
+          <input type="file" id="f-comprobante" accept="image/*" capture="environment">
+        </div>
+        <div class="actions"><button type="submit" class="btn btn-primary">Guardar venta</button></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- HOY -->
+  <section class="view" id="view-hoy">
+    <div class="card">
+      <div id="hoyTableWrap"></div>
+      <div class="summary-bar"><span id="hoyCount">0 ventas hoy</span><span>Total: <b class="mono" id="hoyTotal">S/ 0.00</b></span></div>
+    </div>
+  </section>
+
+  <!-- REPORTES -->
+  <section class="view" id="view-reportes">
+    <div class="card">
+      <div class="filters">
+        <div class="field"><label for="r-desde">Desde</label><input type="date" id="r-desde"></div>
+        <div class="field"><label for="r-hasta">Hasta</label><input type="date" id="r-hasta"></div>
+        <div class="field"><label for="r-turno">Turno</label>
+          <select id="r-turno"><option value="">Ambos</option><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
+        </div>
+        <div class="field"><label for="r-usuario">Usuario</label>
+          <select id="r-usuario"><option value="">Todos</option><option>Yo</option><option>Hermano</option></select>
+        </div>
+        <div class="field"><label for="r-pago">Pago</label>
+          <select id="r-pago"><option value="">Todos</option><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-ghost" id="btnHoyRapido">Solo hoy</button>
+        <button class="btn btn-ghost" id="btnCsv">Exportar CSV</button>
+      </div>
+    </div>
+    <div class="card">
+      <div id="repTableWrap"></div>
+      <div class="subtotals" id="repSubtotals"></div>
+      <div class="grand-total"><span>Total del período</span><span class="mono" id="repTotal">S/ 0.00</span></div>
+      <div class="shift-compare" id="repShiftCompare"></div>
+    </div>
+    <div class="card">
+      <div class="toolbar" style="justify-content:space-between">
+        <span class="hint" style="margin:0">Respaldo: guarda o restaura todas las ventas como archivo JSON.</span>
+        <span class="row-actions">
+          <button class="btn btn-ghost" id="btnMigrar">Migrar datos antiguos</button>
+          <button class="btn btn-ghost" id="btnBackup">Descargar respaldo</button>
+          <label class="btn btn-ghost" style="cursor:pointer;text-align:center">Restaurar<input type="file" id="fileRestore" accept="application/json" style="display:none"></label>
+        </span>
+      </div>
+      <p class="hint">Los datos se guardan en la nube (Firebase) y se sincronizan automáticamente entre todos los dispositivos que abran este link. "Migrar datos antiguos" sube los registros guardados antes en este navegador (localStorage). "Descargar respaldo" te da una copia extra en tu computadora.</p>
+    </div>
+  </section>
+</main>
+
+<dialog id="confirmDialog">
+  <div class="modal-body">
+    <h3>¿Eliminar esta venta?</h3>
+    <p class="hint" style="margin:0 0 16px">Se eliminará la venta completa con todos sus ítems. Esta acción no se puede deshacer.</p>
+    <div class="actions">
+      <button class="btn btn-danger" id="confirmYes">Eliminar</button>
+      <button class="btn btn-ghost" id="confirmNo">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="editDialog">
+  <div class="modal-body">
+    <h3>Editar venta</h3>
+    <div class="row">
+      <div class="field"><label>Categoría</label><select id="e-categoria"><option value="">Elegir…</option><option>Impresión</option><option>Fotocopia</option><option>Otros</option></select></div>
+      <div class="field"><label>Subcategoría</label><select id="e-subcategoria"><option value="">— elegí categoría —</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field" style="max-width:110px"><label>Cantidad</label><input type="number" id="e-cantidad" min="1" value="1"></div>
+      <div class="field"><label>Precio unitario (S/)</label><input type="number" id="e-precio" min="0" step="0.10"></div>
+    </div>
+    <div class="field"><label>Descripción</label><input type="text" id="e-descripcion"></div>
+    <div class="actions"><button type="button" class="btn btn-ghost" id="btnEditAddItem">+ Agregar ítem</button></div>
+    <div id="editCartList"></div>
+    <div class="summary-bar"><span id="editCartCount">0 ítems</span><span>Total: <b class="mono" id="editCartTotal">S/ 0.00</b></span></div>
+    <div class="field" style="margin-top:10px"><label>Método de pago</label><select id="e-pago"><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select></div>
+    <div class="field" id="editComprobanteField" style="display:none">
+      <label for="e-comprobante">Foto del comprobante de Yape</label>
+      <div id="editComprobanteActual" class="hint" style="margin:0 0 6px"></div>
+      <input type="file" id="e-comprobante" accept="image/*" capture="environment">
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="editSave">Guardar cambios</button>
+      <button class="btn btn-ghost" id="editCancel">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+<div class="hint" id="syncStatus" style="text-align:center;padding:6px;color:var(--ink-soft)">Conectando…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const STORAGE_KEY = 'ferreteria_trabajos';
+const SUBCATS = {
+  'Impresión': ['Color','Blanco y negro'],
+  'Fotocopia': ['Documento de identidad - Color','Documento de identidad - Blanco y negro','Normal - Color','Normal - Blanco y negro','Ampliada'],
+  'Otros': ['Útiles de escritorio','Empastado/Anillado','Otro artículo de librería']
+};
+const CORTE_TARDE_HORA = 14;
+
+// ---------- Firebase ----------
+const firebaseConfig = {
+  apiKey: "AIzaSyCwE-PSH6dkCqNmFEyxS73fXDennbm8iLY",
+  authDomain: "laconstructora-fotocopias.firebaseapp.com",
+  projectId: "laconstructora-fotocopias",
+  storageBucket: "laconstructora-fotocopias.firebasestorage.app",
+  messagingSenderId: "868364055177",
+  appId: "1:868364055177:web:b861f197cb3c9921ed4c58"
+};
+firebase.initializeApp(firebaseConfig);
+const fsdb = firebase.firestore();
+const trabajosRef = fsdb.collection('trabajos');
+let jobs = [];
+let cart = [];
+let editCart = [];
+let editingId = null;
+
+function compressImage(file, maxW=1000, quality=0.6){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        canvas.toBlob(blob=> blob ? resolve(blob) : reject(new Error('No se pudo procesar la imagen')), 'image/jpeg', quality);
+      };
+      img.onerror=()=>reject(new Error('Imagen inválida'));
+      img.src=ev.target.result;
+    };
+    reader.onerror=()=>reject(new Error('No se pudo leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+}
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=()=>reject(new Error('No se pudo procesar la imagen'));
+    r.readAsDataURL(blob);
+  });
+}
+async function comprobanteToDataUrl(file){
+  let blob = await compressImage(file, 1000, 0.6);
+  if(blob.size > 700000) blob = await compressImage(file, 700, 0.45);
+  if(blob.size > 700000) throw new Error('La imagen sigue siendo muy grande incluso comprimida.');
+  return await blobToDataUrl(blob);
+}
+
+function normalizeVenta(v){
+  if(Array.isArray(v.items)) return v;
+  const it={categoria:v.categoria,subcategoria:v.subcategoria,descripcion:v.descripcion||'',cantidad:v.cantidad||1,precioUnitario:v.monto,subtotal:v.monto};
+  return {...v, items:[it], total:v.monto};
+}
+function setSyncStatus(msg, ok){
+  const el=document.getElementById('syncStatus');
+  el.textContent = msg; el.style.color = ok ? 'var(--copy)' : 'var(--ink-soft)';
+}
+firebase.auth().onAuthStateChanged(user=>{
+  if(user){
+    trabajosRef.onSnapshot(snap=>{
+      jobs = snap.docs.map(d=>normalizeVenta(d.data()));
+      setSyncStatus('☁️ Conectado — sincronizado en la nube', true);
+      updateHeaderTotal();
+      if(document.getElementById('view-hoy').classList.contains('active')) renderHoy();
+      if(document.getElementById('view-reportes').classList.contains('active')) renderReportes();
+    }, err=>{ console.error(err); setSyncStatus('⚠️ Sin conexión con la nube', false); });
+  }
+});
+firebase.auth().signInAnonymously().catch(err=>{ console.error(err); setSyncStatus('⚠️ No se pudo conectar', false); });
+
+// ---------- helpers ----------
+const todayISO = () => new Date().toISOString().slice(0,10);
+const money = n => 'S/ ' + (Number(n)||0).toFixed(2);
+function turnoAuto(){ return new Date().getHours() < CORTE_TARDE_HORA ? 'mañana' : 'tarde'; }
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function fillSubcats(catSelect, subSelect){
+  const cat = catSelect.value;
+  subSelect.innerHTML = cat ? SUBCATS[cat].map(s=>`<option>${s}</option>`).join('') : '<option value="">— elegí categoría —</option>';
+}
+function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function tagClass(cat){ return cat==='Impresión'?'print':(cat==='Fotocopia'?'copy':'other'); }
+
+// ---------- carrito ----------
+function addItem(cartArr, p){
+  const cat=document.getElementById(p+'-categoria').value;
+  const sub=document.getElementById(p+'-subcategoria').value;
+  const cant=Number(document.getElementById(p+'-cantidad').value)||1;
+  const precio=Number(document.getElementById(p+'-precio').value);
+  const desc=document.getElementById(p+'-descripcion').value.trim();
+  if(!cat||!sub||isNaN(precio)){ toast('Completá categoría, subcategoría y precio del ítem.'); return; }
+  cartArr.push({categoria:cat,subcategoria:sub,cantidad:cant,precioUnitario:precio,descripcion:desc,subtotal:+(cant*precio).toFixed(2)});
+  document.getElementById(p+'-descripcion').value='';
+  document.getElementById(p+'-cantidad').value=1;
+  document.getElementById(p+'-precio').value='';
+}
+function renderCartUI(cartArr, listId, totalId, countId){
+  const list=document.getElementById(listId);
+  list.innerHTML = cartArr.length ? cartArr.map((it,idx)=>`
+    <div class="cart-item">
+      <span>${it.cantidad}× ${escapeHtml(it.descripcion||it.subcategoria)}<small>${it.categoria} · ${it.subcategoria}</small></span>
+      <span class="mono">${money(it.subtotal)}</span>
+      <button type="button" class="icon-btn" data-rm="${idx}">✕</button>
+    </div>`).join('') : '<div class="hint" style="margin:8px 0">Todavía no agregaste ítems.</div>';
+  list.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
+    cartArr.splice(Number(b.dataset.rm),1); renderCartUI(cartArr,listId,totalId,countId);
+  }));
+  const total = cartArr.reduce((s,i)=>s+i.subtotal,0);
+  document.getElementById(totalId).textContent = money(total);
+  document.getElementById(countId).textContent = cartArr.length+' ítem'+(cartArr.length!==1?'s':'');
+}
+
+// ---------- navegación ----------
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view==='hoy') renderHoy();
+    if(btn.dataset.view==='reportes') renderReportes();
+  });
+});
+
+// ---------- formulario registrar ----------
+const fCat=document.getElementById('f-categoria'), fSub=document.getElementById('f-subcategoria'), fTurno=document.getElementById('f-turno');
+fCat.addEventListener('change', ()=>fillSubcats(fCat, fSub));
+fTurno.value = turnoAuto();
+document.getElementById('btnAddItem').addEventListener('click', ()=>{
+  addItem(cart,'f'); renderCartUI(cart,'cartList','cartTotal','cartCount');
+});
+renderCartUI(cart,'cartList','cartTotal','cartCount');
+document.getElementById('f-pago').addEventListener('change', e=>{
+  document.getElementById('comprobanteField').style.display = e.target.value==='Yape' ? '' : 'none';
+});
+
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  if(!cart.length){ toast('Agregá al menos un ítem a la venta.'); return; }
+  const now = new Date();
+  const venta = {
+    id: Date.now()+'-'+Math.random().toString(36).slice(2,7),
+    fecha: todayISO(), hora: now.toTimeString().slice(0,5),
+    turno: fTurno.value, usuario: document.getElementById('f-usuario').value,
+    pago: document.getElementById('f-pago').value,
+    items: cart.map(i=>({...i})),
+    total: +cart.reduce((s,i)=>s+i.subtotal,0).toFixed(2)
+  };
+  const fileInput = document.getElementById('f-comprobante');
+  if(venta.pago==='Yape' && fileInput.files[0]){
+    try{ toast('Procesando comprobante…'); venta.comprobanteUrl = await comprobanteToDataUrl(fileInput.files[0]); }
+    catch(err){ console.error(err); toast('No se pudo procesar la foto, se guardó la venta sin comprobante.'); }
+  }
+  trabajosRef.doc(venta.id).set(venta).catch(err=>{ console.error(err); toast('No se pudo guardar en la nube.'); });
+  toast('Venta registrada ✓');
+  cart=[]; renderCartUI(cart,'cartList','cartTotal','cartCount');
+  fTurno.value = turnoAuto();
+  document.getElementById('f-pago').value='Efectivo';
+  document.getElementById('comprobanteField').style.display='none';
+  fileInput.value='';
+  fCat.focus();
+});
+
+// ---------- header total ----------
+function updateHeaderTotal(){
+  const total = jobs.filter(v=>v.fecha===todayISO()).reduce((s,v)=>s+v.total,0);
+  document.getElementById('headerTotal').innerHTML = money(total)+'<span>total de hoy</span>';
+}
+
+// ---------- HOY ----------
+function ventaTags(v){ return [...new Set(v.items.map(i=>i.categoria))].map(c=>`<span class="tag ${tagClass(c)}">${c}</span>`).join(''); }
+function ventaSummary(v){ return v.items.map(i=>`${i.cantidad}× ${escapeHtml(i.descripcion||i.subcategoria)}`).join(', '); }
+function comprobanteLink(v){ return v.comprobanteUrl ? ` <a href="${v.comprobanteUrl}" target="_blank" rel="noopener" class="icon-btn" title="Ver comprobante">📎</a>` : ''; }
+function ventaRowHtml(v){
+  const pago = v.pago||'Efectivo';
+  return `<tr>
+    <td class="mono">${v.hora}</td>
+    <td>${ventaTags(v)}</td>
+    <td>${ventaSummary(v)}</td>
+    <td>${v.items.length}</td>
+    <td>${v.usuario}</td>
+    <td><span class="pay ${pago==='Yape'?'yape':''}">${pago}</span>${comprobanteLink(v)}</td>
+    <td class="amount">${money(v.total)}</td>
+    <td><div class="row-actions">
+      <button class="icon-btn" data-edit="${v.id}" title="Editar">✏️</button>
+      <button class="icon-btn" data-del="${v.id}" title="Eliminar">🗑️</button>
+    </div></td>
+  </tr>`;
+}
+function renderHoy(){
+  const list = jobs.filter(v=>v.fecha===todayISO()).sort((a,b)=> b.hora.localeCompare(a.hora));
+  document.getElementById('hoyCount').textContent = `${list.length} venta${list.length!==1?'s':''} hoy`;
+  document.getElementById('hoyTotal').textContent = money(list.reduce((s,v)=>s+v.total,0));
+  const wrap = document.getElementById('hoyTableWrap');
+  if(!list.length){ wrap.innerHTML='<div class="empty">Todavía no hay ventas registradas hoy.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Ítems</th><th>Usuario</th><th>Pago</th><th>Monto</th><th></th></tr></thead><tbody>
+    ${list.map(v=>ventaRowHtml(v)).join('')}</tbody></table>`;
+  wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>askDelete(b.dataset.del)));
+  wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit)));
+}
+
+// ---------- eliminar ----------
+let pendingDelete=null;
+const confirmDialog=document.getElementById('confirmDialog');
+function askDelete(id){ pendingDelete=id; confirmDialog.showModal(); }
+document.getElementById('confirmYes').addEventListener('click',()=>{
+  trabajosRef.doc(pendingDelete).delete()
+    .then(()=>toast('Venta eliminada'))
+    .catch(err=>{ console.error(err); toast('No se pudo eliminar.'); });
+  confirmDialog.close();
+});
+document.getElementById('confirmNo').addEventListener('click',()=>confirmDialog.close());
+
+// ---------- editar ----------
+const editDialog=document.getElementById('editDialog');
+const eCat=document.getElementById('e-categoria'), eSub=document.getElementById('e-subcategoria');
+eCat.addEventListener('change', ()=>fillSubcats(eCat, eSub));
+document.getElementById('e-pago').addEventListener('change', e=>{
+  document.getElementById('editComprobanteField').style.display = e.target.value==='Yape' ? '' : 'none';
+});
+document.getElementById('btnEditAddItem').addEventListener('click', ()=>{
+  addItem(editCart,'e'); renderCartUI(editCart,'editCartList','editCartTotal','editCartCount');
+});
+function openEdit(id){
+  const v = jobs.find(x=>x.id===id); if(!v) return;
+  editingId=id;
+  editCart = v.items.map(i=>({...i}));
+  renderCartUI(editCart,'editCartList','editCartTotal','editCartCount');
+  document.getElementById('e-pago').value = v.pago||'Efectivo';
+  document.getElementById('editComprobanteField').style.display = (v.pago==='Yape') ? '' : 'none';
+  document.getElementById('editComprobanteActual').innerHTML = v.comprobanteUrl ? `<a href="${v.comprobanteUrl}" target="_blank" rel="noopener">Ver comprobante actual</a> (elegí un archivo para reemplazarlo)` : 'Sin comprobante adjunto.';
+  document.getElementById('e-comprobante').value='';
+  eCat.value=''; eSub.innerHTML='<option value="">— elegí categoría —</option>';
+  document.getElementById('e-cantidad').value=1;
+  document.getElementById('e-precio').value='';
+  document.getElementById('e-descripcion').value='';
+  editDialog.showModal();
+}
+document.getElementById('editSave').addEventListener('click', async ()=>{
+  if(!editCart.length){ toast('La venta debe tener al menos un ítem.'); return; }
+  const cambios = {
+    items: editCart.map(i=>({...i})),
+    total: +editCart.reduce((s,i)=>s+i.subtotal,0).toFixed(2),
+    pago: document.getElementById('e-pago').value
+  };
+  const fileInput = document.getElementById('e-comprobante');
+  if(cambios.pago==='Yape' && fileInput.files[0]){
+    try{ toast('Procesando comprobante…'); cambios.comprobanteUrl = await comprobanteToDataUrl(fileInput.files[0]); }
+    catch(err){ console.error(err); toast('No se pudo procesar la foto, se guardaron los demás cambios.'); }
+  }
+  trabajosRef.doc(editingId).update(cambios)
+    .then(()=>toast('Cambios guardados'))
+    .catch(err=>{ console.error(err); toast('No se pudo guardar.'); });
+  editDialog.close();
+});
+document.getElementById('editCancel').addEventListener('click',()=>editDialog.close());
+
+// ---------- REPORTES ----------
+document.getElementById('r-desde').value = todayISO();
+document.getElementById('r-hasta').value = todayISO();
+['r-desde','r-hasta','r-turno','r-usuario','r-pago'].forEach(id=>document.getElementById(id).addEventListener('change', renderReportes));
+document.getElementById('btnHoyRapido').addEventListener('click', ()=>{
+  document.getElementById('r-desde').value = todayISO();
+  document.getElementById('r-hasta').value = todayISO();
+  renderReportes();
+});
+
+function filteredJobs(){
+  const desde=document.getElementById('r-desde').value, hasta=document.getElementById('r-hasta').value;
+  const turno=document.getElementById('r-turno').value, usuario=document.getElementById('r-usuario').value;
+  const pago=document.getElementById('r-pago').value;
+  return jobs.filter(v=>{
+    if(desde && v.fecha<desde) return false;
+    if(hasta && v.fecha>hasta) return false;
+    if(turno && v.turno!==turno) return false;
+    if(usuario && v.usuario!==usuario) return false;
+    if(pago && (v.pago||'Efectivo')!==pago) return false;
+    return true;
+  }).sort((a,b)=> (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
+}
+
+function renderReportes(){
+  const list = filteredJobs();
+  const wrap = document.getElementById('repTableWrap');
+  if(!list.length){
+    wrap.innerHTML='<div class="empty">No hay ventas en este período/filtro.</div>';
+    document.getElementById('repSubtotals').innerHTML='';
+    document.getElementById('repTotal').textContent=money(0);
+    document.getElementById('repShiftCompare').innerHTML='';
+    return;
+  }
+  wrap.innerHTML = `<table><thead><tr><th>Fecha</th><th>Hora</th><th>Turno</th><th>Tipo</th><th>Detalle</th><th>Usuario</th><th>Pago</th><th>Monto</th></tr></thead><tbody>
+    ${list.map(v=>`<tr>
+      <td class="mono">${v.fecha}</td><td class="mono">${v.hora}</td>
+      <td style="text-transform:capitalize">${v.turno}</td>
+      <td>${ventaTags(v)}</td>
+      <td>${ventaSummary(v)}</td>
+      <td>${v.usuario}</td>
+      <td><span class="pay ${(v.pago||'Efectivo')==='Yape'?'yape':''}">${v.pago||'Efectivo'}</span>${comprobanteLink(v)}</td>
+      <td class="amount">${money(v.total)}</td>
+    </tr>`).join('')}</tbody></table>`;
+
+  const groups = {};
+  list.forEach(v=>v.items.forEach(i=>{
+    const key = i.categoria+' — '+i.subcategoria;
+    groups[key] = (groups[key]||0) + i.subtotal;
+  }));
+  document.getElementById('repSubtotals').innerHTML = Object.entries(groups)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([k,v])=>`<div><span>${k}</span><span class="mono">${money(v)}</span></div>`).join('');
+
+  const total = list.reduce((s,v)=>s+v.total,0);
+  document.getElementById('repTotal').textContent = money(total);
+  const manana = list.filter(v=>v.turno==='mañana').reduce((s,v)=>s+v.total,0);
+  const tarde = list.filter(v=>v.turno==='tarde').reduce((s,v)=>s+v.total,0);
+  const efectivo = list.filter(v=>(v.pago||'Efectivo')==='Efectivo').reduce((s,v)=>s+v.total,0);
+  const yape = list.filter(v=>v.pago==='Yape').reduce((s,v)=>s+v.total,0);
+  document.getElementById('repShiftCompare').innerHTML = `
+    <div class="box">Mañana<b class="mono">${money(manana)}</b></div>
+    <div class="box">Tarde<b class="mono">${money(tarde)}</b></div>
+    <div class="box">Efectivo<b class="mono">${money(efectivo)}</b></div>
+    <div class="box">Yape<b class="mono">${money(yape)}</b></div>`;
+}
+
+// ---------- CSV (una fila por ítem) ----------
+document.getElementById('btnCsv').addEventListener('click', ()=>{
+  const list = filteredJobs();
+  if(!list.length){ toast('No hay datos para exportar.'); return; }
+  const header = ['VentaId','Fecha','Hora','Turno','Usuario','Pago','Categoria','Subcategoria','Descripcion','Cantidad','PrecioUnitario','Subtotal','TotalVenta','ComprobanteUrl'];
+  const rows = [];
+  list.forEach(v=>v.items.forEach(i=>{
+    rows.push([v.id,v.fecha,v.hora,v.turno,v.usuario,v.pago||'Efectivo',i.categoria,i.subcategoria,i.descripcion,i.cantidad,Number(i.precioUnitario).toFixed(2),Number(i.subtotal).toFixed(2),v.total.toFixed(2),v.comprobanteUrl||'']);
+  }));
+  const csv = [header, ...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadFile(csv, `reporte_${todayISO()}.csv`, 'text/csv');
+});
+
+// ---------- backup / restore / migración ----------
+async function subirLote(items){
+  for(let i=0;i<items.length;i+=450){
+    const chunk = items.slice(i,i+450);
+    const batch = fsdb.batch();
+    chunk.forEach(item=>{
+      const id = item.id || (Date.now()+'-'+Math.random().toString(36).slice(2,7));
+      batch.set(trabajosRef.doc(id), {...item, id});
+    });
+    await batch.commit();
+  }
+}
+document.getElementById('btnMigrar').addEventListener('click', async ()=>{
+  let local;
+  try{ local = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }catch(e){ local = []; }
+  if(!local.length){ toast('No se encontraron datos antiguos en este navegador.'); return; }
+  if(!confirm(`Se encontraron ${local.length} registros guardados en este navegador. ¿Subirlos a la nube?`)) return;
+  try{ await subirLote(local); toast('Datos antiguos migrados a la nube ✓'); }
+  catch(err){ console.error(err); toast('Falló la migración.'); }
+});
+document.getElementById('btnBackup').addEventListener('click', ()=>{
+  downloadFile(JSON.stringify(jobs, null, 2), `respaldo_ferreteria_${todayISO()}.json`, 'application/json');
+});
+document.getElementById('fileRestore').addEventListener('change', e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ()=>{
+    try{
+      const data = JSON.parse(reader.result);
+      if(!Array.isArray(data)) throw new Error('formato inválido');
+      await subirLote(data);
+      toast('Respaldo restaurado en la nube ✓');
+    }catch(err){ console.error(err); toast('El archivo no es un respaldo válido o falló la subida.'); }
+  };
+  reader.readAsText(file);
+  e.target.value='';
+});
+function downloadFile(content, filename, type){
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- init ----------
+updateHeaderTotal();
+renderHoy();
+</script>
+</body>
+</html>
