@@ -74,12 +74,16 @@ tr:last-child td{border-bottom:none}
 .cart-item small{display:block;color:var(--ink-soft);font-size:12px}
 .cat-group{margin-bottom:14px}
 .cat-group h4{margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px}
-.prod-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
-.prod-row:last-child{border-bottom:none}
-.prod-row .pname{flex:1;font-size:14px}
-.prod-row .pname small{display:block;color:var(--ink-soft);font-size:12px}
-.prod-row input[type=number]{width:70px;flex:none;padding:8px}
-.prod-row .psub{width:80px;flex:none;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink-soft)}
+.prod-card{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:8px;border:1px solid transparent;margin-bottom:2px}
+.prod-card.has-qty{background:var(--bg);border-color:var(--amber)}
+.prod-card .pname{flex:1;font-size:14px}
+.prod-card .pname small{display:block;color:var(--ink-soft);font-size:12px}
+.stepper{display:flex;align-items:center;gap:8px;flex:none}
+.stepper button{width:36px;height:36px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:18px;font-weight:700;cursor:pointer;padding:0}
+.stepper button:active{background:var(--bg)}
+.stepper .qtynum{min-width:30px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600;cursor:pointer;font-size:16px}
+.ticket-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 2px;font-size:14px;border-bottom:1px dashed var(--line)}
+.ticket-item:last-child{border-bottom:none}
 .prod-admin-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
 .prod-admin-row:last-child{border-bottom:none}
 .prod-admin-row.inactivo{opacity:.5}
@@ -114,6 +118,10 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
       <div id="catalogoList"></div>
     </div>
     <div class="card">
+      <h4 style="margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Ticket de la venta</h4>
+      <div id="ticketList"></div>
+    </div>
+    <div class="card">
       <details>
         <summary style="cursor:pointer;font-weight:600;font-size:14px">+ Ítem personalizado (algo que no está en la lista)</summary>
         <div style="margin-top:12px">
@@ -127,7 +135,6 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
           </div>
           <div class="field"><label for="f2-descripcion">Descripción</label><input type="text" id="f2-descripcion" placeholder="Ej. Producto nuevo aún no cargado"></div>
           <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddCustom">+ Agregar ítem personalizado</button></div>
-          <div id="cartList"></div>
         </div>
       </details>
     </div>
@@ -367,39 +374,84 @@ function tagClass(cat){ return cat==='Impresión'?'print':(cat==='Fotocopia'?'co
 // ---------- catálogo: Registrar (lista con cantidades) ----------
 function renderCatalogoRegistrar(){
   const wrap = document.getElementById('catalogoList');
+  const prevQty = {}; document.querySelectorAll('.qtynum').forEach(el=>{ prevQty[el.dataset.id]=el.dataset.qty; });
   const activos = catalogo.filter(p=>p.activo!==false);
   if(!activos.length){ wrap.innerHTML='<div class="empty">Todavía no hay productos en el catálogo. Agrégalos en la pestaña "Productos".</div>'; return; }
   const cats = ['Impresión','Fotocopia','Otros'];
   wrap.innerHTML = cats.map(cat=>{
     const items = activos.filter(p=>p.categoria===cat);
     if(!items.length) return '';
-    return `<div class="cat-group"><h4>${cat}</h4>${items.map(p=>`
-      <div class="prod-row">
+    return `<div class="cat-group"><h4>${cat}</h4>${items.map(p=>{
+      const q = prevQty[p.id]||0;
+      return `<div class="prod-card ${q>0?'has-qty':''}" id="prodcard-${p.id}">
         <div class="pname">${escapeHtml(p.nombre)}<small>${money(p.precio)} c/u</small></div>
-        <input type="number" class="catqty" min="0" placeholder="0" data-id="${p.id}" data-categoria="${cat}" data-nombre="${escapeHtml(p.nombre)}" data-precio="${p.precio}">
-        <span class="psub mono" id="catsub-${p.id}">S/ 0.00</span>
-      </div>`).join('')}</div>`;
+        <div class="stepper">
+          <button type="button" class="qtyBtn" data-id="${p.id}" data-delta="-1">−</button>
+          <span class="qtynum" id="qtynum-${p.id}" data-id="${p.id}" data-categoria="${cat}" data-nombre="${escapeHtml(p.nombre)}" data-precio="${p.precio}" data-qty="${q}">${q}</span>
+          <button type="button" class="qtyBtn" data-id="${p.id}" data-delta="1">+</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
   }).join('');
-  wrap.querySelectorAll('.catqty').forEach(inp=>inp.addEventListener('input', updateVentaTotal));
   updateVentaTotal();
 }
+document.getElementById('catalogoList').addEventListener('click', e=>{
+  const btn = e.target.closest('.qtyBtn');
+  if(btn){
+    const span = document.getElementById('qtynum-'+btn.dataset.id);
+    const q = Math.max(0, (Number(span.dataset.qty)||0) + Number(btn.dataset.delta));
+    span.dataset.qty=q; span.textContent=q;
+    span.closest('.prod-card').classList.toggle('has-qty', q>0);
+    updateVentaTotal();
+    return;
+  }
+  const num = e.target.closest('.qtynum');
+  if(num){
+    const val = prompt('Cantidad:', num.dataset.qty||0);
+    if(val===null) return;
+    const q = Math.max(0, Math.floor(Number(val))||0);
+    num.dataset.qty=q; num.textContent=q;
+    num.closest('.prod-card').classList.toggle('has-qty', q>0);
+    updateVentaTotal();
+  }
+});
+function getQtySpans(){
+  return Array.from(document.querySelectorAll('.qtynum')).map(el=>({
+    id: el.dataset.id, categoria: el.dataset.categoria, nombre: el.dataset.nombre,
+    precio: Number(el.dataset.precio), qty: Number(el.dataset.qty)||0
+  }));
+}
 function gatherCatalogItems(){
-  return Array.from(document.querySelectorAll('.catqty')).map(inp=>{
-    const cant = Number(inp.value)||0;
-    if(cant<=0) return null;
-    const precio = Number(inp.dataset.precio);
-    return {categoria:inp.dataset.categoria, subcategoria:inp.dataset.nombre, descripcion:'', cantidad:cant, precioUnitario:precio, subtotal:+(cant*precio).toFixed(2)};
-  }).filter(Boolean);
+  return getQtySpans().filter(x=>x.qty>0).map(x=>({
+    categoria:x.categoria, subcategoria:x.nombre, descripcion:'', cantidad:x.qty,
+    precioUnitario:x.precio, subtotal:+(x.qty*x.precio).toFixed(2)
+  }));
+}
+function renderTicket(){
+  const wrap = document.getElementById('ticketList');
+  const rows = [];
+  getQtySpans().filter(x=>x.qty>0).forEach(x=>{
+    rows.push(`<div class="ticket-item"><span>${x.qty}× ${escapeHtml(x.nombre)}</span><span class="mono">${money(x.qty*x.precio)}</span><button type="button" class="icon-btn" data-reset-id="${x.id}">✕</button></div>`);
+  });
+  cart.forEach((it,idx)=>{
+    rows.push(`<div class="ticket-item"><span>${it.cantidad}× ${escapeHtml(it.descripcion||it.subcategoria)}</span><span class="mono">${money(it.subtotal)}</span><button type="button" class="icon-btn" data-rm-custom="${idx}">✕</button></div>`);
+  });
+  wrap.innerHTML = rows.length ? rows.join('') : '<div class="hint" style="margin:0">Todavía no agregaste productos a esta venta.</div>';
+  wrap.querySelectorAll('[data-reset-id]').forEach(b=>b.addEventListener('click',()=>{
+    const span=document.getElementById('qtynum-'+b.dataset.resetId);
+    span.dataset.qty=0; span.textContent='0'; span.closest('.prod-card').classList.remove('has-qty');
+    updateVentaTotal();
+  }));
+  wrap.querySelectorAll('[data-rm-custom]').forEach(b=>b.addEventListener('click',()=>{
+    cart.splice(Number(b.dataset.rmCustom),1); updateVentaTotal();
+  }));
 }
 function updateVentaTotal(){
-  document.querySelectorAll('.catqty').forEach(inp=>{
-    const cant=Number(inp.value)||0, precio=Number(inp.dataset.precio);
-    document.getElementById('catsub-'+inp.dataset.id).textContent = money(cant*precio);
-  });
   const total = gatherCatalogItems().reduce((s,i)=>s+i.subtotal,0) + cart.reduce((s,i)=>s+i.subtotal,0);
   const count = gatherCatalogItems().length + cart.length;
   document.getElementById('cartTotal').textContent = money(total);
   document.getElementById('cartCount').textContent = count+' ítem'+(count!==1?'s':'');
+  renderTicket();
 }
 
 // ---------- ítem personalizado (carrito manual) ----------
@@ -413,20 +465,8 @@ document.getElementById('btnAddCustom').addEventListener('click', ()=>{
   document.getElementById('f2-descripcion').value='';
   document.getElementById('f2-cantidad').value=1;
   document.getElementById('f2-precio').value='';
-  renderCartUI(cart,'cartList','cartTotal','cartCount'); updateVentaTotal();
+  updateVentaTotal();
 });
-function renderCartUI(cartArr, listId){
-  const list=document.getElementById(listId);
-  list.innerHTML = cartArr.length ? cartArr.map((it,idx)=>`
-    <div class="cart-item">
-      <span>${it.cantidad}× ${escapeHtml(it.descripcion||it.subcategoria)}<small>${it.categoria} · ${it.subcategoria}</small></span>
-      <span class="mono">${money(it.subtotal)}</span>
-      <button type="button" class="icon-btn" data-rm="${idx}">✕</button>
-    </div>`).join('') : '';
-  list.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
-    cartArr.splice(Number(b.dataset.rm),1); renderCartUI(cartArr,listId); updateVentaTotal(); updateEditTotal();
-  }));
-}
 
 // ---------- navegación ----------
 document.querySelectorAll('nav button').forEach(btn=>{
@@ -466,8 +506,8 @@ document.getElementById('form').addEventListener('submit', async e=>{
   }
   trabajosRef.doc(venta.id).set(venta).catch(err=>{ console.error(err); toast('No se pudo guardar en la nube.'); });
   toast('Venta registrada ✓');
-  document.querySelectorAll('.catqty').forEach(inp=>inp.value='');
-  cart=[]; renderCartUI(cart,'cartList'); updateVentaTotal();
+  document.querySelectorAll('.qtynum').forEach(el=>{ el.dataset.qty=0; el.textContent='0'; el.closest('.prod-card').classList.remove('has-qty'); });
+  cart=[]; updateVentaTotal();
   fTurno.value = turnoAuto();
   document.getElementById('f-pago').value='Efectivo';
   document.getElementById('comprobanteField').style.display='none';
@@ -542,19 +582,31 @@ function updateEditTotal(){
   document.getElementById('editCartTotal').textContent = money(total);
   document.getElementById('editCartCount').textContent = editCart.length+' ítem'+(editCart.length!==1?'s':'');
 }
+function renderEditCartUI(){
+  const list=document.getElementById('editCartList');
+  list.innerHTML = editCart.length ? editCart.map((it,idx)=>`
+    <div class="cart-item">
+      <span>${it.cantidad}× ${escapeHtml(it.descripcion||it.subcategoria)}<small>${it.categoria} · ${it.subcategoria}</small></span>
+      <span class="mono">${money(it.subtotal)}</span>
+      <button type="button" class="icon-btn" data-rm="${idx}">✕</button>
+    </div>`).join('') : '';
+  list.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{
+    editCart.splice(Number(b.dataset.rm),1); renderEditCartUI(); updateEditTotal();
+  }));
+}
 document.getElementById('btnEditAddItem').addEventListener('click', ()=>{
   const cat=eCat.value, sub=eSub.value, cant=Number(document.getElementById('e-cantidad').value)||1;
   const precio=Number(ePrecio.value), desc=document.getElementById('e-descripcion').value.trim();
   if(!cat||!sub||isNaN(precio)){ toast('Completá categoría, producto y precio.'); return; }
   editCart.push({categoria:cat, subcategoria:sub, descripcion:desc, cantidad:cant, precioUnitario:precio, subtotal:+(cant*precio).toFixed(2)});
   document.getElementById('e-descripcion').value=''; document.getElementById('e-cantidad').value=1; ePrecio.value='';
-  renderCartUI(editCart,'editCartList'); updateEditTotal();
+  renderEditCartUI(); updateEditTotal();
 });
 function openEdit(id){
   const v = jobs.find(x=>x.id===id); if(!v) return;
   editingId=id;
   editCart = v.items.map(i=>({...i}));
-  renderCartUI(editCart,'editCartList'); updateEditTotal();
+  renderEditCartUI(); updateEditTotal();
   document.getElementById('e-pago').value = v.pago||'Efectivo';
   document.getElementById('editComprobanteField').style.display = (v.pago==='Yape') ? '' : 'none';
   document.getElementById('editComprobanteActual').innerHTML = v.comprobanteUrl ? `<a href="${v.comprobanteUrl}" target="_blank" rel="noopener">Ver comprobante actual</a> (elegí un archivo para reemplazarlo)` : 'Sin comprobante adjunto.';
