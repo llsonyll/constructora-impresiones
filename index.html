@@ -30,6 +30,14 @@ main{max-width:900px;margin:0 auto;padding:18px}
 .view{display:none}
 .view.active{display:block}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.registrar-layout{display:flex;flex-direction:column;gap:16px}
+.registrar-main{min-width:0}
+.registrar-side{min-width:0}
+@media(min-width:760px){
+  .registrar-layout{flex-direction:row;align-items:flex-start;gap:18px}
+  .registrar-main{flex:1;min-width:0}
+  .registrar-side{width:320px;flex-shrink:0;position:sticky;top:107px}
+}
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .field{flex:1;min-width:140px;margin-bottom:12px}
 .field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:5px;font-weight:500}
@@ -132,60 +140,77 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 <main>
   <!-- REGISTRAR -->
   <section class="view active" id="view-registrar">
-    <div class="card">
-      <div class="hint" style="margin:0 0 10px">Poné la cantidad vendida de cada producto. El subtotal se calcula solo.</div>
-      <div id="catalogoList"></div>
-    </div>
-    <div class="card">
-      <h4 style="margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Ticket de la venta</h4>
-      <div id="ticketList"></div>
-    </div>
-    <div class="card">
-      <details>
-        <summary style="cursor:pointer;font-weight:600;font-size:14px">+ Ítem personalizado (algo que no está en la lista)</summary>
-        <div style="margin-top:12px">
-          <div class="row">
-            <div class="field">
-              <label for="f2-categoria">Categoría</label>
-              <select id="f2-categoria"><option value="Impresión">Impresión</option><option value="Fotocopia">Fotocopia</option><option value="Otros">Otros</option></select>
+    <div class="registrar-layout">
+      <div class="registrar-main">
+        <div class="card">
+          <div class="hint" style="margin:0 0 10px">Poné la cantidad vendida de cada producto. El subtotal se calcula solo.</div>
+          <div id="catalogoList"></div>
+        </div>
+      </div>
+      <div class="registrar-side">
+        <div class="card">
+          <h4 style="margin:0 0 8px;font-size:13px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.4px">Ticket de la venta</h4>
+          <div id="ticketList"></div>
+        </div>
+        <div class="card">
+          <details>
+            <summary style="cursor:pointer;font-weight:600;font-size:14px">+ Ítem personalizado (algo que no está en la lista)</summary>
+            <div style="margin-top:12px">
+              <div class="row">
+                <div class="field">
+                  <label for="f2-categoria">Categoría</label>
+                  <select id="f2-categoria"><option value="Impresión">Impresión</option><option value="Fotocopia">Fotocopia</option><option value="Otros">Otros</option></select>
+                </div>
+                <div class="field" style="max-width:100px"><label for="f2-cantidad">Cantidad</label><input type="number" id="f2-cantidad" min="1" value="1"></div>
+                <div class="field"><label for="f2-precio">Precio unit. (S/)</label><input type="number" id="f2-precio" min="0" step="0.10" placeholder="0.00"></div>
+              </div>
+              <div class="field"><label for="f2-descripcion">Descripción</label><input type="text" id="f2-descripcion" placeholder="Ej. Producto nuevo aún no cargado"></div>
+              <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddCustom">+ Agregar ítem personalizado</button></div>
             </div>
-            <div class="field" style="max-width:100px"><label for="f2-cantidad">Cantidad</label><input type="number" id="f2-cantidad" min="1" value="1"></div>
-            <div class="field"><label for="f2-precio">Precio unit. (S/)</label><input type="number" id="f2-precio" min="0" step="0.10" placeholder="0.00"></div>
-          </div>
-          <div class="field"><label for="f2-descripcion">Descripción</label><input type="text" id="f2-descripcion" placeholder="Ej. Producto nuevo aún no cargado"></div>
-          <div class="actions"><button type="button" class="btn btn-ghost" id="btnAddCustom">+ Agregar ítem personalizado</button></div>
+          </details>
         </div>
-      </details>
-    </div>
-    <div class="card">
-      <div class="summary-bar" style="padding-top:0"><span id="cartCount">0 ítems</span><span>Total de la venta: <b class="mono" id="cartTotal">S/ 0.00</b></span></div>
-      <form id="form">
-        <div class="row" style="margin-top:8px">
-          <div class="field">
-            <label for="f-usuario">Registrado por</label>
-            <select id="f-usuario"><option>Yo</option><option>Hermano</option></select>
-          </div>
-          <div class="field">
-            <label for="f-turno">Turno</label>
-            <select id="f-turno"><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
-          </div>
-          <div class="field">
-            <label for="f-pago">Método de pago</label>
-            <select id="f-pago"><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select>
-          </div>
+        <div class="card">
+          <div class="summary-bar" style="padding-top:0"><span id="cartCount">0 ítems</span><span>Total de la venta: <b class="mono" id="cartTotal">S/ 0.00</b></span></div>
+          <form id="form">
+            <div class="row" style="margin-top:8px">
+              <div class="field">
+                <label for="f-usuario">Registrado por</label>
+                <select id="f-usuario"><option>Yo</option><option>Hermano</option></select>
+              </div>
+              <div class="field">
+                <label for="f-turno">Turno</label>
+                <select id="f-turno"><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
+              </div>
+              <div class="field">
+                <label for="f-pago">Método de pago</label>
+                <select id="f-pago"><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select>
+              </div>
+            </div>
+            <div class="field" id="comprobanteField" style="display:none">
+              <label for="f-comprobante">Foto del comprobante de Yape (opcional)</label>
+              <input type="file" id="f-comprobante" accept="image/*" capture="environment">
+            </div>
+            <div class="actions"><button type="submit" class="btn btn-primary">Guardar venta</button></div>
+          </form>
         </div>
-        <div class="field" id="comprobanteField" style="display:none">
-          <label for="f-comprobante">Foto del comprobante de Yape (opcional)</label>
-          <input type="file" id="f-comprobante" accept="image/*" capture="environment">
-        </div>
-        <div class="actions"><button type="submit" class="btn btn-primary">Guardar venta</button></div>
-      </form>
+      </div>
     </div>
   </section>
 
   <!-- HOY -->
   <section class="view" id="view-hoy">
     <div class="card">
+      <div class="filters">
+        <div class="field"><label for="h-turno">Turno</label>
+          <select id="h-turno"><option value="">Ambos</option><option value="mañana">Mañana</option><option value="tarde">Tarde</option></select>
+        </div>
+        <div class="field"><label for="h-usuario">Usuario</label>
+          <select id="h-usuario"><option value="">Todos</option><option>Yo</option><option>Hermano</option></select>
+        </div>
+        <div class="field"><label for="h-pago">Pago</label>
+          <select id="h-pago"><option value="">Todos</option><option value="Efectivo">Efectivo</option><option value="Yape">Yape</option></select>
+        </div>
+      </div>
       <div id="hoyTableWrap"></div>
       <div class="summary-bar"><span id="hoyCount">0 ventas hoy</span><span>Total: <b class="mono" id="hoyTotal">S/ 0.00</b></span></div>
     </div>
@@ -567,16 +592,24 @@ function ventaRowHtml(v){
   </tr>`;
 }
 function renderHoy(){
-  const list = jobs.filter(v=>v.fecha===todayISO()).sort((a,b)=> b.hora.localeCompare(a.hora));
+  const turno=document.getElementById('h-turno').value, usuario=document.getElementById('h-usuario').value, pago=document.getElementById('h-pago').value;
+  const list = jobs.filter(v=>{
+    if(v.fecha!==todayISO()) return false;
+    if(turno && v.turno!==turno) return false;
+    if(usuario && v.usuario!==usuario) return false;
+    if(pago && (v.pago||'Efectivo')!==pago) return false;
+    return true;
+  }).sort((a,b)=> b.hora.localeCompare(a.hora));
   document.getElementById('hoyCount').textContent = `${list.length} venta${list.length!==1?'s':''} hoy`;
   document.getElementById('hoyTotal').textContent = money(list.reduce((s,v)=>s+v.total,0));
   const wrap = document.getElementById('hoyTableWrap');
-  if(!list.length){ wrap.innerHTML='<div class="empty">Todavía no hay ventas registradas hoy.</div>'; return; }
+  if(!list.length){ wrap.innerHTML='<div class="empty">No hay ventas hoy con este filtro.</div>'; return; }
   wrap.innerHTML = `<table><thead><tr><th>Hora</th><th>Tipo</th><th>Detalle</th><th>Ítems</th><th>Usuario</th><th>Pago</th><th>Monto</th><th></th></tr></thead><tbody>
     ${list.map(v=>ventaRowHtml(v)).join('')}</tbody></table>`;
   wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>askDelete(b.dataset.del)));
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEdit(b.dataset.edit)));
 }
+['h-turno','h-usuario','h-pago'].forEach(id=>document.getElementById(id).addEventListener('change', renderHoy));
 
 // ---------- eliminar venta ----------
 let pendingDelete=null;
