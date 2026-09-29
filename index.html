@@ -94,6 +94,22 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 .modal-body h3{margin-top:0}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
 .toast.show{opacity:1}
+.agent-btn{position:relative;background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+.agent-btn .badge{position:absolute;top:-7px;right:-7px;background:var(--amber);color:#231404;border-radius:10px;font-size:11px;font-weight:700;padding:1px 6px;display:none}
+.agent-btn .badge.show{display:inline-block}
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:29;display:none}
+.sidebar-overlay.show{display:block}
+.sidebar{position:fixed;top:0;right:0;height:100%;width:320px;max-width:90vw;background:var(--surface);border-left:1px solid var(--line);box-shadow:-4px 0 16px rgba(0,0,0,.15);transform:translateX(100%);transition:transform .2s;z-index:30;display:flex;flex-direction:column}
+.sidebar.open{transform:translateX(0)}
+.sidebar-head{background:var(--ink);color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.sidebar-head button{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;padding:0}
+.sidebar-body{padding:12px 16px;overflow-y:auto;flex:1}
+.job-card{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;font-size:14px}
+.job-card .meta{color:var(--ink-soft);font-size:12px;margin-bottom:8px}
+.job-snackbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 18px;border-radius:10px;font-size:14px;z-index:25;display:none;align-items:center;gap:14px;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.job-snackbar button{padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:600;font-size:13px}
+.job-snackbar .b-asignar{background:var(--amber);color:#231404}
+.job-snackbar .b-ignorar{background:rgba(255,255,255,.15);color:#fff}
 @media(max-width:520px){.row-actions{flex-direction:column}}
 </style>
 </head>
@@ -101,7 +117,10 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 
 <header>
   <h1>Ferretería · Registro de ventas</h1>
-  <div class="total mono" id="headerTotal">S/ 0.00<span>total de hoy</span></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="agent-btn" id="btnSidebarToggle" type="button">📋 Pendientes<span class="badge" id="pendingBadge">0</span></button>
+    <div class="total mono" id="headerTotal">S/ 0.00<span>total de hoy</span></div>
+  </div>
 </header>
 <nav>
   <button class="active" data-view="registrar">Registrar</button>
@@ -272,6 +291,13 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 
 <div class="toast" id="toast"></div>
 <div class="hint" id="syncStatus" style="text-align:center;padding:6px;color:var(--ink-soft)">Conectando…</div>
+
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-head"><strong>Trabajos pendientes</strong><button id="btnSidebarClose" type="button">✕</button></div>
+  <div class="sidebar-body" id="sidebarBody"></div>
+</aside>
+<div class="job-snackbar" id="jobSnackbar"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-auth-compat.js"></script>
@@ -790,6 +816,114 @@ function downloadFile(content, filename, type){
   a.href=url; a.download=filename; a.click();
   URL.revokeObjectURL(url);
 }
+
+// ---------- Agente local (SNMP + PaperCut) ----------
+const AGENT_URL = 'http://localhost:4000';
+const VISTOS_KEY = 'ferreteria_agente_vistos';
+const PENDIENTES_KEY = 'ferreteria_agente_pendientes';
+function loadLocal(key, def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveLocal(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
+let agenteVistos = new Set(loadLocal(VISTOS_KEY, []));
+let agentePendientes = loadLocal(PENDIENTES_KEY, []);
+
+function guardarPendientes(){
+  saveLocal(PENDIENTES_KEY, agentePendientes);
+  saveLocal(VISTOS_KEY, Array.from(agenteVistos).slice(-1000));
+  updatePendingBadge();
+  renderSidebar();
+}
+function updatePendingBadge(){
+  const badge = document.getElementById('pendingBadge');
+  badge.textContent = agentePendientes.length;
+  badge.classList.toggle('show', agentePendientes.length>0);
+}
+function describirJob(j){
+  const tipo = j.fuente==='konica-copia' ? 'Copia' : 'Impresión';
+  const modo = j.color ? 'Color' : 'B/N';
+  return `${tipo} ${modo} · ${j.hojas} hoja${j.hojas!==1?'s':''} · ${j.impresora||''}`;
+}
+function ocultarSnackbar(){ document.getElementById('jobSnackbar').style.display='none'; }
+function mostrarSnackbar(job){
+  const el = document.getElementById('jobSnackbar');
+  el.innerHTML = `<span>🖨️ Nuevo trabajo: ${escapeHtml(describirJob(job))}</span>
+    <button type="button" class="b-asignar" id="snackAsignar">Asignar</button>
+    <button type="button" class="b-ignorar" id="snackIgnorar">Ignorar</button>`;
+  el.style.display='flex';
+  document.getElementById('snackAsignar').addEventListener('click', ()=>{ resolverJob(job,'asignar'); ocultarSnackbar(); });
+  document.getElementById('snackIgnorar').addEventListener('click', ()=>{ resolverJob(job,'ignorar'); ocultarSnackbar(); });
+  clearTimeout(mostrarSnackbar._t);
+  mostrarSnackbar._t = setTimeout(ocultarSnackbar, 8000);
+}
+function asignarJobARegistrar(job){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active', b.dataset.view==='registrar'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-registrar'));
+  const detalles = document.querySelector('#view-registrar details');
+  if(detalles) detalles.open = true;
+  document.getElementById('f2-categoria').value = job.fuente==='konica-copia' ? 'Fotocopia' : 'Impresión';
+  document.getElementById('f2-cantidad').value = job.hojas;
+  document.getElementById('f2-descripcion').value = `Detectado automático: ${describirJob(job)}`;
+  document.getElementById('f2-precio').value = '';
+  document.getElementById('f2-precio').focus();
+  toast('Trabajo cargado abajo — completá el precio y agrégalo a la venta.');
+}
+function resolverJob(job, accion){
+  agentePendientes = agentePendientes.filter(j=>j.id!==job.id);
+  if(accion==='asignar') asignarJobARegistrar(job);
+  guardarPendientes();
+}
+function renderSidebar(){
+  const wrap = document.getElementById('sidebarBody');
+  if(!agentePendientes.length){ wrap.innerHTML='<div class="empty">No hay trabajos pendientes.</div>'; return; }
+  wrap.innerHTML = agentePendientes.slice().reverse().map(j=>`
+    <div class="job-card">
+      <div><strong>${escapeHtml(describirJob(j))}</strong></div>
+      <div class="meta">${j.timestamp||''}</div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary" style="padding:7px 12px;font-size:13px" data-asignar="${j.id}">Asignar</button>
+        <button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:13px" data-ignorar="${j.id}">Ignorar</button>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('[data-asignar]').forEach(b=>b.addEventListener('click', ()=>{
+    const job = agentePendientes.find(j=>j.id===b.dataset.asignar);
+    if(job){ resolverJob(job,'asignar'); cerrarSidebar(); }
+  }));
+  wrap.querySelectorAll('[data-ignorar]').forEach(b=>b.addEventListener('click', ()=>{
+    const job = agentePendientes.find(j=>j.id===b.dataset.ignorar);
+    if(job) resolverJob(job,'ignorar');
+  }));
+}
+function abrirSidebar(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('show'); }
+function cerrarSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('show'); }
+document.getElementById('btnSidebarToggle').addEventListener('click', abrirSidebar);
+document.getElementById('btnSidebarClose').addEventListener('click', cerrarSidebar);
+document.getElementById('sidebarOverlay').addEventListener('click', cerrarSidebar);
+
+async function chequearAgente(){
+  try{
+    const res = await fetch(AGENT_URL + '/jobs');
+    if(!res.ok) throw new Error('bad status');
+    const jobs = await res.json();
+    const nuevos = [];
+    jobs.forEach(j=>{
+      if(agenteVistos.has(j.id)) return;
+      agenteVistos.add(j.id);
+      agentePendientes.push(j);
+      nuevos.push(j);
+    });
+    if(nuevos.length){
+      guardarPendientes();
+      mostrarSnackbar(nuevos[nuevos.length-1]);
+    }
+  }catch(err){
+    // el agente no está disponible en este dispositivo/navegador — normal
+    // si se abre la app desde el celular o desde otra PC, no pasa nada.
+  }
+}
+updatePendingBadge();
+renderSidebar();
+setInterval(chequearAgente, 6000);
+chequearAgente();
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') chequearAgente(); });
 
 // ---------- init ----------
 updateHeaderTotal();
