@@ -1,0 +1,26 @@
+{
+  "konica": {
+    "ip": "192.168.127.55",
+    "community": "public",
+    "pollIntervalMs": 30000,
+    "stabilizeMs": 60000
+  },
+  "papercut": {
+    "logsFolder": "C:\\Program Files (x86)\\PaperCut Print Logger\\logs",
+    "pollIntervalMs": 90000,
+    "ignoredPrinterContains": [
+      "(FAX)",
+      "PDF",
+      "XPS",
+      "OneNote",
+      "Universal V4 PCL",
+      "BA-8A-0D"
+    ]
+  },
+  "localServer": {
+    "port": 4000,
+    "allowedOrigin": "https://llsonyll.github.io",
+    "bufferSize": 300
+  },
+  "statePath": "./state"
+}

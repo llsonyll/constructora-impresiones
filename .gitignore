@@ -1,0 +1,5 @@
+node_modules/
+collector-agent/config.json
+collector-agent/state/
+collector-agent/daemon/
+*.log
