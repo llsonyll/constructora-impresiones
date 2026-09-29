@@ -81,6 +81,9 @@ document.getElementById('btnJobsToggle').addEventListener('click', (e)=>{
     e.target.textContent = 'Detener';
   }
 });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && polling) chequearJobs();
+});
 </script>
 </body>
 </html>
