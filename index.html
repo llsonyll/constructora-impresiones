@@ -873,6 +873,18 @@ function updatePendingBadge(){
   badge.textContent = agentePendientes.length;
   badge.classList.toggle('show', agentePendientes.length>0);
 }
+// Los trabajos viejos de la Konica quedaron guardados como ISO en UTC ("...Z");
+// los nuevos y los de PaperCut vienen en hora local "YYYY-MM-DD HH:mm:ss".
+function formatJobTimestamp(ts){
+  if(!ts) return '';
+  if(/(Z|[+-]\d\d:?\d\d)$/.test(ts)){
+    const d = new Date(ts);
+    if(isNaN(d)) return ts;
+    const p = n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+  return ts;
+}
 function describirJob(j){
   const tipo = j.fuente==='konica-copia' ? 'Copia' : 'Impresión';
   const modo = j.color ? 'Color' : 'B/N';
@@ -913,7 +925,7 @@ function renderSidebar(){
   wrap.innerHTML = agentePendientes.slice().reverse().map(j=>`
     <div class="job-card">
       <div><strong>${escapeHtml(describirJob(j))}</strong></div>
-      <div class="meta">${j.timestamp||''}</div>
+      <div class="meta">${escapeHtml(formatJobTimestamp(j.timestamp))}</div>
       <div class="row-actions">
         <button type="button" class="btn btn-primary" style="padding:7px 12px;font-size:13px" data-asignar="${j.id}">Asignar</button>
         <button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:13px" data-ignorar="${j.id}">Ignorar</button>
