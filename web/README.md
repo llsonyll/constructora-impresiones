@@ -24,8 +24,10 @@ web/
 Proyecto Supabase: `la-constructora` (`fsrlcvuhcfbojbextoax`, región sa-east-1). Migraciones de
 `supabase/migrations/` ya aplicadas + categorías de `seed.sql`.
 
-1. Crear el primer usuario: Supabase → Authentication → Users → *Add user* (marcar *Auto Confirm User*).
-2. Promoverlo a admin (SQL Editor): `update profiles set role='admin', active=true where id='<uuid>';`
+1. Nuevos usuarios: invitar el correo antes de crear la cuenta y nace con ese rol y activo:
+   `insert into role_invites (email, role) values ('correo@ejemplo.com', 'cajero');`
+   Luego Supabase → Authentication → Users → *Add user* (marcar *Auto Confirm User*).
+2. Usuario ya creado sin invitación: `update profiles set role='cajero', active=true where id='<uuid>';`
 3. `cd web && npm install && npm run dev` (usa `.env.development`).
 
 `.env.development` / `.env.production` contienen solo la **clave publicable** (es pública por diseño,
@@ -39,3 +41,9 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
 `checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la
 RPC `create_sale`, que es idempotente por ese UUID: reintentar nunca duplica ventas ni descuenta stock dos veces.
+
+## Despliegue (Vercel)
+
+Vercel → *Add New Project* → importar el repo → **Root Directory: `web`** → Deploy.
+`vercel.json` fija build/salida y evita que `sw.js` quede cacheado (actualizaciones de la PWA).
+Luego agregar el dominio de Vercel en Supabase → Authentication → URL Configuration (*Site URL*).
