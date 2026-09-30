@@ -115,6 +115,17 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 .sidebar-body{padding:12px 16px;overflow-y:auto;flex:1}
 .job-card{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;font-size:14px}
 .job-card .meta{color:var(--ink-soft);font-size:12px;margin-bottom:8px}
+.job-card .jrow{display:flex;align-items:center;gap:6px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.job-card .jrow.sug .jname{font-weight:700}
+.job-card .jname{flex:1;min-width:0}
+.job-card .jname small{display:block;color:var(--ink-soft);font-weight:400}
+.job-card .jprice{width:58px;padding:5px 4px;border:1px solid var(--line);border-radius:6px;font-size:13px;text-align:right}
+.job-card .jstep{display:flex;align-items:center;gap:4px;flex:none}
+.job-card .jstep button{width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:15px;font-weight:700;cursor:pointer;padding:0}
+.job-card .jstep span{min-width:20px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:600}
+.job-card .jsum{display:flex;justify-content:space-between;margin:8px 0;font-size:13px}
+.job-card .jlink{background:none;border:none;color:var(--ink-soft);font-size:12px;text-decoration:underline;cursor:pointer;padding:0;margin-top:6px}
+
 .job-snackbar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:14px 18px;border-radius:10px;font-size:14px;z-index:25;display:none;align-items:center;gap:14px;max-width:92vw;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 .job-snackbar button{padding:7px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:600;font-size:13px}
 .job-snackbar .b-asignar{background:var(--amber);color:#231404}
@@ -273,6 +284,8 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
       <div class="actions"><button type="button" class="btn btn-primary" id="btnAddProducto">+ Agregar producto</button></div>
     </div>
     <div class="card">
+      <div class="actions" style="margin:0 0 10px"><button type="button" class="btn btn-ghost" id="btnPrepararProductos">Preparar productos para trabajos detectados</button></div>
+      <div class="hint" style="margin:0 0 10px">Indica qué productos se ofrecen al asignar impresiones/copias detectadas por el agente (✏️ para ajustar cada uno).</div>
       <div id="catalogoAdmin"></div>
     </div>
   </section>
@@ -313,6 +326,27 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
     <div class="actions">
       <button class="btn btn-primary" id="editSave">Guardar cambios</button>
       <button class="btn btn-ghost" id="editCancel">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="prodDialog">
+  <div class="modal-body">
+    <h3>Editar producto</h3>
+    <div class="field"><label for="pe-nombre">Nombre</label><input type="text" id="pe-nombre"></div>
+    <div class="field"><label for="pe-precio">Precio (S/)</label><input type="number" id="pe-precio" min="0" step="0.05"></div>
+    <div class="field"><label>Se ofrece en trabajos detectados de</label>
+      <label style="font-weight:400"><input type="checkbox" id="pe-copia"> Copias (Konica)</label>
+      <label style="font-weight:400"><input type="checkbox" id="pe-print"> Impresiones (PC)</label>
+    </div>
+    <div class="field"><label for="pe-color">Color</label>
+      <select id="pe-color"><option value="any">Cualquiera</option><option value="bn">Solo B/N</option><option value="color">Solo color</option></select>
+    </div>
+    <div class="field"><label style="font-weight:400"><input type="checkbox" id="pe-duplex"> Es de doble cara (se sugiere si el trabajo es doble cara)</label></div>
+    <div class="field"><label for="pe-claves">Palabras clave del documento (separadas por coma, opcional)</label><input type="text" id="pe-claves" placeholder="record, conductor"></div>
+    <div class="actions">
+      <button class="btn btn-primary" id="peSave">Guardar</button>
+      <button class="btn btn-ghost" id="peCancel">Cancelar</button>
     </div>
   </div>
 </dialog>
@@ -409,6 +443,7 @@ firebase.auth().onAuthStateChanged(user=>{
       catalogo = snap.docs.map(d=>d.data());
       renderCatalogoRegistrar();
       renderCatalogoAdmin();
+      renderSidebar();
     }, err=>{ console.error(err); });
   }
 });
@@ -721,14 +756,7 @@ function renderCatalogoAdmin(){
       </div>`).join('')}</div>`;
   }).join('');
   wrap.querySelectorAll('[data-edit-p]').forEach(b=>b.addEventListener('click',()=>{
-    const p = catalogo.find(x=>x.id===b.dataset.editP); if(!p) return;
-    const nuevoNombre = prompt('Nombre del producto:', p.nombre);
-    if(nuevoNombre===null) return;
-    const nuevoPrecioStr = prompt('Precio unitario (S/):', p.precio);
-    if(nuevoPrecioStr===null) return;
-    const nuevoPrecio = Number(nuevoPrecioStr);
-    if(!nuevoNombre.trim()||isNaN(nuevoPrecio)){ toast('Datos inválidos, no se guardó.'); return; }
-    productosRef.doc(p.id).update({nombre:nuevoNombre.trim(), precio:nuevoPrecio}).then(()=>toast('Producto actualizado ✓')).catch(err=>{console.error(err);toast('No se pudo actualizar.');});
+    const p = catalogo.find(x=>x.id===b.dataset.editP); if(p) abrirEditorProducto(p);
   }));
   wrap.querySelectorAll('[data-toggle-p]').forEach(b=>b.addEventListener('click',()=>{
     const p = catalogo.find(x=>x.id===b.dataset.toggleP); if(!p) return;
@@ -739,6 +767,70 @@ function renderCatalogoAdmin(){
     productosRef.doc(b.dataset.delP).delete().then(()=>toast('Producto eliminado')).catch(err=>{console.error(err);toast('No se pudo eliminar.');});
   }));
 }
+
+// ---------- productos: configuración para trabajos detectados ----------
+// Campos opcionales en cada producto:
+//   origenes: ['konica-copia'] | ['pc-print'] (sin campo = no se ofrece en pendientes)
+//   color: true | false | null (null = cualquiera)   duplex: true | false
+//   palabrasClave: ['record', ...] (se comparan con el nombre del documento)
+const prodDialog=document.getElementById('prodDialog');
+let editingProductoId=null;
+function abrirEditorProducto(p){
+  editingProductoId=p.id;
+  const o=p.origenes||[];
+  document.getElementById('pe-nombre').value=p.nombre;
+  document.getElementById('pe-precio').value=p.precio;
+  document.getElementById('pe-copia').checked=o.includes('konica-copia');
+  document.getElementById('pe-print').checked=o.includes('pc-print');
+  document.getElementById('pe-color').value = p.color===true?'color':(p.color===false?'bn':'any');
+  document.getElementById('pe-duplex').checked=p.duplex===true;
+  document.getElementById('pe-claves').value=(p.palabrasClave||[]).join(', ');
+  prodDialog.showModal();
+}
+document.getElementById('peCancel').addEventListener('click',()=>prodDialog.close());
+document.getElementById('peSave').addEventListener('click',()=>{
+  const nombre=document.getElementById('pe-nombre').value.trim();
+  const precio=Number(document.getElementById('pe-precio').value);
+  if(!nombre||isNaN(precio)){ toast('Datos inválidos, no se guardó.'); return; }
+  const origenes=[];
+  if(document.getElementById('pe-copia').checked) origenes.push('konica-copia');
+  if(document.getElementById('pe-print').checked) origenes.push('pc-print');
+  const c=document.getElementById('pe-color').value;
+  const palabrasClave=document.getElementById('pe-claves').value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
+  productosRef.doc(editingProductoId).update({
+    nombre, precio, origenes, color:c==='color'?true:(c==='bn'?false:null),
+    duplex:document.getElementById('pe-duplex').checked, palabrasClave
+  }).then(()=>{ toast('Producto actualizado ✓'); prodDialog.close(); })
+    .catch(err=>{ console.error(err); toast('No se pudo actualizar.'); });
+});
+const normNombre = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const COPIA='konica-copia', PRINT='pc-print';
+const CONFIG_DEFECTO = {
+  'fotocopia|simple':              {origenes:[COPIA], color:false},
+  'fotocopia|duplex':              {origenes:[COPIA], color:false, duplex:true},
+  'fotocopia|dni simple':          {origenes:[COPIA], color:false},
+  'fotocopia|dni color':           {origenes:[COPIA], color:true},
+  'fotocopia|dni ampliado b/n':    {origenes:[COPIA], color:false},
+  'fotocopia|dni ampliado color':  {origenes:[COPIA], color:true},
+  'impresion|simple - b/n':        {origenes:[PRINT], color:false},
+  'impresion|doble cara':          {origenes:[PRINT], color:false, duplex:true},
+  'impresion|color':               {origenes:[PRINT], color:true},
+  'impresion|color(grande)':       {origenes:[PRINT], color:true},
+  'impresion|record conductor':    {origenes:[PRINT], color:null, palabrasClave:['record','conductor']},
+  'impresion|dni ampliado':        {origenes:[PRINT], color:false, palabrasClave:['dni']},
+  'impresion|dni ampliado color':  {origenes:[PRINT], color:true, palabrasClave:['dni']}
+};
+document.getElementById('btnPrepararProductos').addEventListener('click', async ()=>{
+  const cambios = catalogo.map(p=>({p, cfg:CONFIG_DEFECTO[normNombre(p.categoria)+'|'+normNombre(p.nombre)]})).filter(x=>x.cfg);
+  if(!cambios.length){ toast('No se encontraron productos conocidos para configurar.'); return; }
+  if(!confirm(`Se configurarán ${cambios.length} productos para trabajos detectados (origen, color, doble cara). No se cambian nombres ni precios. ¿Continuar?`)) return;
+  try{
+    const batch = fsdb.batch();
+    cambios.forEach(({p,cfg})=>batch.update(productosRef.doc(p.id), {duplex:false, palabrasClave:[], ...cfg}));
+    await batch.commit();
+    toast(`${cambios.length} productos configurados ✓`);
+  }catch(err){ console.error(err); toast('No se pudo configurar.'); }
+});
 
 // ---------- REPORTES ----------
 document.getElementById('r-desde').value = todayISO();
@@ -897,7 +989,7 @@ function mostrarSnackbar(job){
     <button type="button" class="b-asignar" id="snackAsignar">Asignar</button>
     <button type="button" class="b-ignorar" id="snackIgnorar">Ignorar</button>`;
   el.style.display='flex';
-  document.getElementById('snackAsignar').addEventListener('click', ()=>{ resolverJob(job,'asignar'); ocultarSnackbar(); });
+  document.getElementById('snackAsignar').addEventListener('click', ()=>{ ocultarSnackbar(); abrirSidebar(); });
   document.getElementById('snackIgnorar').addEventListener('click', ()=>{ resolverJob(job,'ignorar'); ocultarSnackbar(); });
   clearTimeout(mostrarSnackbar._t);
   mostrarSnackbar._t = setTimeout(ocultarSnackbar, 8000);
@@ -916,27 +1008,112 @@ function asignarJobARegistrar(job){
 }
 function resolverJob(job, accion){
   agentePendientes = agentePendientes.filter(j=>j.id!==job.id);
+  delete jobAlloc[job.id];
   if(accion==='asignar') asignarJobARegistrar(job);
   guardarPendientes();
+}
+// ---- repartir las hojas de un pendiente entre productos ----
+// jobAlloc[jobId] = { [productoId]: {qty, precio} }  (solo en memoria)
+const jobAlloc = {};
+function productosParaJob(job){
+  const doc = normNombre(job.documento);
+  const compat = catalogo.filter(p=>p.activo!==false && (p.origenes||[]).includes(job.fuente)
+    && (p.color==null || p.color===!!job.color));
+  const sugerido = p => (job.duplex && p.duplex===true) || (doc && (p.palabrasClave||[]).some(k=>doc.includes(normNombre(k))));
+  return compat.map(p=>({p, sug:sugerido(p)}))
+    .sort((a,b)=> (b.sug-a.sug) || a.p.nombre.localeCompare(b.p.nombre));
+}
+function allocOf(job){ return jobAlloc[job.id] || (jobAlloc[job.id]={}); }
+function asignadas(job){ return Object.values(allocOf(job)).reduce((s,x)=>s+(x.qty||0),0); }
+function addCatalogQty(id, n){
+  const span = document.getElementById('qtynum-'+id);
+  if(!span) return false;
+  const q = (Number(span.dataset.qty)||0)+n;
+  span.dataset.qty=q; span.textContent=q;
+  span.closest('.prod-card').classList.toggle('has-qty', q>0);
+  return true;
+}
+function agregarJobAlTicket(job){
+  const alloc = allocOf(job);
+  let n=0;
+  Object.entries(alloc).forEach(([id,x])=>{
+    if(!x.qty) return;
+    const p = catalogo.find(c=>c.id===id); if(!p) return;
+    const precio = Number.isFinite(x.precio) ? x.precio : p.precio;
+    // mismo precio que el catálogo: suma a la tarjeta; precio distinto: ítem propio
+    if(precio===p.precio && addCatalogQty(id, x.qty)) { n+=x.qty; return; }
+    cart.push({categoria:p.categoria, subcategoria:p.nombre, descripcion:'', cantidad:x.qty, precioUnitario:precio, subtotal:+(x.qty*precio).toFixed(2)});
+    n+=x.qty;
+  });
+  if(!n) return;
+  updateVentaTotal();
+  const resto = job.hojas - n;
+  delete jobAlloc[job.id];
+  if(resto>0){
+    job.hojas = resto;
+    guardarPendientes();
+    toast(`Agregado al ticket ✓ · quedan ${resto} hoja${resto!==1?'s':''} pendiente${resto!==1?'s':''}`);
+  }else{
+    agentePendientes = agentePendientes.filter(j=>j.id!==job.id);
+    guardarPendientes();
+    toast('Agregado al ticket ✓');
+  }
+}
+function jobCardHtml(j){
+  const lista = productosParaJob(j);
+  const alloc = allocOf(j);
+  const usadas = asignadas(j);
+  const total = lista.reduce((s,{p})=>{ const x=alloc[p.id]; return s+(x&&x.qty? x.qty*(Number.isFinite(x.precio)?x.precio:p.precio):0); },0);
+  const filas = lista.map(({p,sug})=>{
+    const x = alloc[p.id]||{qty:0};
+    const precio = Number.isFinite(x.precio) ? x.precio : p.precio;
+    return `<div class="jrow ${sug?'sug':''}">
+      <div class="jname">${sug?'⭐ ':''}${escapeHtml(p.nombre)}</div>
+      <input class="jprice" type="number" min="0" step="0.10" value="${precio}" data-jprice="${j.id}|${p.id}" title="Precio por hoja (solo para esta venta)">
+      <div class="jstep"><button type="button" data-jdelta="-1" data-j="${j.id}|${p.id}">−</button><span>${x.qty||0}</span><button type="button" data-jdelta="1" data-j="${j.id}|${p.id}">+</button></div>
+    </div>`;
+  }).join('');
+  return `<div class="job-card">
+    <div><strong>${escapeHtml(describirJob(j))}</strong></div>
+    <div class="meta">${escapeHtml(formatJobTimestamp(j.timestamp))}${j.documento?' · '+escapeHtml(j.documento):''}${j.duplex?' · doble cara':''}</div>
+    ${filas || '<div class="hint" style="margin:0 0 6px">No hay productos configurados para este tipo de trabajo. Usa “Preparar productos…” en la pestaña Productos, o asigna manualmente.</div>'}
+    ${lista.length?`<div class="jsum"><span>Asignadas ${usadas} de ${j.hojas}</span><b class="mono">${money(total)}</b></div>`:''}
+    <div class="row-actions">
+      ${lista.length?`<button type="button" class="btn btn-primary" style="padding:7px 12px;font-size:13px" data-jadd="${j.id}" ${usadas?'':'disabled'}>Agregar al ticket</button>`:''}
+      <button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:13px" data-ignorar="${j.id}">Ignorar</button>
+    </div>
+    <button type="button" class="jlink" data-asignar="${j.id}">Asignar manualmente (ítem personalizado)</button>
+  </div>`;
 }
 function renderSidebar(){
   const wrap = document.getElementById('sidebarBody');
   if(!agentePendientes.length){ wrap.innerHTML='<div class="empty">No hay trabajos pendientes.</div>'; return; }
-  wrap.innerHTML = agentePendientes.slice().reverse().map(j=>`
-    <div class="job-card">
-      <div><strong>${escapeHtml(describirJob(j))}</strong></div>
-      <div class="meta">${escapeHtml(formatJobTimestamp(j.timestamp))}</div>
-      <div class="row-actions">
-        <button type="button" class="btn btn-primary" style="padding:7px 12px;font-size:13px" data-asignar="${j.id}">Asignar</button>
-        <button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:13px" data-ignorar="${j.id}">Ignorar</button>
-      </div>
-    </div>`).join('');
+  wrap.innerHTML = agentePendientes.slice().reverse().map(jobCardHtml).join('');
+  const jobById = id => agentePendientes.find(j=>j.id===id);
+  wrap.querySelectorAll('[data-jdelta]').forEach(b=>b.addEventListener('click',()=>{
+    const [jid,pid]=b.dataset.j.split('|'); const job=jobById(jid); if(!job) return;
+    const x = allocOf(job)[pid] || (allocOf(job)[pid]={qty:0});
+    const delta = Number(b.dataset.jdelta);
+    if(delta>0 && asignadas(job)>=job.hojas){ toast('Ya asignaste todas las hojas de este trabajo.'); return; }
+    x.qty = Math.max(0, (x.qty||0)+delta);
+    renderSidebar();
+  }));
+  wrap.querySelectorAll('[data-jprice]').forEach(inp=>inp.addEventListener('change',()=>{
+    const [jid,pid]=inp.dataset.jprice.split('|'); const job=jobById(jid); if(!job) return;
+    const v = Number(inp.value);
+    const x = allocOf(job)[pid] || (allocOf(job)[pid]={qty:0});
+    if(inp.value===''||isNaN(v)||v<0) delete x.precio; else x.precio = v;
+    renderSidebar();
+  }));
+  wrap.querySelectorAll('[data-jadd]').forEach(b=>b.addEventListener('click',()=>{
+    const job=jobById(b.dataset.jadd); if(job) agregarJobAlTicket(job);
+  }));
   wrap.querySelectorAll('[data-asignar]').forEach(b=>b.addEventListener('click', ()=>{
-    const job = agentePendientes.find(j=>j.id===b.dataset.asignar);
+    const job = jobById(b.dataset.asignar);
     if(job){ resolverJob(job,'asignar'); cerrarSidebar(); }
   }));
   wrap.querySelectorAll('[data-ignorar]').forEach(b=>b.addEventListener('click', ()=>{
-    const job = agentePendientes.find(j=>j.id===b.dataset.ignorar);
+    const job = jobById(b.dataset.ignorar);
     if(job) resolverJob(job,'ignorar');
   }));
 }
