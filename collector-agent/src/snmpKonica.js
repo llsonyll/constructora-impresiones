@@ -1,5 +1,6 @@
 const snmp = require('net-snmp');
 const { loadState, saveState } = require('./state');
+const { toLocalString } = require('./time');
 
 // OIDs confirmados (ver investigación previa). printsBW/printsColor solo
 // se usan como cross-check informativo, nunca generan capturas (esas
@@ -77,7 +78,7 @@ function createPoller(cfg, { onCapture, log }) {
     const stableFor = state.lastChangeAt ? Date.now() - state.lastChangeAt : Infinity;
 
     if ((grewBW > 0 || grewColor > 0) && stableFor >= cfg.konica.stabilizeMs) {
-      const ts = new Date(state.lastChangeAt).toISOString();
+      const ts = toLocalString(new Date(state.lastChangeAt));
       if (grewBW > 0) {
         await onCapture({
           fuente: 'konica-copia',
