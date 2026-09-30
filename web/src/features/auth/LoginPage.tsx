@@ -9,7 +9,11 @@ export default function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setError(error ? 'Correo o contraseña incorrectos' : '')
+    if (!error) return setError('')
+    // Solo "Invalid login credentials" es contraseña mala; lo demás (red, config) se muestra tal cual.
+    setError(error.message.includes('Invalid login credentials')
+      ? 'Correo o contraseña incorrectos'
+      : `No se pudo conectar: ${error.message}`)
   }
 
   return (

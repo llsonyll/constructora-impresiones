@@ -26,7 +26,8 @@ export default function PosPage() {
     if (!q) return products.slice(0, 24)
     // Un lector de código de barras "teclea" el código y Enter: coincidencia exacta primero.
     return products.filter(p => p.sku.toLowerCase() === q || p.barcode === q ||
-      p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)).slice(0, 48)
+      p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) ||
+      (p.brand?.toLowerCase().includes(q) ?? false)).slice(0, 48)
   }, [products, query])
 
   const onSearchEnter = () => {
@@ -46,7 +47,7 @@ export default function PosPage() {
       <section>
         <input autoFocus value={query} onChange={e => setQuery(e.target.value)}
                onKeyDown={e => e.key === 'Enter' && onSearchEnter()}
-               placeholder="Buscar o escanear (nombre, SKU, código de barras)"
+               placeholder="Buscar o escanear (nombre, marca, SKU, código de barras)"
                className="mb-3 w-full rounded border p-3" />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {results.map(p => (
