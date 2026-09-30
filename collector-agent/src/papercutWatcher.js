@@ -110,7 +110,9 @@ function createWatcher(cfg, { onCapture, log }) {
 
       const paginas = Number(row['Páginas']) || 0;
       const copias = Number(row['Copias']) || 0;
-      const hojas = paginas * copias;
+      // en doble cara, dos páginas salen en una misma hoja física
+      const duplex = row['Frente/reverso'] === 'DUPLEX';
+      const hojas = (duplex ? Math.ceil(paginas / 2) : paginas) * copias;
       if (hojas <= 0) {
         seen.add(key);
         continue;
@@ -124,7 +126,7 @@ function createWatcher(cfg, { onCapture, log }) {
         copias,
         hojas,
         color: row['Escala de grises'] === 'NOT GRAYSCALE',
-        duplex: row['Frente/reverso'] === 'DUPLEX',
+        duplex,
         formatoPapel: row['Formato Papel'],
         documento: row['Nombre Documento'],
         clientePC: row['Cliente'],
