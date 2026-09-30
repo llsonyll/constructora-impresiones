@@ -6,7 +6,7 @@ import type { PendingSale, Product } from '@/types/domain'
 export async function refreshCatalog(): Promise<number> {
   const { data, error } = await supabase
     .from('products')
-    .select('id, sku, barcode, name, category_id, unit, price, stock, min_stock, active')
+    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active')
     .eq('active', true)
   if (error) throw error
   await localDb.transaction('rw', localDb.products, async () => {

@@ -9,9 +9,10 @@ export interface Product {
   sku: string
   barcode: string | null
   name: string
+  brand: string | null
   category_id: number | null
   unit: string
-  price: number
+  price: number          // solo se sincronizan productos activos, que siempre tienen precio
   stock: number
   min_stock: number
   active: boolean
