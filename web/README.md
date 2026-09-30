@@ -37,6 +37,13 @@ Precios: el catálogo guarda precios **con IGV incluido**; el POS desglosa Op. g
 
 Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
+## Inventario (admin, almacén)
+
+- Lista con filtros *Sin precio / Por revisar / Stock bajo / Inactivos*, costo y margen.
+- Editor: poner precio activa el producto (aparece en el POS); sugerencias de precio por recargo sobre costo.
+- Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
+  (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
+
 ## Offline (POS)
 
 `checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la

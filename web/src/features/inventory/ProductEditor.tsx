@@ -1,0 +1,187 @@
+import { useState, type FormEvent, type ReactNode } from 'react'
+import { money } from '@/lib/format'
+import {
+  friendlyError, type InventoryProduct, type ProductInput,
+  useAdjustStock, useCategories, useMovements, useProviders, useSaveProduct,
+} from './api'
+
+const UNITS = ['und', 'm', 'kg', 'par', 'juego', 'paquete', 'bolsa', 'caja', 'rollo', 'galón', 'litro']
+const MARKUPS = [0.3, 0.35, 0.4, 0.5]
+const REASONS: Record<string, string> = {
+  venta: 'Venta', compra: 'Compra', ajuste: 'Ajuste', devolucion: 'Devolución', anulacion_venta: 'Venta anulada',
+}
+
+/** Precio sugerido = costo × (1 + markup), redondeado a S/0.10 (o S/0.01 si es menor a S/1). */
+export const suggestPrice = (cost: number, markup: number) => {
+  const p = cost * (1 + markup)
+  return p >= 1 ? Math.ceil(p * 10) / 10 : Math.ceil(p * 100) / 100
+}
+
+const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
+
+function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
+  return <label className={`block text-sm ${className}`}><span className="mb-1 block text-xs text-stone-500">{label}</span>{children}</label>
+}
+const input = 'w-full rounded border p-2'
+
+export default function ProductEditor({ product, onClose }: { product: InventoryProduct | null; onClose: () => void }) {
+  const { data: categories = [] } = useCategories()
+  const { data: providers = [] } = useProviders()
+  const save = useSaveProduct()
+
+  const [f, setF] = useState({
+    sku: product?.sku ?? '', name: product?.name ?? '', brand: product?.brand ?? '', barcode: product?.barcode ?? '',
+    category_id: product?.category_id?.toString() ?? '', provider_id: product?.provider_id ?? '',
+    unit: product?.unit ?? 'und', price: product?.price?.toString() ?? '', cost: product?.cost?.toString() ?? '',
+    min_stock: product?.min_stock?.toString() ?? '0', active: product?.active ?? false,
+    needs_review: product?.needs_review ?? false, notes: product?.notes ?? '',
+  })
+  const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
+
+  const price = num(f.price), cost = num(f.cost)
+  const hasPrice = price != null && !Number.isNaN(price)
+  const m = hasPrice && price && cost != null ? (price - cost) / price : null
+
+  const setPrice = (v: string) => {
+    // Poner precio a un producto que no tenía lo activa (para que aparezca en el POS); quitarlo lo desactiva.
+    setF(s => {
+      const had = num(s.price) != null, has = num(v) != null
+      return { ...s, price: v, active: has ? (had ? s.active : true) : false }
+    })
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    const payload: ProductInput = {
+      id: product?.id, sku: f.sku.trim(), name: f.name.trim(), brand: f.brand.trim() || null,
+      barcode: f.barcode.trim() || null, category_id: f.category_id ? Number(f.category_id) : null,
+      provider_id: f.provider_id || null, unit: f.unit, price: hasPrice ? price : null,
+      cost: cost != null && !Number.isNaN(cost) ? cost : null, min_stock: num(f.min_stock) ?? 0,
+      active: hasPrice && f.active, needs_review: f.needs_review, notes: f.notes.trim() || null,
+    }
+    try { await save.mutateAsync(payload); onClose() } catch { /* se muestra abajo */ }
+  }
+
+  return (
+    <div className="fixed inset-0 z-10 flex justify-end bg-black/30" onClick={onClose}>
+      <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="mb-4 flex items-center">
+          <h2 className="flex-1 text-lg font-semibold">{product ? 'Editar producto' : 'Nuevo producto'}</h2>
+          <button onClick={onClose} aria-label="Cerrar" className="px-2 text-xl">✕</button>
+        </div>
+
+        <form onSubmit={onSubmit} className="grid grid-cols-2 gap-3">
+          <Field label="Nombre" className="col-span-2">
+            <input className={input} value={f.name} onChange={e => set('name', e.target.value)} required />
+          </Field>
+          <Field label="SKU"><input className={input} value={f.sku} onChange={e => set('sku', e.target.value)} required /></Field>
+          <Field label="Código de barras"><input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} /></Field>
+          <Field label="Marca"><input className={input} value={f.brand} onChange={e => set('brand', e.target.value)} /></Field>
+          <Field label="Unidad">
+            <select className={input} value={f.unit} onChange={e => set('unit', e.target.value)}>
+              {[...new Set([f.unit, ...UNITS])].map(u => <option key={u}>{u}</option>)}
+            </select>
+          </Field>
+          <Field label="Categoría">
+            <select className={input} value={f.category_id} onChange={e => set('category_id', e.target.value)}>
+              <option value="">—</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Proveedor">
+            <select className={input} value={f.provider_id} onChange={e => set('provider_id', e.target.value)}>
+              <option value="">—</option>
+              {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+
+          <Field label="Costo (con IGV)">
+            <input className={input} inputMode="decimal" value={f.cost} onChange={e => set('cost', e.target.value)} />
+          </Field>
+          <Field label="Precio de venta (con IGV)">
+            <input className={input} inputMode="decimal" value={f.price} onChange={e => setPrice(e.target.value)} placeholder="Sin precio" />
+          </Field>
+          {cost != null && !Number.isNaN(cost) && cost > 0 && (
+            <div className="col-span-2 flex flex-wrap items-center gap-1 text-xs">
+              <span className="text-stone-500">Sugerir precio (recargo sobre costo):</span>
+              {MARKUPS.map(mk => (
+                <button type="button" key={mk} onClick={() => setPrice(suggestPrice(cost, mk).toFixed(2))}
+                        className="rounded border px-2 py-0.5 hover:bg-amber-50">
+                  Costo +{mk * 100}% → {money(suggestPrice(cost, mk))}
+                </button>
+              ))}
+            </div>
+          )}
+          <p className={`col-span-2 text-sm ${m != null && m < 0.15 ? 'text-red-600' : 'text-stone-600'}`}>
+            Margen: {m != null ? `${Math.round(m * 100)}% (${money(price! - cost!)} por ${f.unit})` : '—'}
+          </p>
+
+          <Field label="Stock mínimo (alerta)">
+            <input className={input} inputMode="decimal" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} />
+          </Field>
+          <div className="flex flex-col justify-end gap-2 text-sm">
+            <label className={`flex items-center gap-2 ${hasPrice ? '' : 'opacity-50'}`} title={hasPrice ? '' : 'Pon un precio para activarlo'}>
+              <input type="checkbox" checked={hasPrice && f.active} disabled={!hasPrice} onChange={e => set('active', e.target.checked)} />
+              Activo (visible en el POS)
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={f.needs_review} onChange={e => set('needs_review', e.target.checked)} />
+              Marcar para revisar
+            </label>
+          </div>
+          <Field label="Notas" className="col-span-2">
+            <textarea className={input} rows={3} value={f.notes} onChange={e => set('notes', e.target.value)} />
+          </Field>
+
+          {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyError(save.error)}</p>}
+          <div className="col-span-2 flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded border px-4 py-2">Cancelar</button>
+            <button disabled={save.isPending} className="rounded bg-amber-700 px-4 py-2 text-white disabled:opacity-50">
+              {save.isPending ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+
+        {product && <StockSection product={product} />}
+      </div>
+    </div>
+  )
+}
+
+function StockSection({ product }: { product: InventoryProduct }) {
+  const adjust = useAdjustStock()
+  const { data: movements = [] } = useMovements(product.id)
+  const [counted, setCounted] = useState('')
+  const [note, setNote] = useState('')
+
+  async function onAdjust(e: FormEvent) {
+    e.preventDefault()
+    const n = num(counted)
+    if (n == null || Number.isNaN(n)) return
+    try { await adjust.mutateAsync({ productId: product.id, newStock: n, note }); setCounted(''); setNote('') } catch { /* abajo */ }
+  }
+
+  return (
+    <section className="mt-6 border-t pt-4">
+      <h3 className="mb-2 font-semibold">Stock: <span className="tabular-nums">{product.stock} {product.unit}</span></h3>
+      <form onSubmit={onAdjust} className="flex flex-wrap items-end gap-2">
+        <Field label="Stock contado"><input className={`${input} w-28`} inputMode="decimal" value={counted} onChange={e => setCounted(e.target.value)} /></Field>
+        <Field label="Motivo" className="min-w-0 flex-1"><input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="Conteo, merma, rotura…" /></Field>
+        <button disabled={!counted || adjust.isPending} className="rounded border px-3 py-2 text-sm disabled:opacity-50">Ajustar</button>
+      </form>
+      {adjust.error && <p className="mt-1 text-sm text-red-600">{friendlyError(adjust.error)}</p>}
+
+      <h4 className="mt-4 mb-1 text-sm font-medium text-stone-600">Movimientos recientes</h4>
+      <ul className="divide-y text-sm">
+        {movements.map(mv => (
+          <li key={mv.id} className="flex gap-2 py-1.5">
+            <span className="w-24 shrink-0 text-xs text-stone-500">{new Date(mv.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            <span className="flex-1">{REASONS[mv.reason]}{mv.note && <span className="text-stone-500"> · {mv.note}</span>}</span>
+            <span className={`tabular-nums ${mv.qty < 0 ? 'text-red-600' : 'text-green-700'}`}>{mv.qty > 0 ? '+' : ''}{mv.qty}</span>
+          </li>
+        ))}
+        {!movements.length && <li className="py-2 text-stone-500">Sin movimientos todavía.</li>}
+      </ul>
+    </section>
+  )
+}
