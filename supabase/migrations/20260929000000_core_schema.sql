@@ -87,7 +87,7 @@ create table products (
   category_id bigint references categories(id) on delete set null,
   provider_id uuid   references providers(id)  on delete set null,
   unit        text not null default 'und',            -- und, m, kg, bolsa, ...
-  price       numeric(12,2) not null check (price >= 0),  -- precio de venta (con IGV)
+  price       numeric(12,2) not null check (price >= 0),  -- precio de venta, IGV incluido (se desglosa en el comprobante)
   stock       numeric(12,3) not null default 0,       -- cache; puede ser negativo (ventas antes de cargar stock)
   min_stock   numeric(12,3) not null default 0,
   active      boolean not null default true,

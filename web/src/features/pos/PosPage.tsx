@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { localDb } from '@/db/local'
-import { money } from '@/lib/format'
+import { igvBreakdown, money } from '@/lib/format'
 import type { PaymentMethod } from '@/types/domain'
 import { useCart } from './useCart'
 import { checkout } from './checkout'
@@ -96,6 +96,10 @@ export default function PosPage() {
           ))}
         </div>
 
+        <dl className="space-y-0.5 text-sm text-stone-500">
+          <div className="flex justify-between"><dt>Op. gravada</dt><dd>{money(igvBreakdown(total).base)}</dd></div>
+          <div className="flex justify-between"><dt>IGV (18%)</dt><dd>{money(igvBreakdown(total).igv)}</dd></div>
+        </dl>
         <div className="flex items-baseline justify-between text-lg font-semibold">
           <span>Total</span><span>{money(total)}</span>
         </div>

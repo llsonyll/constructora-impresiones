@@ -21,9 +21,17 @@ web/
 
 ## Puesta en marcha
 
-1. Crear proyecto en Supabase, ejecutar `supabase/migrations/*.sql` y `seed.sql` (SQL Editor o `supabase db push`).
-2. Crear un usuario en Auth y promoverlo: `update profiles set role='admin', active=true where id='<uuid>';`
-3. `cd web && cp .env.example .env` (URL y anon key) → `npm install && npm run dev`.
+Proyecto Supabase: `la-constructora` (`fsrlcvuhcfbojbextoax`, región sa-east-1). Migraciones de
+`supabase/migrations/` ya aplicadas + categorías de `seed.sql`.
+
+1. Crear el primer usuario: Supabase → Authentication → Users → *Add user* (marcar *Auto Confirm User*).
+2. Promoverlo a admin (SQL Editor): `update profiles set role='admin', active=true where id='<uuid>';`
+3. `cd web && npm install && npm run dev` (usa `.env.development`).
+
+`.env.development` / `.env.production` contienen solo la **clave publicable** (es pública por diseño,
+viaja en el JS del navegador; la seguridad la da RLS). Nunca poner ahí la `service_role`/secret key.
+
+Precios: el catálogo guarda precios **con IGV incluido**; el POS desglosa Op. gravada + IGV 18%.
 
 Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
