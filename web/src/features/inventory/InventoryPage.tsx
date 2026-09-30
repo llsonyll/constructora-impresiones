@@ -1,0 +1,118 @@
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { money } from '@/lib/format'
+import { type InventoryProduct, useCategories, useInventory } from './api'
+import ProductEditor from './ProductEditor'
+
+type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'inactivos'
+
+const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boolean }[] = [
+  { id: 'todos', label: 'Todos', test: () => true },
+  { id: 'sin_precio', label: 'Sin precio', test: p => p.price == null },
+  { id: 'revisar', label: 'Por revisar', test: p => p.needs_review },
+  { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.stock <= p.min_stock },
+  { id: 'inactivos', label: 'Inactivos', test: p => !p.active },
+]
+
+export const margin = (p: Pick<InventoryProduct, 'price' | 'cost'>) =>
+  p.price && p.cost != null ? (p.price - p.cost) / p.price : null
+
+export default function InventoryPage() {
+  const { data: products = [], isLoading, error } = useInventory()
+  const { data: categories = [] } = useCategories()
+  const [filter, setFilter] = useState<Filter>('todos')
+  const [category, setCategory] = useState<number | ''>('')
+  const [query, setQuery] = useState('')
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  // Se busca en los datos de la query para que el editor vea el stock actualizado tras un ajuste.
+  const editing = editingId === 'new' ? 'new' : products.find(p => p.id === editingId) ?? null
+
+  const counts = useMemo(
+    () => Object.fromEntries(FILTERS.map(f => [f.id, products.filter(f.test).length])) as Record<Filter, number>,
+    [products])
+
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    const test = FILTERS.find(f => f.id === filter)!.test
+    return products.filter(p => test(p)
+      && (category === '' || p.category_id === category)
+      && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
+          || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q))
+  }, [products, filter, category, query])
+
+  const catName = (id: number | null) => categories.find(c => c.id === id)?.name ?? '—'
+
+  return (
+    <div className="space-y-3 p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
+        <Link to="/inventario/conteo" className="rounded border bg-white px-3 py-1.5 text-sm">Conteo de stock</Link>
+        <button onClick={() => setEditingId('new')} className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white">+ Nuevo producto</button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map(f => (
+          <button key={f.id} onClick={() => setFilter(f.id)}
+                  className={`rounded-full border px-3 py-1 text-sm ${filter === f.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+            {f.label} <span className="opacity-70">{counts[f.id] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar nombre, marca, SKU o código"
+               className="min-w-0 flex-1 rounded border p-2" />
+        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="rounded border p-2">
+          <option value="">Todas las categorías</option>
+          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+
+      {isLoading && <p className="text-stone-500">Cargando…</p>}
+      {error && <p className="text-red-600">Error: {(error as Error).message}</p>}
+
+      <div className="overflow-x-auto rounded-lg bg-white shadow">
+        <table className="w-full text-sm">
+          <thead className="bg-stone-50 text-left text-xs uppercase text-stone-500">
+            <tr>
+              <th className="p-2">Producto</th>
+              <th className="p-2 max-md:hidden">Categoría</th>
+              <th className="p-2 text-right">Stock</th>
+              <th className="p-2 text-right">Precio</th>
+              <th className="p-2 text-right max-sm:hidden">Costo</th>
+              <th className="p-2 text-right max-sm:hidden">Margen</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {rows.map(p => {
+              const m = margin(p)
+              return (
+                <tr key={p.id} onClick={() => setEditingId(p.id)} className="cursor-pointer hover:bg-amber-50">
+                  <td className="p-2">
+                    <div className="font-medium">{p.name}</div>
+                    <div className="text-xs text-stone-500">
+                      {p.sku}{p.brand && ` · ${p.brand}`}
+                      {!p.active && <span className="ml-2 rounded bg-stone-200 px-1">inactivo</span>}
+                      {p.needs_review && <span className="ml-2 rounded bg-yellow-100 px-1 text-yellow-800">revisar</span>}
+                    </div>
+                  </td>
+                  <td className="p-2 max-md:hidden">{catName(p.category_id)}</td>
+                  <td className={`p-2 text-right tabular-nums ${p.stock <= p.min_stock ? 'text-red-600' : ''}`}>{p.stock} {p.unit}</td>
+                  <td className="p-2 text-right tabular-nums">{p.price != null ? money(p.price) : <span className="text-stone-400">—</span>}</td>
+                  <td className="p-2 text-right tabular-nums max-sm:hidden">{p.cost != null ? money(p.cost) : '—'}</td>
+                  <td className={`p-2 text-right tabular-nums max-sm:hidden ${m != null && m < 0.15 ? 'text-red-600' : ''}`}>
+                    {m != null ? `${Math.round(m * 100)}%` : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+            {!isLoading && !rows.length && <tr><td colSpan={6} className="p-6 text-center text-stone-500">Sin resultados</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-stone-500">{rows.length} de {products.length} productos</p>
+
+      {editing && <ProductEditor product={editing === 'new' ? null : editing} key={editingId ?? ''} onClose={() => setEditingId(null)} />}
+    </div>
+  )
+}
