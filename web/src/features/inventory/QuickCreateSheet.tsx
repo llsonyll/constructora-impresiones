@@ -62,7 +62,9 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
 
   const input = 'w-full rounded-lg border p-3 text-base'
   return (
-    <Sheet onClose={requestClose} label="Nuevo producto">
+    <>
+    {/* Con cambios no se cierra arrastrando: Vaul ya habría deslizado la hoja antes del "¿Descartar?". */}
+    <Sheet onClose={requestClose} label="Nuevo producto" hidden={scanning} dismissible={!dirty}>
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="flex items-center">
           <h2 className="flex-1 text-lg font-semibold">Nuevo producto</h2>
@@ -92,7 +94,9 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
           {saving ? 'Creando…' : 'Crear producto'}
         </button>
       </form>
-      {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setBarcode(c); setScanning(false) }} />}
     </Sheet>
+    {/* Fuera de la hoja: el panel de Vaul usa transform y atraparía a un hijo `fixed`; la hoja se oculta mientras tanto. */}
+    {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setBarcode(c); setScanning(false) }} />}
+    </>
   )
 }
