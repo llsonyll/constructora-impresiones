@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { localDb } from '@/db/local'
@@ -28,6 +28,11 @@ export default function PosPage() {
   const [ticketOpen, setTicketOpen] = useState(false)
   const [flash, setFlash] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null)
   const [online, setOnline] = useState(navigator.onLine)
+  const [paying, setPaying] = useState(false)
+  // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
+  const payingRef = useRef(false)
+  // Un id por ticket: si el cobro se reintenta, se reutiliza y no se duplica la venta.
+  const saleIdRef = useRef<string | null>(null)
   const { lines, total, dispatch } = useCart()
 
   const products = useLiveQuery(() => localDb.products.toArray(), [], [])
@@ -62,11 +67,22 @@ export default function PosPage() {
   }
 
   async function pay() {
-    if (!lines.length) return
-    await checkout(lines, method)
-    dispatch({ type: 'clear' })
-    setTicketOpen(false)
-    setFlash({ text: 'Venta registrada', tone: 'ok' })
+    if (!lines.length || payingRef.current) return
+    payingRef.current = true
+    setPaying(true)
+    saleIdRef.current ??= crypto.randomUUID()
+    try {
+      await checkout(lines, method, {}, saleIdRef.current)
+      saleIdRef.current = null
+      dispatch({ type: 'clear' })
+      setTicketOpen(false)
+      setFlash({ text: 'Venta registrada', tone: 'ok' })
+    } catch {
+      setFlash({ text: 'No se pudo registrar la venta. Intenta de nuevo.', tone: 'warn' })
+    } finally {
+      payingRef.current = false
+      setPaying(false)
+    }
   }
 
   const count = lines.reduce((s, l) => s + l.qty, 0)
@@ -160,8 +176,10 @@ export default function PosPage() {
         <div className="flex items-baseline justify-between text-lg font-semibold">
           <span>Total</span><span>{money(total)}</span>
         </div>
-        <button disabled={!lines.length} onClick={pay}
-                className="w-full rounded-lg bg-amber-700 p-3 font-medium text-white disabled:opacity-40">Cobrar {money(total)}</button>
+        <button disabled={!lines.length || paying} onClick={pay} aria-busy={paying}
+                className="w-full rounded-lg bg-amber-700 p-3 font-medium text-white disabled:opacity-40">
+          {paying ? 'Registrando…' : `Cobrar ${money(total)}`}
+        </button>
       </aside>
 
       {/* Barra inferior (solo celular) */}
