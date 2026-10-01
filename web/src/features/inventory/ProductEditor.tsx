@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import BarcodeScanner from '@/components/BarcodeScanner'
+import PhotoInput from '@/components/PhotoInput'
+import { imageUrl, uploadProductImage } from '@/lib/images'
 import { money } from '@/lib/format'
 import {
-  friendlyError, type InventoryProduct, type ProductInput,
+  friendlyError, inventoryKeys, type InventoryProduct, type ProductInput,
   useAdjustStock, useCategories, useMovements, useProviders, useSaveProduct,
 } from './api'
 
@@ -45,9 +49,11 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
   const [f, setF] = useState(initial)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
   const dirty = JSON.stringify(f) !== JSON.stringify(initial)
+  const [scanning, setScanning] = useState(false)
 
   // Cerrar con cambios sin guardar pide confirmación (clic fuera, Esc, ✕ o Cancelar).
   const requestClose = () => {
+    if (scanning) return setScanning(false)   // Esc con el escáner abierto solo cierra el escáner
     if (!dirty || confirm('Tienes cambios sin guardar. ¿Descartarlos?')) onClose()
   }
   const closeRef = useRef(requestClose)
@@ -105,8 +111,16 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
           <Field label="Nombre" className="col-span-2">
             <input className={input} value={f.name} onChange={e => set('name', e.target.value)} required />
           </Field>
-          <Field label="SKU"><input className={input} value={f.sku} onChange={e => set('sku', e.target.value)} required /></Field>
-          <Field label="Código de barras"><input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} /></Field>
+          <Field label="SKU">
+            <input className={input} value={f.sku} onChange={e => set('sku', e.target.value)}
+                   required={!!product} placeholder={product ? '' : 'Automático'} />
+          </Field>
+          <Field label="Código de barras">
+            <div className="flex gap-1">
+              <input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} inputMode="numeric" />
+              <button type="button" onClick={() => setScanning(true)} className="shrink-0 rounded border px-2" aria-label="Escanear código">📷</button>
+            </div>
+          </Field>
           <Field label="Marca"><input className={input} value={f.brand} onChange={e => set('brand', e.target.value)} /></Field>
           <Field label="Unidad">
             <select className={input} value={f.unit} onChange={e => set('unit', e.target.value)}>
@@ -173,9 +187,34 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
           </div>
         </form>
 
+        {product && <PhotoSection product={product} />}
         {product && <StockSection product={product} />}
+        {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { set('barcode', c); setScanning(false) }} />}
       </div>
     </div>
+  )
+}
+
+/** La foto se sube al elegirla (no depende de "Guardar"), igual que en "Poner precios". */
+function PhotoSection({ product }: { product: InventoryProduct }) {
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function onPhoto(file: File | null) {
+    if (!file) return
+    setBusy(true); setError('')
+    try {
+      await uploadProductImage(product.id, file, product.image_path)
+      await qc.invalidateQueries({ queryKey: inventoryKeys.products })
+    } catch (e) { setError(friendlyError(e)) } finally { setBusy(false) }
+  }
+  return (
+    <section className="mt-6 border-t pt-4">
+      <h3 className="mb-2 font-semibold">Foto</h3>
+      <div className={busy ? 'opacity-50' : ''}><PhotoInput file={null} currentUrl={imageUrl(product.image_path)} onChange={onPhoto} /></div>
+      {busy && <p className="mt-1 text-xs text-stone-500">Subiendo…</p>}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+    </section>
   )
 }
 

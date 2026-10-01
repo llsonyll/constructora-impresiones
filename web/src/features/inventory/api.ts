@@ -16,6 +16,7 @@ export interface InventoryProduct {
   active: boolean
   needs_review: boolean
   notes: string | null
+  image_path: string | null    // ruta en el bucket product-images (ver lib/images.ts)
   updated_at: string           // cambia también con ventas/ajustes (el trigger de stock actualiza la fila)
   cost: number | null          // de product_costs (solo admin/almacén lo ven)
 }
@@ -32,7 +33,7 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, updated_at, product_costs(cost)'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, product_costs(cost)'
 
 type Row = Omit<InventoryProduct, 'cost'> & { product_costs: { cost: number } | null }
 
@@ -90,14 +91,15 @@ export function useMovements(productId: string | undefined) {
   })
 }
 
-export type ProductInput = Omit<InventoryProduct, 'id' | 'stock' | 'updated_at'> & { id?: string }
+export type ProductInput = Omit<InventoryProduct, 'id' | 'stock' | 'updated_at' | 'image_path'> & { id?: string }
 
 /** Crea o actualiza producto + costo. El stock NO se toca aquí (solo por movimientos). */
 export function useSaveProduct() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, cost, ...fields }: ProductInput) => {
-      const row = { ...fields, barcode: fields.barcode || null, brand: fields.brand || null, notes: fields.notes || null }
+      const row: Partial<typeof fields> = { ...fields, barcode: fields.barcode || null, brand: fields.brand || null, notes: fields.notes || null }
+      if (!row.sku) delete row.sku   // nuevo sin SKU → la BD asigna NUE-0001, NUE-0002…
       const { data, error } = id
         ? await supabase.from('products').update(row).eq('id', id).select('id').single()
         : await supabase.from('products').insert(row).select('id').single()
@@ -111,6 +113,36 @@ export function useSaveProduct() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.products }),
   })
+}
+
+/** Cambio parcial (precio, código, etc.) desde el celular. Con `cost` también actualiza product_costs. */
+export function usePatchProduct() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, cost, ...fields }: { id: string; cost?: number | null } & Partial<Omit<InventoryProduct, 'id' | 'cost'>>) => {
+      if (Object.keys(fields).length) {
+        const { error } = await supabase.from('products').update(fields).eq('id', id)
+        if (error) throw error
+      }
+      if (cost != null) {
+        const { error } = await supabase.from('product_costs').upsert({ product_id: id, cost, updated_at: new Date().toISOString() })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.products }),
+  })
+}
+
+export interface QuickProduct { name: string; price: number | null; barcode: string | null; category_id: number | null; unit: string }
+
+/** Alta rápida: SKU automático y marcado "por revisar" para completar costo/categoría después. */
+export async function quickCreateProduct(p: QuickProduct) {
+  const { data, error } = await supabase.from('products')
+    .insert({ ...p, active: p.price != null, needs_review: true })
+    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path')
+    .single()
+  if (error) throw error
+  return data
 }
 
 export function useAdjustStock() {
