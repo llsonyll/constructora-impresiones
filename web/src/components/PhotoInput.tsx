@@ -23,12 +23,12 @@ export default function PhotoInput({ file, onChange, currentUrl, label = 'Tomar 
       {src
         ? <img src={src} alt="" className="h-20 w-20 rounded-lg border object-cover" />
         : <div className="grid h-20 w-20 place-items-center rounded-lg border border-dashed text-2xl text-stone-400">📦</div>}
-      <label className="cursor-pointer rounded-lg border px-4 py-3 text-sm">
+      <label className="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm">
         📸 {src ? 'Cambiar foto' : label}
         <input type="file" accept="image/*" capture="environment" className="hidden"
                onChange={e => onChange(e.target.files?.[0] ?? null)} />
       </label>
-      {file && <button type="button" onClick={() => onChange(null)} className="text-sm text-stone-500 underline">quitar</button>}
+      {file && <button type="button" onClick={() => onChange(null)} className="min-h-11 px-2 text-sm text-stone-500 underline">quitar</button>}
     </div>
   )
 }

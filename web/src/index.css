@@ -1,1 +1,18 @@
 @import "tailwindcss";
+
+/* Bordes seguros (notch, barra de gestos). Requiere viewport-fit=cover en index.html. */
+@utility pt-safe { padding-top: env(safe-area-inset-top); }
+@utility pb-safe-3 { padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+@utility pb-safe-4 { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+@utility px-safe-3 {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+@utility bottom-safe-3 { bottom: calc(0.75rem + env(safe-area-inset-bottom)); }
+@utility bottom-safe-20 { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  /* Sin el retraso de doble toque para zoom en botones y enlaces. */
+  a, button, input, select, textarea, label { touch-action: manipulation; }
+}

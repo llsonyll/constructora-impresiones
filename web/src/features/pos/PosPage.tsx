@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
+import { useOverlay } from '@/lib/overlay'
 import type { PaymentMethod, Product } from '@/types/domain'
 import { useCart } from './useCart'
 import { checkout } from './checkout'
@@ -34,6 +35,8 @@ export default function PosPage() {
   // Un id por ticket: si el cobro se reintenta, se reutiliza y no se duplica la venta.
   const saleIdRef = useRef<string | null>(null)
   const { lines, total, dispatch } = useCart()
+  // En el celular el ticket es una hoja a pantalla completa: "atrás" la cierra. En escritorio es una columna fija.
+  useOverlay(() => setTicketOpen(false), ticketOpen && !matchMedia('(min-width: 768px)').matches)
 
   const products = useLiveQuery(() => localDb.products.toArray(), [], [])
   const pendingCount = useLiveQuery(() => localDb.outbox.count(), [], 0)
@@ -88,13 +91,13 @@ export default function PosPage() {
   const count = lines.reduce((s, l) => s + l.qty, 0)
 
   return (
-    <div className="grid gap-4 p-3 pb-24 md:grid-cols-[1fr_22rem] md:p-4 md:pb-4">
+    <div className="grid gap-4 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:grid-cols-[1fr_22rem] md:p-4 md:pb-4">
       <section>
         <div className="mb-3 flex gap-2">
           <input value={query} onChange={e => setQuery(e.target.value)}
                  onKeyDown={e => e.key === 'Enter' && query.trim() && handleCode(query.trim())}
                  placeholder="Buscar producto…" className="min-w-0 flex-1 rounded-lg border p-3 text-base" />
-          <button onClick={() => setScanning(true)} className="shrink-0 rounded-lg bg-amber-700 px-4 text-white" aria-label="Escanear código">📷</button>
+          <button onClick={() => setScanning(true)} className="min-w-12 shrink-0 rounded-lg bg-amber-700 px-4 text-white" aria-label="Escanear código">📷</button>
         </div>
         {!online && <p className="mb-2 rounded bg-amber-50 p-2 text-xs text-amber-800">Sin internet: las ventas se guardan en el equipo y se envían al reconectar.</p>}
 
@@ -125,26 +128,27 @@ export default function PosPage() {
       </section>
 
       {/* Ticket: columna fija en escritorio; en el celular, hoja a pantalla completa que se abre desde la barra inferior. */}
-      <aside className={`${ticketOpen ? 'fixed inset-0 z-30 overflow-y-auto' : 'hidden'} space-y-3 bg-white p-4
-                         md:static md:block md:h-fit md:rounded-xl md:shadow md:sticky md:top-4`}>
+      <aside className={`${ticketOpen ? 'fixed inset-0 z-30 overflow-y-auto overscroll-contain' : 'hidden'} space-y-3 bg-white
+                         px-safe-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-safe-4
+                         md:static md:block md:h-fit md:rounded-xl md:p-4 md:shadow md:sticky md:top-4`}>
         <div className="flex items-center">
           <h2 className="flex-1 font-semibold">
             Ticket {pendingCount > 0 && <span className="ml-2 rounded bg-amber-100 px-2 text-xs text-amber-800">{pendingCount} por sincronizar</span>}
           </h2>
-          <button onClick={() => setTicketOpen(false)} className="px-2 text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
+          <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
         </div>
         <ul className="divide-y">
           {lines.map(l => (
-            <li key={l.key} className="flex items-center gap-2 py-2 text-sm">
-              <span className="flex-1">{l.description}</span>
+            <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm">
+              <span className="min-w-0 flex-1 break-words">{l.description}</span>
               <div className="flex items-center rounded border">
-                <button className="px-2.5 py-1" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty - 1 })} aria-label="Menos">−</button>
-                <input type="number" min={0} step="any" value={l.qty} className="w-12 border-x p-1 text-center"
+                <button className="grid size-11 place-items-center text-lg" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty - 1 })} aria-label="Menos">−</button>
+                <input type="number" min={0} step="any" value={l.qty} className="min-h-11 w-12 border-x text-center text-base"
                        onChange={e => dispatch({ type: 'setQty', key: l.key, qty: Number(e.target.value) })} />
-                <button className="px-2.5 py-1" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty + 1 })} aria-label="Más">+</button>
+                <button className="grid size-11 place-items-center text-lg" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty + 1 })} aria-label="Más">+</button>
               </div>
-              <span className="w-20 text-right">{money(l.qty * l.unit_price)}</span>
-              <button aria-label="Quitar" onClick={() => dispatch({ type: 'remove', key: l.key })} className="px-1">✕</button>
+              <span className="w-16 shrink-0 text-right">{money(l.qty * l.unit_price)}</span>
+              <button aria-label="Quitar" onClick={() => dispatch({ type: 'remove', key: l.key })} className="-mr-2 grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
             </li>
           ))}
           {!lines.length && <li className="py-4 text-center text-sm text-stone-500">Ticket vacío</li>}
@@ -157,15 +161,15 @@ export default function PosPage() {
           dispatch({ type: 'addCustom', description: customDesc, qty: 1, unit_price: price })
           setCustomDesc(''); setCustomPrice('')
         }}>
-          <input value={customDesc} onChange={e => setCustomDesc(e.target.value)} placeholder="Ítem libre" className="min-w-0 flex-1 rounded border p-2 text-sm" />
-          <input value={customPrice} onChange={e => setCustomPrice(e.target.value)} placeholder="S/" inputMode="decimal" className="w-20 rounded border p-2 text-sm" />
-          <button className="rounded border px-3 text-sm">+</button>
+          <input value={customDesc} onChange={e => setCustomDesc(e.target.value)} placeholder="Ítem libre" className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base md:text-sm" />
+          <input value={customPrice} onChange={e => setCustomPrice(e.target.value)} placeholder="S/" inputMode="decimal" className="min-h-11 w-20 rounded border px-2 text-base md:text-sm" />
+          <button className="min-w-11 rounded border px-3 text-sm" aria-label="Agregar ítem libre">+</button>
         </form>
 
         <div className="flex flex-wrap gap-1">
           {METHODS.map(m => (
             <button key={m.id} onClick={() => setMethod(m.id)}
-                    className={`rounded border px-3 py-2 text-sm ${method === m.id ? 'bg-amber-700 text-white' : ''}`}>{m.label}</button>
+                    className={`min-h-11 flex-1 rounded border px-3 text-sm ${method === m.id ? 'bg-amber-700 text-white' : ''}`}>{m.label}</button>
           ))}
         </div>
 
@@ -185,7 +189,7 @@ export default function PosPage() {
       {/* Barra inferior (solo celular) */}
       {!ticketOpen && (
         <button onClick={() => setTicketOpen(true)}
-                className="fixed inset-x-3 bottom-3 z-20 flex items-center justify-between rounded-xl bg-amber-700 p-4 text-white shadow-lg md:hidden">
+                className="fixed inset-x-3 bottom-safe-3 z-20 flex items-center justify-between rounded-xl bg-amber-700 p-4 text-white shadow-lg md:hidden">
           <span>{count ? `${count} ítem${count === 1 ? '' : 's'}` : 'Ticket vacío'}</span>
           <span className="font-semibold">{money(total)} →</span>
         </button>
@@ -193,7 +197,7 @@ export default function PosPage() {
 
       {flash && (
         // Abajo, sobre la barra del ticket: no tapa el buscador ni las líneas del ticket.
-        <div role="status" className={`pointer-events-none fixed inset-x-3 bottom-20 z-40 truncate rounded-lg px-4 py-2 text-center text-sm text-white shadow
+        <div role="status" className={`pointer-events-none fixed inset-x-3 bottom-safe-20 z-40 truncate rounded-lg px-4 py-2 text-center text-sm text-white shadow
                                         md:inset-x-auto md:bottom-4 md:left-1/2 md:max-w-md md:-translate-x-1/2
                                         ${flash.tone === 'ok' ? 'bg-stone-900/90' : 'bg-amber-700'}`}>{flash.text}</div>
       )}

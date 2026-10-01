@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
+import Sheet from '@/components/Sheet'
 import { imageUrl, uploadProductImage } from '@/lib/images'
 import { money } from '@/lib/format'
 import { friendlyError, inventoryKeys, type InventoryProduct, useInventory, usePatchProduct } from './api'
@@ -60,11 +61,11 @@ export default function PricingPage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-3 p-3 pb-28">
+    <div className="mx-auto max-w-lg space-y-3 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-2">
-        <Link to="/inventario" className="text-sm text-amber-800">←</Link>
+        <Link to="/inventario" className="-ml-2 grid size-11 place-items-center text-xl text-amber-800" aria-label="Volver a Inventario">←</Link>
         <h1 className="flex-1 text-lg font-semibold">Poner precios</h1>
-        <button onClick={() => setCreating({})} className="rounded-lg border bg-white px-3 py-1.5 text-sm">+ Nuevo</button>
+        <button onClick={() => setCreating({})} className="min-h-11 rounded-lg border bg-white px-4 text-sm">+ Nuevo</button>
       </div>
 
       <div className="flex gap-2">
@@ -96,7 +97,7 @@ export default function PricingPage() {
       <div className="flex gap-1 overflow-x-auto">
         {QUEUES.map(q => (
           <button key={q.id} onClick={() => { setQueue(q.id); setCurrentId(null) }}
-                  className={`shrink-0 rounded-full border px-3 py-1 text-sm ${queue === q.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+                  className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${queue === q.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
             {q.label} {products.filter(q.test).length}
           </button>
         ))}
@@ -118,8 +119,7 @@ export default function PricingPage() {
       )}
 
       {unknownCode && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-md space-y-3 rounded-t-2xl bg-white p-4 sm:rounded-2xl">
+        <Sheet onClose={() => setUnknownCode(null)} className="space-y-3" label="Código no encontrado">
             <p>El código <b className="font-mono">{unknownCode}</b> no está en el catálogo.</p>
             {current && (
               <button onClick={() => { assign(unknownCode); setUnknownCode(null) }}
@@ -129,9 +129,8 @@ export default function PricingPage() {
             )}
             <button onClick={() => { setCreating({ barcode: unknownCode }); setUnknownCode(null) }}
                     className="w-full rounded-lg bg-amber-700 p-3 text-sm text-white">Crear producto nuevo con este código</button>
-            <button onClick={() => setUnknownCode(null)} className="w-full p-2 text-sm text-stone-500">Cancelar</button>
-          </div>
-        </div>
+            <button onClick={() => setUnknownCode(null)} className="min-h-11 w-full text-sm text-stone-500">Cancelar</button>
+        </Sheet>
       )}
 
       {creating && (
@@ -208,7 +207,7 @@ function ProductCard({ product, position, assigned, onScanAssign, onNext }: Card
       <div className="flex gap-2">
         <input value={barcode} onChange={e => setBarcode(e.target.value)} inputMode="numeric" placeholder="Código de barras"
                className="min-w-0 flex-1 rounded-lg border p-3 font-mono" />
-        <button onClick={onScanAssign} className="shrink-0 rounded-lg border px-4" aria-label="Escanear código del producto">📷</button>
+        <button onClick={onScanAssign} className="min-w-12 shrink-0 rounded-lg border px-4" aria-label="Escanear código del producto">📷</button>
       </div>
 
       <div>
@@ -235,7 +234,7 @@ function ProductCard({ product, position, assigned, onScanAssign, onNext }: Card
 
       {patch.error && <p className="text-sm text-red-600">{friendlyError(patch.error)}</p>}
 
-      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t bg-white p-3">
+      <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t bg-white px-safe-3 pt-3 pb-safe-3">
         <button onClick={() => onNext()} className="flex-1 rounded-lg border p-3">Saltar</button>
         <button onClick={save} disabled={!valid || !changed || patch.isPending}
                 className="flex-[2] rounded-lg bg-amber-700 p-3 font-medium text-white disabled:opacity-40">
