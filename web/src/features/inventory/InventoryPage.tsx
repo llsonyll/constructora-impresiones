@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { money } from '@/lib/format'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import ProductEditor from './ProductEditor'
 
-type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'inactivos'
+type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'inactivos' | 'recientes'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boolean }[] = [
   { id: 'todos', label: 'Todos', test: () => true },
@@ -12,6 +14,8 @@ const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boole
   { id: 'revisar', label: 'Por revisar', test: p => p.needs_review },
   { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.stock <= p.min_stock },
   { id: 'inactivos', label: 'Inactivos', test: p => !p.active },
+  // Incluye cambios de stock por ventas/ajustes, no solo ediciones.
+  { id: 'recientes', label: 'Recientes (24 h)', test: p => Date.now() - Date.parse(p.updated_at) < DAY_MS },
 ]
 
 export const margin = (p: Pick<InventoryProduct, 'price' | 'cost'>) =>
@@ -26,6 +30,15 @@ export default function InventoryPage() {
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   // Se busca en los datos de la query para que el editor vea el stock actualizado tras un ajuste.
   const editing = editingId === 'new' ? 'new' : products.find(p => p.id === editingId) ?? null
+  // Productos guardados en esta sesión: se quedan arriba y resaltados aunque ya no cumplan el filtro
+  // (p. ej. al ponerle precio a uno de "Sin precio"), para no perderlos de vista.
+  const [savedIds, setSavedIds] = useState<string[]>([])
+  const [toast, setToast] = useState<{ id: string; name: string } | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 8000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const counts = useMemo(
     () => Object.fromEntries(FILTERS.map(f => [f.id, products.filter(f.test).length])) as Record<Filter, number>,
@@ -34,11 +47,20 @@ export default function InventoryPage() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const test = FILTERS.find(f => f.id === filter)!.test
-    return products.filter(p => test(p)
-      && (category === '' || p.category_id === category)
+    const matches = (p: InventoryProduct) => (category === '' || p.category_id === category)
       && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-          || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q))
-  }, [products, filter, category, query])
+          || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q)
+    const pinned = savedIds.map(id => products.find(p => p.id === id)).filter((p): p is InventoryProduct => !!p && matches(p))
+    const rest = products.filter(p => !savedIds.includes(p.id) && test(p) && matches(p))
+    if (filter === 'recientes') rest.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    return [...pinned, ...rest]
+  }, [products, filter, category, query, savedIds])
+
+  function onSaved(id: string, name: string) {
+    setSavedIds(ids => [id, ...ids.filter(x => x !== id)])
+    setToast({ id, name })
+    setEditingId(null)
+  }
 
   const catName = (id: number | null) => categories.find(c => c.id === id)?.name ?? '—'
 
@@ -86,12 +108,15 @@ export default function InventoryPage() {
           <tbody className="divide-y">
             {rows.map(p => {
               const m = margin(p)
+              const saved = savedIds.includes(p.id)
               return (
-                <tr key={p.id} onClick={() => setEditingId(p.id)} className="cursor-pointer hover:bg-amber-50">
+                <tr key={p.id} onClick={() => setEditingId(p.id)}
+                    className={`cursor-pointer hover:bg-amber-50 ${saved ? 'bg-green-50' : ''}`}>
                   <td className="p-2">
                     <div className="font-medium">{p.name}</div>
                     <div className="text-xs text-stone-500">
                       {p.sku}{p.brand && ` · ${p.brand}`}
+                      {saved && <span className="ml-2 rounded bg-green-100 px-1 text-green-800">✓ guardado</span>}
                       {!p.active && <span className="ml-2 rounded bg-stone-200 px-1">inactivo</span>}
                       {p.needs_review && <span className="ml-2 rounded bg-yellow-100 px-1 text-yellow-800">revisar</span>}
                     </div>
@@ -110,9 +135,23 @@ export default function InventoryPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-stone-500">{rows.length} de {products.length} productos</p>
+      <p className="text-xs text-stone-500">
+        {rows.length} de {products.length} productos
+        {savedIds.length > 0 && <>
+          {' · '}{savedIds.length} guardado{savedIds.length > 1 ? 's' : ''} en esta sesión arriba{' '}
+          <button onClick={() => setSavedIds([])} className="underline">quitar resaltado</button>
+        </>}
+      </p>
 
-      {editing && <ProductEditor product={editing === 'new' ? null : editing} key={editingId ?? ''} onClose={() => setEditingId(null)} />}
+      {toast && (
+        <div role="status" className="fixed bottom-4 left-1/2 z-20 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-stone-900 px-4 py-2 text-sm text-white shadow-lg">
+          <span className="truncate">✓ Guardado: {toast.name}</span>
+          <button onClick={() => { setEditingId(toast.id); setToast(null) }} className="shrink-0 font-medium text-amber-300">Abrir</button>
+        </div>
+      )}
+
+      {editing && <ProductEditor product={editing === 'new' ? null : editing} key={editingId ?? ''}
+                                 onClose={() => setEditingId(null)} onSaved={onSaved} />}
     </div>
   )
 }

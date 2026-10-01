@@ -16,6 +16,7 @@ export interface InventoryProduct {
   active: boolean
   needs_review: boolean
   notes: string | null
+  updated_at: string           // cambia también con ventas/ajustes (el trigger de stock actualiza la fila)
   cost: number | null          // de product_costs (solo admin/almacén lo ven)
 }
 
@@ -31,7 +32,7 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, product_costs(cost)'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, updated_at, product_costs(cost)'
 
 type Row = Omit<InventoryProduct, 'cost'> & { product_costs: { cost: number } | null }
 
@@ -89,7 +90,7 @@ export function useMovements(productId: string | undefined) {
   })
 }
 
-export type ProductInput = Omit<InventoryProduct, 'id' | 'stock'> & { id?: string }
+export type ProductInput = Omit<InventoryProduct, 'id' | 'stock' | 'updated_at'> & { id?: string }
 
 /** Crea o actualiza producto + costo. El stock NO se toca aquí (solo por movimientos). */
 export function useSaveProduct() {
