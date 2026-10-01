@@ -450,7 +450,8 @@ firebase.auth().onAuthStateChanged(user=>{
 firebase.auth().signInAnonymously().catch(err=>{ console.error(err); setSyncStatus('⚠️ No se pudo conectar', false); });
 
 // ---------- helpers ----------
-const todayISO = () => new Date().toISOString().slice(0,10);
+// fecha local (toISOString usa UTC: en Perú, desde las 19:00 daría el día siguiente)
+const todayISO = () => { const d=new Date(), p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
 const money = n => 'S/ ' + (Number(n)||0).toFixed(2);
 function turnoAuto(){ return new Date().getHours() < CORTE_TARDE_HORA ? 'mañana' : 'tarde'; }
 function toast(msg){
@@ -593,7 +594,7 @@ document.getElementById('form').addEventListener('submit', async e=>{
     try{ toast('Procesando comprobante…'); venta.comprobanteUrl = await comprobanteToDataUrl(fileInput.files[0]); }
     catch(err){ console.error(err); toast('No se pudo procesar la foto, se guardó la venta sin comprobante.'); }
   }
-  trabajosRef.doc(venta.id).set(venta).catch(err=>{ console.error(err); toast('No se pudo guardar en la nube.'); });
+  trabajosRef.doc(venta.id).set(venta).catch(err=>{ console.error('Error guardando venta', err, venta); toast('⚠️ No se pudo guardar la venta en la nube ('+(err.code||err.message)+').'); });
   toast('Venta registrada ✓');
   document.querySelectorAll('.qtynum').forEach(el=>{ el.dataset.qty=0; el.textContent='0'; el.closest('.prod-card').classList.remove('has-qty'); });
   cart=[]; updateVentaTotal();
@@ -1017,11 +1018,16 @@ function resolverJob(job, accion){
 const jobAlloc = {};
 function productosParaJob(job){
   const doc = normNombre(job.documento);
+  // Konica: los contadores B/N y color son exactos, se filtra por color.
+  // PaperCut: el campo de escala de grises depende de la configuración del
+  // driver (suele marcar color aunque el documento sea B/N), así que solo
+  // ordena, no oculta productos.
+  const colorOk = p => p.color==null || p.color===!!job.color;
   const compat = catalogo.filter(p=>p.activo!==false && (p.origenes||[]).includes(job.fuente)
-    && (p.color==null || p.color===!!job.color));
+    && (job.fuente!=='konica-copia' || colorOk(p)));
   const sugerido = p => (job.duplex && p.duplex===true) || (doc && (p.palabrasClave||[]).some(k=>doc.includes(normNombre(k))));
-  return compat.map(p=>({p, sug:sugerido(p)}))
-    .sort((a,b)=> (b.sug-a.sug) || a.p.nombre.localeCompare(b.p.nombre));
+  return compat.map(p=>({p, sug:sugerido(p), col:colorOk(p)}))
+    .sort((a,b)=> (b.sug-a.sug) || (b.col-a.col) || a.p.nombre.localeCompare(b.p.nombre));
 }
 function allocOf(job){ return jobAlloc[job.id] || (jobAlloc[job.id]={}); }
 function asignadas(job){ return Object.values(allocOf(job)).reduce((s,x)=>s+(x.qty||0),0); }
