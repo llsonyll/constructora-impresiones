@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { money } from '@/lib/format'
 import {
   friendlyError, type InventoryProduct, type ProductInput,
@@ -24,19 +24,42 @@ function Field({ label, children, className = '' }: { label: string; children: R
 }
 const input = 'w-full rounded border p-2'
 
-export default function ProductEditor({ product, onClose }: { product: InventoryProduct | null; onClose: () => void }) {
+interface Props {
+  product: InventoryProduct | null
+  onClose: () => void
+  onSaved: (id: string, name: string) => void
+}
+
+export default function ProductEditor({ product, onClose, onSaved }: Props) {
   const { data: categories = [] } = useCategories()
   const { data: providers = [] } = useProviders()
   const save = useSaveProduct()
 
-  const [f, setF] = useState({
+  const [initial] = useState(() => ({
     sku: product?.sku ?? '', name: product?.name ?? '', brand: product?.brand ?? '', barcode: product?.barcode ?? '',
     category_id: product?.category_id?.toString() ?? '', provider_id: product?.provider_id ?? '',
     unit: product?.unit ?? 'und', price: product?.price?.toString() ?? '', cost: product?.cost?.toString() ?? '',
     min_stock: product?.min_stock?.toString() ?? '0', active: product?.active ?? false,
     needs_review: product?.needs_review ?? false, notes: product?.notes ?? '',
-  })
+  }))
+  const [f, setF] = useState(initial)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
+  const dirty = JSON.stringify(f) !== JSON.stringify(initial)
+
+  // Cerrar con cambios sin guardar pide confirmación (clic fuera, Esc, ✕ o Cancelar).
+  const requestClose = () => {
+    if (!dirty || confirm('Tienes cambios sin guardar. ¿Descartarlos?')) onClose()
+  }
+  const closeRef = useRef(requestClose)
+  closeRef.current = requestClose
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  // Solo cuenta como "clic fuera" si el clic empezó en el fondo: seleccionar texto en un campo y
+  // soltar el mouse fuera del panel también dispara click en el fondo y antes cerraba el editor.
+  const downOnBackdrop = useRef(false)
 
   const price = num(f.price), cost = num(f.cost)
   const hasPrice = price != null && !Number.isNaN(price)
@@ -59,15 +82,23 @@ export default function ProductEditor({ product, onClose }: { product: Inventory
       cost: cost != null && !Number.isNaN(cost) ? cost : null, min_stock: num(f.min_stock) ?? 0,
       active: hasPrice && f.active, needs_review: f.needs_review, notes: f.notes.trim() || null,
     }
-    try { await save.mutateAsync(payload); onClose() } catch { /* se muestra abajo */ }
+    try {
+      const id = await save.mutateAsync(payload)
+      onSaved(id, payload.name)
+    } catch { /* se muestra abajo */ }
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex justify-end bg-black/30" onClick={onClose}>
-      <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-10 flex justify-end bg-black/30"
+         onMouseDown={e => { downOnBackdrop.current = e.target === e.currentTarget }}
+         onClick={e => { if (downOnBackdrop.current && e.target === e.currentTarget) requestClose() }}>
+      <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl">
         <div className="mb-4 flex items-center">
-          <h2 className="flex-1 text-lg font-semibold">{product ? 'Editar producto' : 'Nuevo producto'}</h2>
-          <button onClick={onClose} aria-label="Cerrar" className="px-2 text-xl">✕</button>
+          <h2 className="flex-1 text-lg font-semibold">
+            {product ? 'Editar producto' : 'Nuevo producto'}
+            {dirty && <span className="ml-2 align-middle text-xs font-normal text-amber-700">● sin guardar</span>}
+          </h2>
+          <button onClick={requestClose} aria-label="Cerrar" className="px-2 text-xl">✕</button>
         </div>
 
         <form onSubmit={onSubmit} className="grid grid-cols-2 gap-3">
@@ -135,7 +166,7 @@ export default function ProductEditor({ product, onClose }: { product: Inventory
 
           {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyError(save.error)}</p>}
           <div className="col-span-2 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="rounded border px-4 py-2">Cancelar</button>
+            <button type="button" onClick={requestClose} className="rounded border px-4 py-2">Cancelar</button>
             <button disabled={save.isPending} className="rounded bg-amber-700 px-4 py-2 text-white disabled:opacity-50">
               {save.isPending ? 'Guardando…' : 'Guardar'}
             </button>
