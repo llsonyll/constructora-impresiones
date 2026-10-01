@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
 import { imageUrl, uploadProductImage } from '@/lib/images'
 import { money } from '@/lib/format'
+import { useOverlay } from '@/lib/overlay'
 import {
   friendlyError, inventoryKeys, type InventoryProduct, type ProductInput,
   useAdjustStock, useCategories, useMovements, useProviders, useSaveProduct,
@@ -26,7 +27,7 @@ const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.'))
 function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return <label className={`block text-sm ${className}`}><span className="mb-1 block text-xs text-stone-500">{label}</span>{children}</label>
 }
-const input = 'w-full rounded border p-2'
+const input = 'min-h-11 w-full rounded border px-2 py-2 text-base sm:text-sm'
 
 interface Props {
   product: InventoryProduct | null
@@ -51,18 +52,12 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
   const dirty = JSON.stringify(f) !== JSON.stringify(initial)
   const [scanning, setScanning] = useState(false)
 
-  // Cerrar con cambios sin guardar pide confirmación (clic fuera, Esc, ✕ o Cancelar).
+  // Cerrar con cambios sin guardar pide confirmación (clic fuera, Esc, atrás, ✕ o Cancelar).
+  // Con el escáner abierto, Esc/atrás cierran solo el escáner (es la capa de arriba).
   const requestClose = () => {
-    if (scanning) return setScanning(false)   // Esc con el escáner abierto solo cierra el escáner
     if (!dirty || confirm('Tienes cambios sin guardar. ¿Descartarlos?')) onClose()
   }
-  const closeRef = useRef(requestClose)
-  closeRef.current = requestClose
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeRef.current() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  useOverlay(requestClose)
   // Solo cuenta como "clic fuera" si el clic empezó en el fondo: seleccionar texto en un campo y
   // soltar el mouse fuera del panel también dispara click en el fondo y antes cerraba el editor.
   const downOnBackdrop = useRef(false)
@@ -95,16 +90,16 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex justify-end bg-black/30"
+    <div className="fixed inset-0 z-30 flex justify-end bg-black/30"
          onMouseDown={e => { downOnBackdrop.current = e.target === e.currentTarget }}
          onClick={e => { if (downOnBackdrop.current && e.target === e.currentTarget) requestClose() }}>
-      <div className="h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl">
+      <div className="h-full w-full max-w-xl overflow-y-auto overscroll-contain bg-white px-safe-3 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-safe-4 shadow-xl sm:px-5">
         <div className="mb-4 flex items-center">
           <h2 className="flex-1 text-lg font-semibold">
             {product ? 'Editar producto' : 'Nuevo producto'}
             {dirty && <span className="ml-2 align-middle text-xs font-normal text-amber-700">● sin guardar</span>}
           </h2>
-          <button onClick={requestClose} aria-label="Cerrar" className="px-2 text-xl">✕</button>
+          <button onClick={requestClose} aria-label="Cerrar" className="-mr-2 grid size-11 place-items-center text-xl">✕</button>
         </div>
 
         <form onSubmit={onSubmit} className="grid grid-cols-2 gap-3">
@@ -118,7 +113,7 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
           <Field label="Código de barras">
             <div className="flex gap-1">
               <input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} inputMode="numeric" />
-              <button type="button" onClick={() => setScanning(true)} className="shrink-0 rounded border px-2" aria-label="Escanear código">📷</button>
+              <button type="button" onClick={() => setScanning(true)} className="min-w-11 shrink-0 rounded border px-2" aria-label="Escanear código">📷</button>
             </div>
           </Field>
           <Field label="Marca"><input className={input} value={f.brand} onChange={e => set('brand', e.target.value)} /></Field>
@@ -151,7 +146,7 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
               <span className="text-stone-500">Sugerir precio (recargo sobre costo):</span>
               {MARKUPS.map(mk => (
                 <button type="button" key={mk} onClick={() => setPrice(suggestPrice(cost, mk).toFixed(2))}
-                        className="rounded border px-2 py-0.5 hover:bg-amber-50">
+                        className="min-h-11 rounded border px-3 hover:bg-amber-50">
                   Costo +{mk * 100}% → {money(suggestPrice(cost, mk))}
                 </button>
               ))}
@@ -165,12 +160,12 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
             <input className={input} inputMode="decimal" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} />
           </Field>
           <div className="flex flex-col justify-end gap-2 text-sm">
-            <label className={`flex items-center gap-2 ${hasPrice ? '' : 'opacity-50'}`} title={hasPrice ? '' : 'Pon un precio para activarlo'}>
-              <input type="checkbox" checked={hasPrice && f.active} disabled={!hasPrice} onChange={e => set('active', e.target.checked)} />
+            <label className={`flex min-h-11 items-center gap-2 ${hasPrice ? '' : 'opacity-50'}`} title={hasPrice ? '' : 'Pon un precio para activarlo'}>
+              <input type="checkbox" className="size-5" checked={hasPrice && f.active} disabled={!hasPrice} onChange={e => set('active', e.target.checked)} />
               Activo (visible en el POS)
             </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={f.needs_review} onChange={e => set('needs_review', e.target.checked)} />
+            <label className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" className="size-5" checked={f.needs_review} onChange={e => set('needs_review', e.target.checked)} />
               Marcar para revisar
             </label>
           </div>
@@ -180,8 +175,8 @@ export default function ProductEditor({ product, onClose, onSaved }: Props) {
 
           {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyError(save.error)}</p>}
           <div className="col-span-2 flex justify-end gap-2">
-            <button type="button" onClick={requestClose} className="rounded border px-4 py-2">Cancelar</button>
-            <button disabled={save.isPending} className="rounded bg-amber-700 px-4 py-2 text-white disabled:opacity-50">
+            <button type="button" onClick={requestClose} className="min-h-11 rounded border px-4">Cancelar</button>
+            <button disabled={save.isPending} className="min-h-11 rounded bg-amber-700 px-4 text-white disabled:opacity-50">
               {save.isPending ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
@@ -237,7 +232,7 @@ function StockSection({ product }: { product: InventoryProduct }) {
       <form onSubmit={onAdjust} className="flex flex-wrap items-end gap-2">
         <Field label="Stock contado"><input className={`${input} w-28`} inputMode="decimal" value={counted} onChange={e => setCounted(e.target.value)} /></Field>
         <Field label="Motivo" className="min-w-0 flex-1"><input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="Conteo, merma, rotura…" /></Field>
-        <button disabled={!counted || adjust.isPending} className="rounded border px-3 py-2 text-sm disabled:opacity-50">Ajustar</button>
+        <button disabled={!counted || adjust.isPending} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Ajustar</button>
       </form>
       {adjust.error && <p className="mt-1 text-sm text-red-600">{friendlyError(adjust.error)}</p>}
 

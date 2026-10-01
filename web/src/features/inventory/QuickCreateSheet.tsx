@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
+import Sheet from '@/components/Sheet'
 import { uploadProductImage } from '@/lib/images'
 import { friendlyError, inventoryKeys, quickCreateProduct, useCategories } from './api'
 
@@ -55,26 +56,30 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
     }
   }
 
+  // Tocar fuera o "atrás" no debe perder lo escrito sin preguntar.
+  const dirty = name !== initialName || price !== '' || barcode !== initialBarcode || category !== '' || unit !== 'und' || !!photo
+  const requestClose = () => { if (!dirty || confirm('¿Descartar este producto nuevo?')) onClose() }
+
   const input = 'w-full rounded-lg border p-3 text-base'
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-      <form onSubmit={onSubmit} className="max-h-[92vh] w-full max-w-md space-y-3 overflow-y-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl">
+    <Sheet onClose={requestClose} label="Nuevo producto">
+      <form onSubmit={onSubmit} className="space-y-3">
         <div className="flex items-center">
           <h2 className="flex-1 text-lg font-semibold">Nuevo producto</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="px-2 text-xl">✕</button>
+          <button type="button" onClick={requestClose} aria-label="Cerrar" className="-mr-2 grid size-11 place-items-center text-xl">✕</button>
         </div>
         <input className={input} value={name} onChange={e => setName(e.target.value)} placeholder="Nombre (ej. TUBO PVC 1/2 PAVCO)" required autoFocus={!initialName} />
         <div className="flex gap-2">
           <input className={input} value={price} onChange={e => setPrice(e.target.value)} inputMode="decimal"
                  placeholder={requirePrice ? 'Precio S/ (con IGV)' : 'Precio S/ (opcional)'} required={requirePrice}
                  autoFocus={!!initialName} />
-          <select className="rounded-lg border p-3" value={unit} onChange={e => setUnit(e.target.value)}>
+          <select className="rounded-lg border p-3 text-base" value={unit} onChange={e => setUnit(e.target.value)}>
             {UNITS.map(u => <option key={u}>{u}</option>)}
           </select>
         </div>
         <div className="flex gap-2">
           <input className={input} value={barcode} onChange={e => setBarcode(e.target.value)} inputMode="numeric" placeholder="Código de barras (opcional)" />
-          <button type="button" onClick={() => setScanning(true)} className="shrink-0 rounded-lg border px-3" aria-label="Escanear código">📷</button>
+          <button type="button" onClick={() => setScanning(true)} className="min-w-12 shrink-0 rounded-lg border px-3" aria-label="Escanear código">📷</button>
         </div>
         <select className={input} value={category} onChange={e => setCategory(e.target.value)}>
           <option value="">Categoría (opcional)</option>
@@ -88,6 +93,6 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
         </button>
       </form>
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setBarcode(c); setScanning(false) }} />}
-    </div>
+    </Sheet>
   )
 }

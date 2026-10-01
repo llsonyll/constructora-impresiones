@@ -47,9 +47,9 @@ export default function StockCountPage() {
   }
 
   return (
-    <div className="space-y-3 p-4 pb-24">
+    <div className="space-y-3 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-2">
-        <Link to="/inventario" className="text-sm text-amber-800">← Inventario</Link>
+        <Link to="/inventario" className="-ml-1 flex min-h-11 items-center px-1 text-sm text-amber-800">← Inventario</Link>
         <h1 className="text-lg font-semibold">Conteo de stock</h1>
       </div>
       <p className="text-sm text-stone-600">
@@ -58,13 +58,13 @@ export default function StockCountPage() {
       {done != null && <p className="rounded bg-green-50 p-2 text-sm text-green-800">Conteo guardado: {done} productos ajustados.</p>}
 
       <div className="flex flex-wrap gap-2">
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" className="min-w-0 flex-1 rounded border p-2" />
-        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="rounded border p-2">
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
+        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
           <option value="">Todas las categorías</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <label className="flex items-center gap-1 text-sm">
-          <input type="checkbox" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Solo sin contar
+        <label className="flex min-h-11 items-center gap-2 px-1 text-sm">
+          <input type="checkbox" className="size-5" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Solo sin contar
         </label>
       </div>
 
@@ -89,17 +89,17 @@ export default function StockCountPage() {
                        if (e.target.value === '') delete next[p.id]; else next[p.id] = e.target.value
                        return next
                      })}
-                     className="w-20 rounded border p-1.5 text-right tabular-nums" />
+                     className="min-h-11 w-20 rounded border px-2 text-right text-base tabular-nums" />
             </li>
           )
         })}
       </ul>
 
-      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center gap-2 border-t bg-white p-3 shadow">
+      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center gap-2 border-t bg-white px-safe-3 pt-3 pb-safe-3 shadow">
         <span className="text-sm">{entered.length} contados · {changes} con diferencia</span>
-        <input value={note} onChange={e => setNote(e.target.value)} className="min-w-0 flex-1 rounded border p-1.5 text-sm" aria-label="Motivo" />
-        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) setCounts({}) }} className="rounded border px-3 py-1.5 text-sm">Limpiar</button>
-        <button onClick={save} disabled={!entered.length || bulk.isPending} className="rounded bg-amber-700 px-4 py-1.5 text-sm text-white disabled:opacity-50">
+        <input value={note} onChange={e => setNote(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" aria-label="Motivo" />
+        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) setCounts({}) }} className="min-h-11 rounded border px-3 text-sm">Limpiar</button>
+        <button onClick={save} disabled={!entered.length || bulk.isPending} className="min-h-11 rounded bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
           {bulk.isPending ? 'Guardando…' : 'Guardar conteo'}
         </button>
         {bulk.error && <p className="w-full text-sm text-red-600">{friendlyError(bulk.error)}</p>}

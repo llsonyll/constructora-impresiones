@@ -68,15 +68,15 @@ export default function InventoryPage() {
     <div className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
-        <Link to="/inventario/precios" className="rounded border bg-white px-3 py-1.5 text-sm">📱 Poner precios</Link>
-        <Link to="/inventario/conteo" className="rounded border bg-white px-3 py-1.5 text-sm">Conteo de stock</Link>
-        <button onClick={() => setEditingId('new')} className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white">+ Nuevo producto</button>
+        <Link to="/inventario/precios" className="flex min-h-11 items-center rounded border bg-white px-3 text-sm">📱 Poner precios</Link>
+        <Link to="/inventario/conteo" className="flex min-h-11 items-center rounded border bg-white px-3 text-sm">Conteo de stock</Link>
+        <button onClick={() => setEditingId('new')} className="min-h-11 rounded bg-amber-700 px-3 text-sm text-white">+ Nuevo producto</button>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)}
-                  className={`rounded-full border px-3 py-1 text-sm ${filter === f.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+                  className={`min-h-11 rounded-full border px-4 text-sm ${filter === f.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
             {f.label} <span className="opacity-70">{counts[f.id] ?? 0}</span>
           </button>
         ))}
@@ -84,8 +84,8 @@ export default function InventoryPage() {
 
       <div className="flex flex-wrap gap-2">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar nombre, marca, SKU o código"
-               className="min-w-0 flex-1 rounded border p-2" />
-        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="rounded border p-2">
+               className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
+        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
           <option value="">Todas las categorías</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -113,7 +113,7 @@ export default function InventoryPage() {
               return (
                 <tr key={p.id} onClick={() => setEditingId(p.id)}
                     className={`cursor-pointer hover:bg-amber-50 ${saved ? 'bg-green-50' : ''}`}>
-                  <td className="p-2">
+                  <td className="px-2 py-3">
                     <div className="font-medium">{p.name}</div>
                     <div className="text-xs text-stone-500">
                       {p.sku}{p.brand && ` · ${p.brand}`}
@@ -140,14 +140,14 @@ export default function InventoryPage() {
         {rows.length} de {products.length} productos
         {savedIds.length > 0 && <>
           {' · '}{savedIds.length} guardado{savedIds.length > 1 ? 's' : ''} en esta sesión arriba{' '}
-          <button onClick={() => setSavedIds([])} className="underline">quitar resaltado</button>
+          <button onClick={() => setSavedIds([])} className="py-3 underline">quitar resaltado</button>
         </>}
       </p>
 
       {toast && (
-        <div role="status" className="fixed bottom-4 left-1/2 z-20 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-stone-900 px-4 py-2 text-sm text-white shadow-lg">
+        <div role="status" className="fixed bottom-safe-3 left-1/2 z-20 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-stone-900 py-1 pl-4 pr-1 text-sm text-white shadow-lg">
           <span className="truncate">✓ Guardado: {toast.name}</span>
-          <button onClick={() => { setEditingId(toast.id); setToast(null) }} className="shrink-0 font-medium text-amber-300">Abrir</button>
+          <button onClick={() => { setEditingId(toast.id); setToast(null) }} className="min-h-11 shrink-0 px-3 font-medium text-amber-300">Abrir</button>
         </div>
       )}
 

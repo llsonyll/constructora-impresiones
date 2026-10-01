@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getDetector } from '@/lib/scanner'
+import { useOverlay } from '@/lib/overlay'
 
 interface Props {
   onDetected: (code: string) => void
@@ -15,6 +16,7 @@ export default function BarcodeScanner({ onDetected, onClose, title = 'Escanear 
   const doneRef = useRef(false)
   const onDetectedRef = useRef(onDetected)
   onDetectedRef.current = onDetected
+  useOverlay(onClose)
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -65,9 +67,9 @@ export default function BarcodeScanner({ onDetected, onClose, title = 'Escanear 
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
-      <div className="flex items-center gap-2 p-3">
-        <h2 className="flex-1 font-medium">{title}</h2>
-        <button onClick={onClose} aria-label="Cerrar" className="px-3 py-1 text-2xl">✕</button>
+      <div className="flex items-center gap-2 pt-safe px-safe-3">
+        <h2 className="flex-1 truncate font-medium">{title}</h2>
+        <button onClick={onClose} aria-label="Cerrar" className="grid size-12 place-items-center text-2xl">✕</button>
       </div>
       <div className="relative flex-1 overflow-hidden">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
@@ -78,10 +80,10 @@ export default function BarcodeScanner({ onDetected, onClose, title = 'Escanear 
         )}
         {error && <p className="absolute inset-x-4 top-1/3 rounded bg-red-900/80 p-3 text-center">{error}</p>}
       </div>
-      <form className="flex gap-2 p-3" onSubmit={e => { e.preventDefault(); if (manual.trim()) onDetected(manual.trim()) }}>
+      <form className="flex gap-2 px-safe-3 pt-3 pb-safe-3" onSubmit={e => { e.preventDefault(); if (manual.trim()) onDetected(manual.trim()) }}>
         <input value={manual} onChange={e => setManual(e.target.value)} inputMode="numeric" placeholder="o escribe el código"
                className="min-w-0 flex-1 rounded bg-white/10 p-3 text-white placeholder:text-white/50" />
-        <button className="rounded bg-amber-600 px-4">OK</button>
+        <button className="min-h-11 rounded bg-amber-600 px-5">OK</button>
       </form>
     </div>
   )
