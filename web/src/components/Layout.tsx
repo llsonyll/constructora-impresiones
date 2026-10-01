@@ -14,15 +14,16 @@ export default function Layout() {
   const { profile } = useAuth()
   return (
     <div className="min-h-screen bg-stone-100">
-      <header className="flex items-center gap-4 bg-amber-800 px-4 py-2 text-white">
-        <strong>La Constructora</strong>
-        <nav className="flex flex-1 gap-3 text-sm">
+      <header className="sticky top-0 z-10 flex items-center gap-3 bg-amber-800 px-3 py-2 text-white md:px-4">
+        <strong className="max-sm:hidden">La Constructora</strong>
+        <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="La Constructora" className="h-7 w-7 sm:hidden" />
+        <nav className="flex flex-1 gap-3 overflow-x-auto text-sm">
           {NAV.filter(n => profile && n.roles.includes(profile.role)).map(n => (
-            <NavLink key={n.to} to={n.to} className={({ isActive }) => isActive ? 'underline' : 'opacity-80'}>{n.label}</NavLink>
+            <NavLink key={n.to} to={n.to} className={({ isActive }) => `shrink-0 py-1 ${isActive ? 'underline' : 'opacity-80'}`}>{n.label}</NavLink>
           ))}
         </nav>
-        <span className="text-xs">{profile?.full_name} · {profile?.role}</span>
-        <button className="text-xs underline" onClick={() => supabase.auth.signOut()}>Salir</button>
+        <span className="text-xs max-md:hidden">{profile?.full_name} · {profile?.role}</span>
+        <button className="shrink-0 text-xs underline" onClick={() => supabase.auth.signOut()}>Salir</button>
       </header>
       <Outlet />
     </div>

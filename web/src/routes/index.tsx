@@ -5,6 +5,7 @@ import LoginPage from '@/features/auth/LoginPage'
 import PosPage from '@/features/pos/PosPage'
 import InventoryPage from '@/features/inventory/InventoryPage'
 import StockCountPage from '@/features/inventory/StockCountPage'
+import PricingPage from '@/features/inventory/PricingPage'
 import type { Role } from '@/types/domain'
 import type { ReactNode } from 'react'
 
@@ -31,6 +32,7 @@ export default function AppRoutes() {
           <Route path="ventas" element={<RequireRole roles={['admin', 'cajero']}><PosPage /></RequireRole>} />
           <Route path="inventario" element={<RequireRole roles={['admin', 'almacen']}><InventoryPage /></RequireRole>} />
           <Route path="inventario/conteo" element={<RequireRole roles={['admin', 'almacen']}><StockCountPage /></RequireRole>} />
+          <Route path="inventario/precios" element={<RequireRole roles={['admin', 'almacen']}><PricingPage /></RequireRole>} />
           <Route path="proveedores" element={<Soon name="Proveedores" />} />
           <Route path="documentos" element={<Soon name="Documentos" />} />
         </Route>

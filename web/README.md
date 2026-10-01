@@ -44,6 +44,17 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
 
+## Celular: escaneo, fotos y alta rápida
+
+- **Escaneo**: cámara trasera; detector nativo (Chrome/Android) o ZXing-WASM (iPhone). El `.wasm` va
+  empaquetado y precacheado por la PWA, así que escanea sin internet.
+- **Fotos**: se comprimen en el teléfono (1024 px, JPEG ~100 KB) y se suben al bucket público
+  `product-images`; escritura solo admin/almacén. Ruta en `products.image_path`.
+- **Poner precios** (`/inventario/precios`): tarjetas una por una (sin precio / sin foto / sin código),
+  escanear para saltar al producto, asignar código, foto y precio → *Guardar y siguiente*.
+- **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,
+  marcado *por revisar*) y se agrega. Sin internet o sin permiso → ítem libre.
+
 ## Offline (POS)
 
 `checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la

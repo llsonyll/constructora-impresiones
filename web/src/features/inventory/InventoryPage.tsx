@@ -68,6 +68,7 @@ export default function InventoryPage() {
     <div className="space-y-3 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
+        <Link to="/inventario/precios" className="rounded border bg-white px-3 py-1.5 text-sm">📱 Poner precios</Link>
         <Link to="/inventario/conteo" className="rounded border bg-white px-3 py-1.5 text-sm">Conteo de stock</Link>
         <button onClick={() => setEditingId('new')} className="rounded bg-amber-700 px-3 py-1.5 text-sm text-white">+ Nuevo producto</button>
       </div>

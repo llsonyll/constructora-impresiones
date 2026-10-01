@@ -16,6 +16,7 @@ export interface Product {
   stock: number
   min_stock: number
   active: boolean
+  image_path: string | null
 }
 
 export interface CartLine {
