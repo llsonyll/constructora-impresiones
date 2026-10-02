@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import ProductEditor from './ProductEditor'
@@ -32,6 +33,10 @@ export default function InventoryPage() {
   const editing = editingId === 'new' ? 'new' : products.find(p => p.id === editingId) ?? null
   // Productos guardados en esta sesión: se quedan arriba y resaltados aunque ya no cumplan el filtro
   // (p. ej. al ponerle precio a uno de "Sin precio"), para no perderlos de vista.
+  const [scanning, setScanning] = useState(false)
+  // Código escaneado que no está en el inventario: se abre el alta con el código ya puesto.
+  const [newBarcode, setNewBarcode] = useState('')
+  const [notice, setNotice] = useState<string | null>(null)
   const [savedIds, setSavedIds] = useState<string[]>([])
   const [toast, setToast] = useState<{ id: string; name: string } | null>(null)
   useEffect(() => {
@@ -39,6 +44,28 @@ export default function InventoryPage() {
     const t = setTimeout(() => setToast(null), 8000)
     return () => clearTimeout(t)
   }, [toast])
+
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(null), 4000)
+    return () => clearTimeout(t)
+  }, [notice])
+
+  /** Código escaneado o tecleado por un lector USB (Enter): abre el producto si existe; si no, ofrece crearlo. */
+  function findByCode(raw: string) {
+    const code = raw.trim()
+    if (!code) return
+    const hit = products.find(p => p.barcode === code || p.sku.toLowerCase() === code.toLowerCase())
+    if (hit) {
+      // Sin filtros, para que la fila quede visible detrás del editor.
+      setQuery(code); setFilter('todos'); setCategory('')
+      setEditingId(hit.id)
+    } else {
+      setNewBarcode(code)
+      setEditingId('new')
+      setNotice(`El código ${code} no está en el inventario: completa los datos para crearlo`)
+    }
+  }
 
   const counts = useMemo(
     () => Object.fromEntries(FILTERS.map(f => [f.id, products.filter(f.test).length])) as Record<Filter, number>,
@@ -49,7 +76,7 @@ export default function InventoryPage() {
     const test = FILTERS.find(f => f.id === filter)!.test
     const matches = (p: InventoryProduct) => (category === '' || p.category_id === category)
       && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-          || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q)
+          || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false))
     const pinned = savedIds.map(id => products.find(p => p.id === id)).filter((p): p is InventoryProduct => !!p && matches(p))
     const rest = products.filter(p => !savedIds.includes(p.id) && test(p) && matches(p))
     if (filter === 'recientes') rest.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
@@ -70,7 +97,7 @@ export default function InventoryPage() {
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
         <Link to="/inventario/precios" className="flex min-h-11 items-center rounded border bg-white px-3 text-sm">📱 Poner precios</Link>
         <Link to="/inventario/conteo" className="flex min-h-11 items-center rounded border bg-white px-3 text-sm">Conteo de stock</Link>
-        <button onClick={() => setEditingId('new')} className="min-h-11 rounded bg-amber-700 px-3 text-sm text-white">+ Nuevo producto</button>
+        <button onClick={() => { setNewBarcode(''); setEditingId('new') }} className="min-h-11 rounded bg-amber-700 px-3 text-sm text-white">+ Nuevo producto</button>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -83,8 +110,13 @@ export default function InventoryPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar nombre, marca, SKU o código"
-               className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
+        <div className="flex min-w-0 flex-1 gap-2">
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar nombre, marca, SKU o código"
+                 onKeyDown={e => e.key === 'Enter' && findByCode(query)} enterKeyHint="search"
+                 className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
+          {query && <button onClick={() => setQuery('')} className="min-h-11 shrink-0 rounded border bg-white px-3" aria-label="Limpiar búsqueda">✕</button>}
+          <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded bg-amber-700 px-4 text-white" aria-label="Buscar por código de barras">📷</button>
+        </div>
         <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
           <option value="">Todas las categorías</option>
           {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -151,7 +183,17 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {editing && <ProductEditor product={editing === 'new' ? null : editing} key={editingId ?? ''}
+      {notice && (
+        // Abajo: arriba taparía el campo Nombre del alta que se acaba de abrir.
+        <div role="status" className="pointer-events-none fixed inset-x-3 bottom-safe-3 z-[60] rounded-lg bg-amber-700 px-4 py-2 text-center text-sm text-white shadow-lg
+                                      md:inset-x-auto md:left-1/2 md:max-w-md md:-translate-x-1/2">{notice}</div>
+      )}
+
+      {scanning && <BarcodeScanner title="Buscar producto" onClose={() => setScanning(false)}
+                                   onDetected={c => { setScanning(false); findByCode(c) }} />}
+
+      {editing && <ProductEditor product={editing === 'new' ? null : editing} key={`${editingId}-${newBarcode}`}
+                                 initialBarcode={editing === 'new' ? newBarcode : undefined}
                                  onClose={() => setEditingId(null)} onSaved={onSaved} />}
     </div>
   )

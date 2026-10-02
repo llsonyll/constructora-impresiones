@@ -31,17 +31,19 @@ const input = 'min-h-11 w-full rounded border px-2 py-2 text-base sm:text-sm'
 
 interface Props {
   product: InventoryProduct | null
+  /** Código escaneado que no existía: precarga el alta de un producto nuevo. */
+  initialBarcode?: string
   onClose: () => void
   onSaved: (id: string, name: string) => void
 }
 
-export default function ProductEditor({ product, onClose, onSaved }: Props) {
+export default function ProductEditor({ product, initialBarcode = '', onClose, onSaved }: Props) {
   const { data: categories = [] } = useCategories()
   const { data: providers = [] } = useProviders()
   const save = useSaveProduct()
 
   const [initial] = useState(() => ({
-    sku: product?.sku ?? '', name: product?.name ?? '', brand: product?.brand ?? '', barcode: product?.barcode ?? '',
+    sku: product?.sku ?? '', name: product?.name ?? '', brand: product?.brand ?? '', barcode: product?.barcode ?? initialBarcode,
     category_id: product?.category_id?.toString() ?? '', provider_id: product?.provider_id ?? '',
     unit: product?.unit ?? 'und', price: product?.price?.toString() ?? '', cost: product?.cost?.toString() ?? '',
     min_stock: product?.min_stock?.toString() ?? '0', active: product?.active ?? false,
