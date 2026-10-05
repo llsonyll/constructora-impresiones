@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { IGV_RATE, money, round2 } from '@/lib/format'
-import { type InventoryProduct, useInventory } from '@/features/inventory/api'
+import { type CostEntry, type InventoryProduct, useCostHistory, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import {
   friendlyPoError, type PoDraft, poLabel, type ReceiptLine, STATUS_LABEL, STATUS_STYLE, useDeletePurchaseOrder,
@@ -84,6 +84,13 @@ export default function PurchaseOrderPage() {
   }, [dirty])
 
   const byId = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
+  // Última compra de cada producto de la orden (proveedor y fecha), del historial de costos.
+  const { data: history = [] } = useCostHistory(form?.lines.map(l => l.product_id) ?? [], 5)
+  const lastPurchase = useMemo(() => {
+    const m = new Map<string, CostEntry>()
+    for (const h of history) if (h.source === 'compra' && h.po_id !== routeId && !m.has(h.product_id)) m.set(h.product_id, h)
+    return m
+  }, [history, routeId])
   const provider = providers.find(p => p.id === form?.provider_id)
 
   const results = useMemo(() => {
@@ -312,7 +319,10 @@ export default function PurchaseOrderPage() {
                       <div className="text-sm font-medium">{p?.name ?? 'Producto'}</div>
                       <div className="text-xs text-stone-500">
                         {p?.sku} · stock {p?.stock ?? '—'} {p?.unit}
-                        {p?.cost != null && <> · último costo {money(p.cost)}</>}
+                        {lastPurchase.has(l.product_id)
+                          ? <> · última compra {money(lastPurchase.get(l.product_id)!.cost)}
+                              <span className="text-stone-400"> ({lastPurchase.get(l.product_id)!.provider_name ?? '—'}, {new Date(lastPurchase.get(l.product_id)!.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })})</span></>
+                          : p?.cost != null && <> · costo ref. {money(p.cost)}</>}
                         {p?.price != null
                           ? <> · precio {money(p.price)}{m != null && <span className={m < LOW_MARGIN ? 'font-medium text-red-600' : ''}> (margen {Math.round(m * 100)}%)</span>}</>
                           : <span className="text-amber-700"> · sin precio</span>}

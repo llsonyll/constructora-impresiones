@@ -52,8 +52,11 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
   Costos con o sin IGV por orden (si son sin IGV, al costo del producto se le suma 18%).
   *Pedir por WhatsApp* arma el mensaje con la lista y marca la orden como enviada.
 - **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
-  OC y la factura), el costo del producto pasa a ser el de la compra y el producto sin proveedor queda
-  asignado. Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo.
+  OC y la factura), cada costo queda en el historial y el producto sin proveedor queda asignado.
+  Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo.
+- **Historial de costos** (`product_cost_history`): cada compra (proveedor, OC, cantidad), cada cambio
+  manual y los costos iniciales del catálogo. `product_costs.cost` es solo la referencia nominal (el
+  último). Se ve en el editor del producto y, en la orden, la última compra con proveedor y fecha.
 - Reglas en la BD (`po_guard`): una orden recibida no se edita ni se borra (solo el N° de factura) y
   solo se recibe por el RPC.
 
