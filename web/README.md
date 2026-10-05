@@ -44,6 +44,19 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
 
+## Proveedores y compras (admin, almacén)
+
+- **Proveedores**: alta/edición (RUC, contacto, teléfono con enlace a WhatsApp). No se borran: se desactivan.
+- **Órdenes de compra** (`OC-0001…`): borrador → enviada → **recibida** (o cancelada).
+  Agregar productos buscando o escaneando, *+ stock bajo del proveedor*, o crear uno nuevo al vuelo.
+  Costos con o sin IGV por orden (si son sin IGV, al costo del producto se le suma 18%).
+  *Pedir por WhatsApp* arma el mensaje con la lista y marca la orden como enviada.
+- **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
+  OC y la factura), el costo del producto pasa a ser el de la compra y el producto sin proveedor queda
+  asignado. Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo.
+- Reglas en la BD (`po_guard`): una orden recibida no se edita ni se borra (solo el N° de factura) y
+  solo se recibe por el RPC.
+
 ## Celular: escaneo, fotos y alta rápida
 
 - **Escaneo**: cámara trasera; detector nativo (Chrome/Android) o ZXing-WASM (iPhone). El `.wasm` va
