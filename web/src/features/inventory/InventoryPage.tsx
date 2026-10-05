@@ -13,7 +13,7 @@ const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boole
   { id: 'todos', label: 'Todos', test: () => true },
   { id: 'sin_precio', label: 'Sin precio', test: p => p.price == null },
   { id: 'revisar', label: 'Por revisar', test: p => p.needs_review },
-  { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.stock <= p.min_stock },
+  { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.track_stock && p.stock <= p.min_stock },
   { id: 'inactivos', label: 'Inactivos', test: p => !p.active },
   // Incluye cambios de stock por ventas/ajustes, no solo ediciones.
   { id: 'recientes', label: 'Recientes (24 h)', test: p => Date.now() - Date.parse(p.updated_at) < DAY_MS },
@@ -155,7 +155,9 @@ export default function InventoryPage() {
                     </div>
                   </td>
                   <td className="p-2 max-md:hidden">{catName(p.category_id)}</td>
-                  <td className={`p-2 text-right tabular-nums ${p.stock <= p.min_stock ? 'text-red-600' : ''}`}>{p.stock} {p.unit}</td>
+                  {p.track_stock
+                    ? <td className={`p-2 text-right tabular-nums ${p.stock <= p.min_stock ? 'text-red-600' : ''}`}>{p.stock} {p.unit}</td>
+                    : <td className="p-2 text-right text-stone-400">servicio</td>}
                   <td className="p-2 text-right tabular-nums">{p.price != null ? money(p.price) : <span className="text-stone-400">—</span>}</td>
                   <td className="p-2 text-right tabular-nums max-sm:hidden">{p.cost != null ? money(p.cost) : '—'}</td>
                   <td className={`p-2 text-right tabular-nums max-sm:hidden ${m != null && m < 0.15 ? 'text-red-600' : ''}`}>

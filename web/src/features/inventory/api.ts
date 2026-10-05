@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { JobSource } from '@/types/domain'
 
 export interface InventoryProduct {
   id: string
@@ -19,6 +20,11 @@ export interface InventoryProduct {
   image_path: string | null    // ruta en el bucket product-images (ver lib/images.ts)
   updated_at: string           // cambia también con ventas/ajustes (el trigger de stock actualiza la fila)
   cost: number | null          // de product_costs (solo admin/almacén lo ven)
+  track_stock: boolean         // false = servicio (impresión, fotocopia): sin stock
+  job_sources: JobSource[]     // trabajos del agente a los que se ofrece (ver shared/print)
+  job_color: boolean | null
+  job_duplex: boolean
+  job_keywords: string[]
 }
 
 export interface Category { id: number; name: string }
@@ -33,7 +39,7 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, product_costs(cost)'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, product_costs(cost)'
 
 type Row = Omit<InventoryProduct, 'cost'> & { product_costs: { cost: number } | null }
 
@@ -139,7 +145,7 @@ export interface QuickProduct { name: string; price: number | null; barcode: str
 export async function quickCreateProduct(p: QuickProduct) {
   const { data, error } = await supabase.from('products')
     .insert({ ...p, active: p.price != null, needs_review: true })
-    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path')
+    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords')
     .single()
   if (error) throw error
   return data

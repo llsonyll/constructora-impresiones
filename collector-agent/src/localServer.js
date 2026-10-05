@@ -5,12 +5,19 @@ const http = require('http');
 // hablarle a este proceso en localhost (contenido mixto).
 function createLocalServer(cfg, { log, jobBuffer }) {
   const port = (cfg.localServer && cfg.localServer.port) || 4000;
-  const allowedOrigin = (cfg.localServer && cfg.localServer.allowedOrigin) || '*';
+  // allowedOrigin: un origen, una lista (app de impresiones + POS) o '*'.
+  const conf = (cfg.localServer && cfg.localServer.allowedOrigin) || '*';
+  const allowed = Array.isArray(conf) ? conf : [conf];
 
   const server = http.createServer((req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+    const origin = req.headers.origin;
+    if (allowed.includes('*')) res.setHeader('Access-Control-Allow-Origin', '*');
+    else if (origin && allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Chrome pide permiso explícito para que una página pública consulte localhost (Private Network Access).
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -37,7 +44,7 @@ function createLocalServer(cfg, { log, jobBuffer }) {
   server.on('error', (e) => log(`[servidor local] error: ${e.message}`));
 
   server.listen(port, '127.0.0.1', () => {
-    log(`[servidor local] escuchando en http://localhost:${port} (origen permitido: ${allowedOrigin})`);
+    log(`[servidor local] escuchando en http://localhost:${port} (orígenes permitidos: ${allowed.join(', ')})`);
   });
 
   return server;

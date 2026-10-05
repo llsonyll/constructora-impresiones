@@ -7,7 +7,14 @@ import { VitePWA } from 'vite-plugin-pwa'
 // VITE_BASE: '/' en Vercel/Netlify; '/constructora-impresiones/app/' si se sirve desde GitHub Pages.
 export default defineConfig({
   base: process.env.VITE_BASE ?? '/',
-  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Lógica de impresiones compartida con /index.html (app de Firebase) mientras ambas convivan.
+      '@shared': fileURLToPath(new URL('../shared', import.meta.url)),
+    },
+  },
+  server: { fs: { allow: ['..'] } },
   plugins: [
     react(),
     tailwindcss(),
