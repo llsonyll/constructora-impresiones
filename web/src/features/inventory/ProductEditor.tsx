@@ -8,7 +8,7 @@ import { useOverlay } from '@/lib/overlay'
 import type { JobSource } from '@/types/domain'
 import {
   friendlyError, inventoryKeys, type InventoryProduct, type ProductInput,
-  useAdjustStock, useCategories, useMovements, useProviders, useSaveProduct,
+  useAdjustStock, useCategories, useCostHistory, useMovements, useProviders, useSaveProduct,
 } from './api'
 
 const UNITS = ['und', 'hoja', 'm', 'kg', 'par', 'juego', 'paquete', 'bolsa', 'caja', 'rollo', 'galón', 'litro']
@@ -144,7 +144,7 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
             </select>
           </Field>
 
-          <Field label="Costo (con IGV)">
+          <Field label="Último costo (referencia, con IGV)">
             <input className={input} inputMode="decimal" value={f.cost} onChange={e => set('cost', e.target.value)} />
           </Field>
           <Field label="Precio de venta (con IGV)">
@@ -200,6 +200,7 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
 
         {product && <PhotoSection product={product} />}
         {product && product.track_stock && <StockSection product={product} />}
+        {product && <CostHistorySection product={product} />}
         {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { set('barcode', c); setScanning(false) }} />}
       </div>
     </div>
@@ -301,6 +302,41 @@ function StockSection({ product }: { product: InventoryProduct }) {
           </li>
         ))}
         {!movements.length && <li className="py-2 text-stone-500">Sin movimientos todavía.</li>}
+      </ul>
+    </section>
+  )
+}
+
+const COST_SOURCE: Record<string, string> = { compra: 'Compra', manual: 'Manual', inicial: 'Inicial' }
+
+/** Costos de compra en el tiempo; el "Costo" del formulario es solo la referencia (el último). */
+function CostHistorySection({ product }: { product: InventoryProduct }) {
+  const { data: history = [], isLoading } = useCostHistory([product.id])
+  const purchases = history.filter(h => h.source === 'compra').map(h => h.cost)
+  return (
+    <section className="mt-6 border-t pt-4">
+      <h3 className="mb-1 font-semibold">Historial de costos</h3>
+      {purchases.length > 1 && (
+        <p className="mb-2 text-xs text-stone-500">
+          {purchases.length} compras · mín. {money(Math.min(...purchases))} · máx. {money(Math.max(...purchases))}
+        </p>
+      )}
+      <ul className="divide-y text-sm">
+        {history.map(h => (
+          <li key={h.id} className="flex gap-2 py-1.5">
+            <span className="w-24 shrink-0 text-xs text-stone-500">{new Date(h.created_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: '2-digit' })}</span>
+            <span className="min-w-0 flex-1">
+              {COST_SOURCE[h.source]}
+              <span className="text-stone-500">
+                {h.po_number != null && ` · OC-${String(h.po_number).padStart(4, '0')}`}
+                {h.provider_name && ` · ${h.provider_name}`}
+                {h.qty != null && ` · ${Number(h.qty)} ${product.unit}`}
+              </span>
+            </span>
+            <span className="tabular-nums">{money(h.cost)}</span>
+          </li>
+        ))}
+        {!isLoading && !history.length && <li className="py-2 text-stone-500">Sin costos registrados.</li>}
       </ul>
     </section>
   )
