@@ -19,7 +19,7 @@
   },
   "localServer": {
     "port": 4000,
-    "allowedOrigin": "https://llsonyll.github.io",
+    "allowedOrigin": ["https://llsonyll.github.io", "https://web-five-kohl-92.vercel.app"],
     "bufferSize": 300
   },
   "statePath": "./state"

@@ -364,7 +364,10 @@ dialog::backdrop{background:rgba(30,42,50,.5)}
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.14.1/firebase-firestore-compat.js"></script>
-<script>
+<script type="module">
+import { COPIA, configPorDefecto, describirJob, formatJobTimestamp, productosParaJob,
+  hojasAsignadas, precioEn, cambiarHojas, cambiarPrecio, totalReparto, lineasDeReparto } from './shared/print/core.js';
+import { createAgentClient } from './shared/print/agent.js';
 const STORAGE_KEY = 'ferreteria_trabajos';
 const CORTE_TARDE_HORA = 14;
 
@@ -804,25 +807,8 @@ document.getElementById('peSave').addEventListener('click',()=>{
   }).then(()=>{ toast('Producto actualizado ✓'); prodDialog.close(); })
     .catch(err=>{ console.error(err); toast('No se pudo actualizar.'); });
 });
-const normNombre = s => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
-const COPIA='konica-copia', PRINT='pc-print';
-const CONFIG_DEFECTO = {
-  'fotocopia|simple':              {origenes:[COPIA], color:false},
-  'fotocopia|duplex':              {origenes:[COPIA], color:false, duplex:true},
-  'fotocopia|dni simple':          {origenes:[COPIA], color:false},
-  'fotocopia|dni color':           {origenes:[COPIA], color:true},
-  'fotocopia|dni ampliado b/n':    {origenes:[COPIA], color:false},
-  'fotocopia|dni ampliado color':  {origenes:[COPIA], color:true},
-  'impresion|simple - b/n':        {origenes:[PRINT], color:false},
-  'impresion|doble cara':          {origenes:[PRINT], color:false, duplex:true},
-  'impresion|color':               {origenes:[PRINT], color:true},
-  'impresion|color(grande)':       {origenes:[PRINT], color:true},
-  'impresion|record conductor':    {origenes:[PRINT], color:null, palabrasClave:['record','conductor']},
-  'impresion|dni ampliado':        {origenes:[PRINT], color:false, palabrasClave:['dni']},
-  'impresion|dni ampliado color':  {origenes:[PRINT], color:true, palabrasClave:['dni']}
-};
 document.getElementById('btnPrepararProductos').addEventListener('click', async ()=>{
-  const cambios = catalogo.map(p=>({p, cfg:CONFIG_DEFECTO[normNombre(p.categoria)+'|'+normNombre(p.nombre)]})).filter(x=>x.cfg);
+  const cambios = catalogo.map(p=>({p, cfg:configPorDefecto(p.categoria, p.nombre)})).filter(x=>x.cfg);
   if(!cambios.length){ toast('No se encontraron productos conocidos para configurar.'); return; }
   if(!confirm(`Se configurarán ${cambios.length} productos para trabajos detectados (origen, color, doble cara). No se cambian nombres ni precios. ¿Continuar?`)) return;
   try{
@@ -947,41 +933,18 @@ function downloadFile(content, filename, type){
 }
 
 // ---------- Agente local (SNMP + PaperCut) ----------
-const AGENT_URL = 'http://localhost:4000';
-const VISTOS_KEY = 'ferreteria_agente_vistos';
-const PENDIENTES_KEY = 'ferreteria_agente_pendientes';
-function loadLocal(key, def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
-function saveLocal(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
-let agenteVistos = new Set(loadLocal(VISTOS_KEY, []));
-let agentePendientes = loadLocal(PENDIENTES_KEY, []);
-
-function guardarPendientes(){
-  saveLocal(PENDIENTES_KEY, agentePendientes);
-  saveLocal(VISTOS_KEY, Array.from(agenteVistos).slice(-1000));
-  updatePendingBadge();
-  renderSidebar();
-}
+// La lógica (pendientes, clasificación, reparto de hojas) vive en shared/print/, compartida con el POS.
+// Aquí solo queda la UI. Los productos de Firestore ya tienen la forma que espera shared/print
+// (nombre, precio, origenes, color, duplex, palabrasClave), así que se pasan tal cual.
+const agente = createAgentClient({
+  onCambio: ()=>{ updatePendingBadge(); renderSidebar(); },
+  onNuevos: nuevos=>mostrarSnackbar(nuevos[nuevos.length-1]),
+  onEstado: setAgentEstado,
+});
 function updatePendingBadge(){
   const badge = document.getElementById('pendingBadge');
-  badge.textContent = agentePendientes.length;
-  badge.classList.toggle('show', agentePendientes.length>0);
-}
-// Los trabajos viejos de la Konica quedaron guardados como ISO en UTC ("...Z");
-// los nuevos y los de PaperCut vienen en hora local "YYYY-MM-DD HH:mm:ss".
-function formatJobTimestamp(ts){
-  if(!ts) return '';
-  if(/(Z|[+-]\d\d:?\d\d)$/.test(ts)){
-    const d = new Date(ts);
-    if(isNaN(d)) return ts;
-    const p = n=>String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  }
-  return ts;
-}
-function describirJob(j){
-  const tipo = j.fuente==='konica-copia' ? 'Copia' : 'Impresión';
-  const modo = j.color ? 'Color' : 'B/N';
-  return `${tipo} ${modo} · ${j.hojas} hoja${j.hojas!==1?'s':''} · ${j.impresora||''}`;
+  badge.textContent = agente.pendientes.length;
+  badge.classList.toggle('show', agente.pendientes.length>0);
 }
 function ocultarSnackbar(){ document.getElementById('jobSnackbar').style.display='none'; }
 function mostrarSnackbar(job){
@@ -1000,7 +963,7 @@ function asignarJobARegistrar(job){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active', v.id==='view-registrar'));
   const detalles = document.querySelector('#view-registrar details');
   if(detalles) detalles.open = true;
-  document.getElementById('f2-categoria').value = job.fuente==='konica-copia' ? 'Fotocopia' : 'Impresión';
+  document.getElementById('f2-categoria').value = job.fuente===COPIA ? 'Fotocopia' : 'Impresión';
   document.getElementById('f2-cantidad').value = job.hojas;
   document.getElementById('f2-descripcion').value = `Detectado automático: ${describirJob(job)}`;
   document.getElementById('f2-precio').value = '';
@@ -1008,29 +971,14 @@ function asignarJobARegistrar(job){
   toast('Trabajo cargado abajo — completá el precio y agrégalo a la venta.');
 }
 function resolverJob(job, accion){
-  agentePendientes = agentePendientes.filter(j=>j.id!==job.id);
   delete jobAlloc[job.id];
   if(accion==='asignar') asignarJobARegistrar(job);
-  guardarPendientes();
+  agente.quitar(job.id);
 }
 // ---- repartir las hojas de un pendiente entre productos ----
 // jobAlloc[jobId] = { [productoId]: {qty, precio} }  (solo en memoria)
 const jobAlloc = {};
-function productosParaJob(job){
-  const doc = normNombre(job.documento);
-  // Konica: los contadores B/N y color son exactos, se filtra por color.
-  // PaperCut: el campo de escala de grises depende de la configuración del
-  // driver (suele marcar color aunque el documento sea B/N), así que solo
-  // ordena, no oculta productos.
-  const colorOk = p => p.color==null || p.color===!!job.color;
-  const compat = catalogo.filter(p=>p.activo!==false && (p.origenes||[]).includes(job.fuente)
-    && (job.fuente!=='konica-copia' || colorOk(p)));
-  const sugerido = p => (job.duplex && p.duplex===true) || (doc && (p.palabrasClave||[]).some(k=>doc.includes(normNombre(k))));
-  return compat.map(p=>({p, sug:sugerido(p), col:colorOk(p)}))
-    .sort((a,b)=> (b.sug-a.sug) || (b.col-a.col) || a.p.nombre.localeCompare(b.p.nombre));
-}
-function allocOf(job){ return jobAlloc[job.id] || (jobAlloc[job.id]={}); }
-function asignadas(job){ return Object.values(allocOf(job)).reduce((s,x)=>s+(x.qty||0),0); }
+const allocOf = job => jobAlloc[job.id] || {};
 function addCatalogQty(id, n){
   const span = document.getElementById('qtynum-'+id);
   if(!span) return false;
@@ -1040,42 +988,28 @@ function addCatalogQty(id, n){
   return true;
 }
 function agregarJobAlTicket(job){
-  const alloc = allocOf(job);
-  let n=0;
-  Object.entries(alloc).forEach(([id,x])=>{
-    if(!x.qty) return;
-    const p = catalogo.find(c=>c.id===id); if(!p) return;
-    const precio = Number.isFinite(x.precio) ? x.precio : p.precio;
+  const { lineas, usadas, resto } = lineasDeReparto(job, allocOf(job), catalogo);
+  if(!usadas) return;
+  lineas.forEach(({producto:p, qty, precio, mismoPrecio})=>{
     // mismo precio que el catálogo: suma a la tarjeta; precio distinto: ítem propio
-    if(precio===p.precio && addCatalogQty(id, x.qty)) { n+=x.qty; return; }
-    cart.push({categoria:p.categoria, subcategoria:p.nombre, descripcion:'', cantidad:x.qty, precioUnitario:precio, subtotal:+(x.qty*precio).toFixed(2)});
-    n+=x.qty;
+    if(mismoPrecio && addCatalogQty(p.id, qty)) return;
+    cart.push({categoria:p.categoria, subcategoria:p.nombre, descripcion:'', cantidad:qty, precioUnitario:precio, subtotal:+(qty*precio).toFixed(2)});
   });
-  if(!n) return;
   updateVentaTotal();
-  const resto = job.hojas - n;
   delete jobAlloc[job.id];
-  if(resto>0){
-    job.hojas = resto;
-    guardarPendientes();
-    toast(`Agregado al ticket ✓ · quedan ${resto} hoja${resto!==1?'s':''} pendiente${resto!==1?'s':''}`);
-  }else{
-    agentePendientes = agentePendientes.filter(j=>j.id!==job.id);
-    guardarPendientes();
-    toast('Agregado al ticket ✓');
-  }
+  agente.dejarHojas(job.id, resto);
+  toast(resto>0 ? `Agregado al ticket ✓ · quedan ${resto} hoja${resto!==1?'s':''} pendiente${resto!==1?'s':''}` : 'Agregado al ticket ✓');
 }
 function jobCardHtml(j){
-  const lista = productosParaJob(j);
+  const lista = productosParaJob(j, catalogo);
   const alloc = allocOf(j);
-  const usadas = asignadas(j);
-  const total = lista.reduce((s,{p})=>{ const x=alloc[p.id]; return s+(x&&x.qty? x.qty*(Number.isFinite(x.precio)?x.precio:p.precio):0); },0);
+  const usadas = hojasAsignadas(alloc);
+  const total = totalReparto(alloc, catalogo);
   const filas = lista.map(({p,sug})=>{
     const x = alloc[p.id]||{qty:0};
-    const precio = Number.isFinite(x.precio) ? x.precio : p.precio;
     return `<div class="jrow ${sug?'sug':''}">
       <div class="jname">${sug?'⭐ ':''}${escapeHtml(p.nombre)}</div>
-      <input class="jprice" type="number" min="0" step="0.10" value="${precio}" data-jprice="${j.id}|${p.id}" title="Precio por hoja (solo para esta venta)">
+      <input class="jprice" type="number" min="0" step="0.10" value="${precioEn(alloc,p)}" data-jprice="${j.id}|${p.id}" title="Precio por hoja (solo para esta venta)">
       <div class="jstep"><button type="button" data-jdelta="-1" data-j="${j.id}|${p.id}">−</button><span>${x.qty||0}</span><button type="button" data-jdelta="1" data-j="${j.id}|${p.id}">+</button></div>
     </div>`;
   }).join('');
@@ -1093,22 +1027,20 @@ function jobCardHtml(j){
 }
 function renderSidebar(){
   const wrap = document.getElementById('sidebarBody');
-  if(!agentePendientes.length){ wrap.innerHTML='<div class="empty">No hay trabajos pendientes.</div>'; return; }
-  wrap.innerHTML = agentePendientes.slice().reverse().map(jobCardHtml).join('');
-  const jobById = id => agentePendientes.find(j=>j.id===id);
+  const pendientes = agente.pendientes;
+  if(!pendientes.length){ wrap.innerHTML='<div class="empty">No hay trabajos pendientes.</div>'; return; }
+  wrap.innerHTML = pendientes.slice().reverse().map(jobCardHtml).join('');
+  const jobById = id => agente.pendientes.find(j=>j.id===id);
   wrap.querySelectorAll('[data-jdelta]').forEach(b=>b.addEventListener('click',()=>{
     const [jid,pid]=b.dataset.j.split('|'); const job=jobById(jid); if(!job) return;
-    const x = allocOf(job)[pid] || (allocOf(job)[pid]={qty:0});
-    const delta = Number(b.dataset.jdelta);
-    if(delta>0 && asignadas(job)>=job.hojas){ toast('Ya asignaste todas las hojas de este trabajo.'); return; }
-    x.qty = Math.max(0, (x.qty||0)+delta);
+    const nuevo = cambiarHojas(job, allocOf(job), pid, Number(b.dataset.jdelta));
+    if(!nuevo){ toast('Ya asignaste todas las hojas de este trabajo.'); return; }
+    jobAlloc[jid] = nuevo;
     renderSidebar();
   }));
   wrap.querySelectorAll('[data-jprice]').forEach(inp=>inp.addEventListener('change',()=>{
     const [jid,pid]=inp.dataset.jprice.split('|'); const job=jobById(jid); if(!job) return;
-    const v = Number(inp.value);
-    const x = allocOf(job)[pid] || (allocOf(job)[pid]={qty:0});
-    if(inp.value===''||isNaN(v)||v<0) delete x.precio; else x.precio = v;
+    jobAlloc[jid] = cambiarPrecio(allocOf(job), pid, inp.value);
     renderSidebar();
   }));
   wrap.querySelectorAll('[data-jadd]').forEach(b=>b.addEventListener('click',()=>{
@@ -1129,78 +1061,17 @@ document.getElementById('btnSidebarToggle').addEventListener('click', abrirSideb
 document.getElementById('btnSidebarClose').addEventListener('click', cerrarSidebar);
 document.getElementById('sidebarOverlay').addEventListener('click', cerrarSidebar);
 
-let agentPollHandle = null;
-let agentEstado = 'nunca'; // 'nunca' | 'conectado' | 'perdido'
-
-function setAgentEstado(nuevo){
-  agentEstado = nuevo;
+function setAgentEstado(estado){
   const el = document.getElementById('agentStatus');
   const btn = document.getElementById('btnAgentConnect');
-  if(nuevo==='conectado'){
-    el.textContent = '🟢 Conectado a tareas';
-    btn.style.display = 'none';
-  }else if(nuevo==='perdido'){
-    el.textContent = '🔴 Se perdió la conexión';
-    btn.style.display = '';
-  }else{
-    el.textContent = '⚪ Agente no conectado';
-    btn.style.display = '';
-  }
+  el.textContent = { conectado:'🟢 Conectado a tareas', perdido:'🔴 Se perdió la conexión', conectando:'Conectando…' }[estado] || '⚪ Agente no conectado';
+  btn.style.display = estado==='conectado' ? 'none' : '';
 }
-
-async function procesarJobs(){
-  const res = await fetch(AGENT_URL + '/jobs');
-  if(!res.ok) throw new Error('bad status');
-  const jobs = await res.json();
-  const nuevos = [];
-  jobs.forEach(j=>{
-    if(agenteVistos.has(j.id)) return;
-    agenteVistos.add(j.id);
-    agentePendientes.push(j);
-    nuevos.push(j);
-  });
-  if(nuevos.length){
-    guardarPendientes();
-    mostrarSnackbar(nuevos[nuevos.length-1]);
-  }
-}
-
-async function chequearAgente(){
-  try{
-    await procesarJobs();
-    if(agentEstado!=='conectado'){
-      setAgentEstado('conectado');
-      if(!agentPollHandle) agentPollHandle = setInterval(pollAgente, 6000);
-    }
-  }catch(err){
-    // se usa tanto para el primer intento como para reintentos manuales
-    if(agentEstado==='conectado'){
-      setAgentEstado('perdido');
-      clearInterval(agentPollHandle); agentPollHandle = null;
-    }else{
-      setAgentEstado('nunca');
-    }
-  }
-}
-async function pollAgente(){
-  try{ await procesarJobs(); }
-  catch(err){
-    setAgentEstado('perdido');
-    clearInterval(agentPollHandle); agentPollHandle = null;
-  }
-}
-
-document.getElementById('btnAgentConnect').addEventListener('click', ()=>{
-  document.getElementById('agentStatus').textContent = 'Conectando…';
-  chequearAgente();
-});
+document.getElementById('btnAgentConnect').addEventListener('click', ()=>agente.conectar());
 setAgentEstado('nunca');
 updatePendingBadge();
 renderSidebar();
-chequearAgente(); // un solo intento automático al cargar, sin loop si falla
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && agentEstado==='conectado') pollAgente();
-});
+agente.conectar(); // un solo intento automático al cargar, sin loop si falla
 
 // ---------- init ----------
 updateHeaderTotal();

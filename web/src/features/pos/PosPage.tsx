@@ -4,6 +4,9 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
+import PrintJobsPanel from '@/features/print/PrintJobsPanel'
+import { usePrintAgent } from '@/features/print/usePrintAgent'
+import { describirJob } from '@shared/print/core.js'
 import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
@@ -30,6 +33,9 @@ export default function PosPage() {
   const [flash, setFlash] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null)
   const [online, setOnline] = useState(navigator.onLine)
   const [paying, setPaying] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
+  const [onlyServices, setOnlyServices] = useState(false)
+  const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
   const payingRef = useRef(false)
   // Un id por ticket: si el cobro se reintenta, se reutiliza y no se duplica la venta.
@@ -47,14 +53,16 @@ export default function PosPage() {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [])
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 2500); return () => clearTimeout(t) }, [flash])
+  useEffect(() => { if (!agent.ultimoNuevo) return; const t = setTimeout(agent.descartarAviso, 8000); return () => clearTimeout(t) }, [agent.ultimoNuevo])
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    if (!q) return products.slice(0, 24)
-    return products.filter(p => p.sku.toLowerCase() === q || p.barcode === q ||
+    const pool = onlyServices ? products.filter(p => p.track_stock === false) : products
+    if (!q) return onlyServices ? pool : pool.slice(0, 24)
+    return pool.filter(p => p.sku.toLowerCase() === q || p.barcode === q ||
       p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) ||
       (p.brand?.toLowerCase().includes(q) ?? false)).slice(0, 48)
-  }, [products, query])
+  }, [products, query, onlyServices])
 
   const add = (p: Product) => { dispatch({ type: 'addProduct', product: p }); setFlash({ text: `+1 ${p.name}`, tone: 'ok' }) }
 
@@ -98,7 +106,27 @@ export default function PosPage() {
                  onKeyDown={e => e.key === 'Enter' && query.trim() && handleCode(query.trim())}
                  placeholder="Buscar producto…" className="min-w-0 flex-1 rounded-lg border p-3 text-base" />
           <button onClick={() => setScanning(true)} className="min-w-12 shrink-0 rounded-lg bg-amber-700 px-4 text-white" aria-label="Escanear código">📷</button>
+          <button onClick={() => setPrintOpen(true)} aria-label={`Trabajos de impresión (${agent.pendientes.length} pendientes)`}
+                  className="relative min-w-12 shrink-0 rounded-lg border bg-white px-3">
+            🖨️
+            {agent.pendientes.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs text-white">{agent.pendientes.length}</span>
+            )}
+          </button>
         </div>
+        <div className="mb-3 flex gap-2">
+          <button onClick={() => setOnlyServices(v => !v)} aria-pressed={onlyServices}
+                  className={`min-h-11 rounded-full border px-4 text-sm ${onlyServices ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+            Impresiones y copias
+          </button>
+        </div>
+        {agent.ultimoNuevo && (
+          <div role="status" className="mb-3 flex items-center gap-2 rounded-lg bg-stone-900 p-2 pl-3 text-sm text-white">
+            <span className="min-w-0 flex-1">🖨️ Nuevo trabajo: {describirJob(agent.ultimoNuevo)}</span>
+            <button onClick={() => { agent.descartarAviso(); setPrintOpen(true) }} className="min-h-11 rounded bg-amber-600 px-3">Asignar</button>
+            <button onClick={agent.descartarAviso} className="grid size-11 place-items-center" aria-label="Cerrar aviso">✕</button>
+          </div>
+        )}
         {!online && <p className="mb-2 rounded bg-amber-50 p-2 text-xs text-amber-800">Sin internet: las ventas se guardan en el equipo y se envían al reconectar.</p>}
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
@@ -111,7 +139,9 @@ export default function PosPage() {
                   <div className="line-clamp-2 text-sm font-medium">{p.name}</div>
                   <div className="mt-1 flex justify-between text-sm">
                     <span className="font-semibold">{money(p.price)}</span>
-                    <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>
+                    {p.track_stock === false
+                      ? <span className="text-stone-500">por {p.unit}</span>
+                      : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
                   </div>
                 </div>
               </button>
@@ -200,6 +230,14 @@ export default function PosPage() {
         <div role="status" className={`pointer-events-none fixed inset-x-3 bottom-safe-20 z-40 truncate rounded-lg px-4 py-2 text-center text-sm text-white shadow
                                         md:inset-x-auto md:bottom-4 md:left-1/2 md:max-w-md md:-translate-x-1/2
                                         ${flash.tone === 'ok' ? 'bg-stone-900/90' : 'bg-amber-700'}`}>{flash.text}</div>
+      )}
+
+      {printOpen && (
+        <PrintJobsPanel agent={agent} products={products} onClose={() => setPrintOpen(false)}
+                        onAdd={(printLines, resto) => {
+                          for (const l of printLines) dispatch({ type: 'addLine', ...l })
+                          setFlash({ text: resto > 0 ? `Agregado al ticket · quedan ${resto} hoja${resto === 1 ? '' : 's'} pendiente${resto === 1 ? '' : 's'}` : 'Agregado al ticket', tone: 'ok' })
+                        }} />
       )}
 
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setScanning(false); handleCode(c) }} />}

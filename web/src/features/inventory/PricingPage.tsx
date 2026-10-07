@@ -13,8 +13,8 @@ import QuickCreateSheet from './QuickCreateSheet'
 type Queue = 'sin_precio' | 'sin_foto' | 'sin_codigo' | 'todos'
 const QUEUES: { id: Queue; label: string; test: (p: InventoryProduct) => boolean }[] = [
   { id: 'sin_precio', label: 'Sin precio', test: p => p.price == null },
-  { id: 'sin_foto', label: 'Sin foto', test: p => !p.image_path },
-  { id: 'sin_codigo', label: 'Sin código', test: p => !p.barcode },
+  { id: 'sin_foto', label: 'Sin foto', test: p => !p.image_path && p.track_stock },
+  { id: 'sin_codigo', label: 'Sin código', test: p => !p.barcode && p.track_stock },
   { id: 'todos', label: 'Todos', test: () => true },
 ]
 const MARKUPS = [0.3, 0.35, 0.4, 0.5]

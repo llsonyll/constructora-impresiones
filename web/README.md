@@ -71,6 +71,17 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,
   marcado *por revisar*) y se agrega. Sin internet o sin permiso → ítem libre.
 
+## Impresiones y copias (POS)
+
+- Productos de la categoría *Impresión y fotocopia* son **servicios** (`track_stock = false`): se venden por hoja y no
+  descuentan stock (`create_sale` no genera movimientos para ellos). En Inventario se marcan con *Servicio (no lleva stock)*.
+- Botón 🖨️ en Ventas: trabajos que detecta el agente local (`http://localhost:4000`). Se reparten las hojas entre los
+  productos (columnas `job_sources`, `job_color`, `job_duplex`, `job_keywords`; se editan en la sección
+  *Trabajos detectados* del producto), con precio editable solo para esa venta; las hojas sin asignar quedan pendientes.
+- La lógica es la misma de `/index.html`: vive en `../shared/print/` (alias `@shared`) y `features/print/adapter.ts`
+  traduce `products` a la forma que espera.
+- El agente debe permitir el dominio de Vercel en `localServer.allowedOrigin` (ver `collector-agent/README.md`).
+
 ## Offline (POS)
 
 `checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la

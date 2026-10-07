@@ -17,7 +17,15 @@ export interface Product {
   min_stock: number
   active: boolean
   image_path: string | null
+  track_stock: boolean   // false = servicio (impresión, fotocopia): no descuenta stock
+  job_sources: JobSource[]
+  job_color: boolean | null
+  job_duplex: boolean
+  job_keywords: string[]
 }
+
+/** Origen de los trabajos que detecta el agente local (ver shared/print). */
+export type JobSource = 'konica-copia' | 'pc-print'
 
 export interface CartLine {
   key: string                 // id local de la línea

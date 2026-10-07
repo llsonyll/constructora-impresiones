@@ -5,12 +5,13 @@ import PhotoInput from '@/components/PhotoInput'
 import { imageUrl, uploadProductImage } from '@/lib/images'
 import { money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
+import type { JobSource } from '@/types/domain'
 import {
   friendlyError, inventoryKeys, type InventoryProduct, type ProductInput,
   useAdjustStock, useCategories, useCostHistory, useMovements, useProviders, useSaveProduct,
 } from './api'
 
-const UNITS = ['und', 'm', 'kg', 'par', 'juego', 'paquete', 'bolsa', 'caja', 'rollo', 'galón', 'litro']
+const UNITS = ['und', 'hoja', 'm', 'kg', 'par', 'juego', 'paquete', 'bolsa', 'caja', 'rollo', 'galón', 'litro']
 const MARKUPS = [0.3, 0.35, 0.4, 0.5]
 const REASONS: Record<string, string> = {
   venta: 'Venta', compra: 'Compra', ajuste: 'Ajuste', devolucion: 'Devolución', anulacion_venta: 'Venta anulada',
@@ -48,6 +49,9 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
     unit: product?.unit ?? 'und', price: product?.price?.toString() ?? '', cost: product?.cost?.toString() ?? '',
     min_stock: product?.min_stock?.toString() ?? '0', active: product?.active ?? false,
     needs_review: product?.needs_review ?? false, notes: product?.notes ?? '',
+    track_stock: product?.track_stock ?? true, job_sources: product?.job_sources ?? [],
+    job_color: product?.job_color == null ? 'any' : product.job_color ? 'color' : 'bn',
+    job_duplex: product?.job_duplex ?? false, job_keywords: (product?.job_keywords ?? []).join(', '),
   }))
   const [f, setF] = useState(initial)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
@@ -84,6 +88,9 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
       provider_id: f.provider_id || null, unit: f.unit, price: hasPrice ? price : null,
       cost: cost != null && !Number.isNaN(cost) ? cost : null, min_stock: num(f.min_stock) ?? 0,
       active: hasPrice && f.active, needs_review: f.needs_review, notes: f.notes.trim() || null,
+      track_stock: f.track_stock, job_sources: f.job_sources, job_duplex: f.job_duplex,
+      job_color: f.job_color === 'any' ? null : f.job_color === 'color',
+      job_keywords: f.job_keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean),
     }
     try {
       const id = await save.mutateAsync(payload)
@@ -158,10 +165,16 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
             Margen: {m != null ? `${Math.round(m * 100)}% (${money(price! - cost!)} por ${f.unit})` : '—'}
           </p>
 
-          <Field label="Stock mínimo (alerta)">
-            <input className={input} inputMode="decimal" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} />
-          </Field>
+          {f.track_stock ? (
+            <Field label="Stock mínimo (alerta)">
+              <input className={input} inputMode="decimal" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} />
+            </Field>
+          ) : <div />}
           <div className="flex flex-col justify-end gap-2 text-sm">
+            <label className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" className="size-5" checked={!f.track_stock} onChange={e => set('track_stock', !e.target.checked)} />
+              Servicio (no lleva stock)
+            </label>
             <label className={`flex min-h-11 items-center gap-2 ${hasPrice ? '' : 'opacity-50'}`} title={hasPrice ? '' : 'Pon un precio para activarlo'}>
               <input type="checkbox" className="size-5" checked={hasPrice && f.active} disabled={!hasPrice} onChange={e => set('active', e.target.checked)} />
               Activo (visible en el POS)
@@ -171,6 +184,7 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
               Marcar para revisar
             </label>
           </div>
+          <JobFields f={f} set={set} />
           <Field label="Notas" className="col-span-2">
             <textarea className={input} rows={3} value={f.notes} onChange={e => set('notes', e.target.value)} />
           </Field>
@@ -185,11 +199,50 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
         </form>
 
         {product && <PhotoSection product={product} />}
-        {product && <StockSection product={product} />}
+        {product && product.track_stock && <StockSection product={product} />}
         {product && <CostHistorySection product={product} />}
         {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { set('barcode', c); setScanning(false) }} />}
       </div>
     </div>
+  )
+}
+
+const SOURCES: { id: JobSource; label: string }[] = [
+  { id: 'konica-copia', label: 'Copias (Konica)' }, { id: 'pc-print', label: 'Impresiones (PC)' },
+]
+type JobForm = { job_sources: JobSource[]; job_color: string; job_duplex: boolean; job_keywords: string }
+
+/** Cómo se ofrece el producto al repartir los trabajos que detecta el agente (ver shared/print/core.js). */
+function JobFields<F extends JobForm>({ f, set }: { f: F; set: <K extends keyof F>(k: K, v: F[K]) => void }) {
+  const toggle = (id: JobSource, on: boolean) =>
+    set('job_sources', (on ? [...f.job_sources, id] : f.job_sources.filter(s => s !== id)) as F['job_sources'])
+  return (
+    <details className="col-span-2 rounded border p-3 text-sm" open={f.job_sources.length > 0}>
+      <summary className="min-h-11 cursor-pointer content-center font-medium">Trabajos detectados (impresiones y copias)</summary>
+      <p className="mb-2 text-xs text-stone-500">Se ofrece en el panel 🖨️ del POS al asignar las hojas de un trabajo del agente.</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 flex flex-wrap gap-4">
+          {SOURCES.map(s => (
+            <label key={s.id} className="flex min-h-11 items-center gap-2">
+              <input type="checkbox" className="size-5" checked={f.job_sources.includes(s.id)} onChange={e => toggle(s.id, e.target.checked)} />
+              {s.label}
+            </label>
+          ))}
+        </div>
+        <Field label="Color">
+          <select className={input} value={f.job_color} onChange={e => set('job_color', e.target.value as F['job_color'])}>
+            <option value="any">B/N o color</option><option value="bn">Solo B/N</option><option value="color">Solo color</option>
+          </select>
+        </Field>
+        <label className="flex min-h-11 items-center gap-2 self-end">
+          <input type="checkbox" className="size-5" checked={f.job_duplex} onChange={e => set('job_duplex', e.target.checked as F['job_duplex'])} />
+          Sugerir en doble cara
+        </label>
+        <Field label="Palabras clave del documento (separadas por coma)" className="col-span-2">
+          <input className={input} value={f.job_keywords} onChange={e => set('job_keywords', e.target.value as F['job_keywords'])} placeholder="record, conductor" />
+        </Field>
+      </div>
+    </details>
   )
 }
 

@@ -13,7 +13,8 @@
     "noEmit": true,
     "types": ["node", "vite/client", "vite-plugin-pwa/client"],
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": { "@/*": ["src/*"], "@shared/*": ["../shared/*"] },
+    "allowJs": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "../shared"]
 }

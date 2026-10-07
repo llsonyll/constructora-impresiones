@@ -26,7 +26,7 @@ export default function StockCountPage() {
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return products.filter(p => (category === '' || p.category_id === category)
+    return products.filter(p => p.track_stock && (category === '' || p.category_id === category)
       && (!onlyPending || !(p.id in counts))
       && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.barcode === q))
   }, [products, category, query, onlyPending, counts])

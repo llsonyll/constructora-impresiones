@@ -84,6 +84,8 @@ export default function PurchaseOrderPage() {
   }, [dirty])
 
   const byId = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
+  // Servicios (impresiones, fotocopias) no se compran ni llevan stock: no se ofrecen en la orden.
+  const purchasable = useMemo(() => products.filter(p => p.track_stock), [products])
   // Última compra de cada producto de la orden (proveedor y fecha), del historial de costos.
   const { data: history = [] } = useCostHistory(form?.lines.map(l => l.product_id) ?? [], 5)
   const lastPurchase = useMemo(() => {
@@ -96,9 +98,9 @@ export default function PurchaseOrderPage() {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
-    return products.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
+    return purchasable.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
       || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false)).slice(0, 8)
-  }, [products, query])
+  }, [purchasable, query])
 
   if (!isNew && isLoading) return <p className="p-6 text-stone-500">Cargando…</p>
   if (loadError) return <p className="p-6 text-red-600">Error: {friendlyPoError(loadError)}</p>
@@ -134,7 +136,7 @@ export default function PurchaseOrderPage() {
   function handleCode(raw: string) {
     const code = raw.trim()
     if (!code) return
-    const hit = products.find(p => p.barcode === code || p.sku.toLowerCase() === code.toLowerCase())
+    const hit = purchasable.find(p => p.barcode === code || p.sku.toLowerCase() === code.toLowerCase())
     if (hit) return addProduct(hit)
     if (results.length === 1) return addProduct(results[0])
     if (/^\d{6,}$/.test(code)) setCreating({ barcode: code })
@@ -143,7 +145,7 @@ export default function PurchaseOrderPage() {
   function addLowStock() {
     if (!form) return
     const inOrder = new Set(form.lines.map(l => l.product_id))
-    const low = products.filter(p => p.provider_id === form.provider_id && !inOrder.has(p.id) && p.stock <= p.min_stock)
+    const low = purchasable.filter(p => p.provider_id === form.provider_id && !inOrder.has(p.id) && p.stock <= p.min_stock)
     if (!low.length) return setFlash('Ningún producto de este proveedor está bajo el mínimo')
     setForm(f => f && {
       ...f,

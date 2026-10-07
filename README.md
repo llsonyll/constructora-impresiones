@@ -29,12 +29,25 @@ Reemplaza el cuaderno o Excel: registra ventas por turno (mañana/tarde), usuari
 ┌─────────────┴──────────────┐
 │ collector-agent/ (Node.js) │  PaperCut CSV (impresiones)
 │ servicio de Windows        │  SNMP Konica (copias)
-└────────────────────────────┘
+└─────────────┬──────────────┘
+              │ fetch http://localhost:4000 (/jobs)
+┌─────────────▼──────────────┐        ┌──────────────────────────┐
+│ web/ POS (Vercel, React)   │◄──────►│ Supabase                 │
+│ panel 🖨️ de impresiones    │        │ products, sales (RPC)    │
+└────────────────────────────┘        └──────────────────────────┘
 ```
+
+Las dos apps conviven: **Firebase** sigue detrás de `index.html` y **Supabase** detrás del POS de `web/`.
+La lógica de impresiones (pendientes del agente, qué productos ofrecer por trabajo, reparto de hojas)
+está en `shared/print/` y la usan ambas; cada app solo adapta sus productos y guarda las ventas a su manera.
+Cuando `index.html` se deje de usar, se retira Firebase y `shared/print/` pasa a `web/`.
 
 | Ruta | Contenido |
 |---|---|
-| `index.html` | Toda la app (HTML, CSS y JS inline). Firebase v10 compat por CDN. |
+| `index.html` | App de impresiones (HTML, CSS y JS inline). Firebase v10 compat por CDN. |
+| `shared/print/` | Lógica de impresiones sin backend (`core.js`) y cliente del agente (`agent.js`), ES modules. |
+| `web/` | Plataforma de la ferretería (POS, inventario) con Supabase. Ver su [README](web/README.md). |
+| `supabase/` | Migraciones SQL de la plataforma. |
 | `test-agente.html` | Página de prueba de conexión con el agente. |
 | `collector-agent/` | Agente local de captura. Ver su [README](collector-agent/README.md). |
 
@@ -47,7 +60,7 @@ Reemplaza el cuaderno o Excel: registra ventas por turno (mañana/tarde), usuari
 
 ## Uso local
 
-No hay build ni dependencias para la app: abre `index.html` en el navegador (o sírvelo con cualquier servidor estático, por ejemplo `python3 -m http.server`).
+No hay build ni dependencias para la app, pero importa `shared/print/` como ES module, así que hay que servirla (abrirla con `file://` no funciona): `python3 -m http.server` en la raíz y abrir `http://localhost:8000`.
 
 Para el agente de impresiones, sigue las instrucciones de [`collector-agent/README.md`](collector-agent/README.md) (`npm install`, copiar `config.example.json` a `config.json`, `npm start` o instalar como servicio).
 
