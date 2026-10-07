@@ -33,7 +33,7 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', tarjeta: 'Tarjeta', transferencia: 'Transferencia',
 }
 export const SHIFT_LABEL: Record<Shift, string> = { manana: 'Mañana', tarde: 'Tarde' }
-export const KIND_LABEL: Record<LineKind, string> = { ferreteria: 'Ferretería', impresion: 'Impresiones y copias', otros: 'Otros' }
+export const KIND_LABEL: Record<LineKind, string> = { ferreteria: 'Ferretería', impresion: 'Impresiones y fotocopias', otros: 'Otros' }
 
 /** Rango [inicio, fin) del día local `YYYY-MM-DD`, en ISO (UTC) para comparar con `sold_at`. */
 export function dayRange(day: string) {

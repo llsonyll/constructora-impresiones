@@ -73,8 +73,8 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
 ## Ventas de hoy (`/hoy`)
 
-- Ventas de un día (hoy por defecto, se puede elegir otra fecha) con total, desglose por medio de pago, turno y tipo
-  (*Ferretería* = productos con stock, *Impresiones y copias* = servicios, *Otros* = ítems libres).
+- Ventas de un día (hoy por defecto, se puede elegir otra fecha) con total, desglose por medio de pago y tabla tipo × turno
+  (*Ferretería* = productos con stock, *Impresiones y fotocopias* = servicios, *Otros* = ítems libres).
 - Filtros por turno, medio de pago y cajero (solo admin). RLS: el cajero ve solo sus ventas; el admin, todas.
 - Incluye las ventas que siguen en la cola del equipo (⏳ por sincronizar) y se actualiza en vivo (Realtime en `sales`).
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
