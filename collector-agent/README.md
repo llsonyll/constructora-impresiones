@@ -26,7 +26,7 @@ Revisa/ajusta en `config.json`:
 - `konica.ip` / `konica.community` si cambian.
 - `papercut.logsFolder` (ruta exacta de los CSV; confírmala en tu instalación real).
 - `papercut.ignoredPrinterContains`: textos que, si aparecen en el nombre de la impresora, hacen que esa fila se ignore (fax, PDF/XPS/OneNote, colas viejas del Konica).
-- `localServer.allowedOrigin`: los dominios exactos de las apps que consultan al agente, como lista: la app de impresiones (`https://llsonyll.github.io`) y el POS en Vercel (`https://<tu-app>.vercel.app`). También acepta un solo texto (formato anterior). Después de cambiarlo, reinicia el servicio.
+- `localServer.allowedOrigin`: los dominios exactos de las apps que consultan al agente, como lista: la app de impresiones (`https://llsonyll.github.io`) y el POS en Vercel (`https://web-five-kohl-92.vercel.app`). También acepta un solo texto (formato anterior). Después de cambiarlo, reinicia el servicio.
 
 ## 3. Correr
 
