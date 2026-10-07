@@ -40,6 +40,38 @@ type Row = Omit<InventoryProduct, 'cost'> & { product_costs: { cost: number } | 
 export const inventoryKeys = {
   products: ['inventory', 'products'] as const,
   movements: (id: string) => ['inventory', 'movements', id] as const,
+  costHistory: (ids: string[]) => ['inventory', 'cost-history', ...ids] as const,
+}
+
+/** Historial de costos (con IGV). product_costs.cost es solo la referencia: el último de aquí. */
+export interface CostEntry {
+  id: number
+  product_id: string
+  cost: number
+  source: 'compra' | 'manual' | 'inicial'
+  qty: number | null
+  created_at: string
+  provider_name: string | null
+  po_id: string | null
+  po_number: number | null
+}
+
+/** Historial de uno o varios productos, del más reciente al más antiguo. */
+export function useCostHistory(productIds: string[], limit = 30) {
+  const ids = [...new Set(productIds)].sort()
+  return useQuery({
+    queryKey: inventoryKeys.costHistory(ids),
+    enabled: ids.length > 0,
+    queryFn: async (): Promise<CostEntry[]> => {
+      const { data, error } = await supabase.from('product_cost_history')
+        .select('id, product_id, cost, source, qty, created_at, po_id, providers(name), purchase_orders(number)')
+        .in('product_id', ids).order('created_at', { ascending: false }).limit(limit * ids.length)
+      if (error) throw error
+      type Row = Omit<CostEntry, 'provider_name' | 'po_number'> & { providers: { name: string } | null; purchase_orders: { number: number } | null }
+      return (data as unknown as Row[]).map(({ providers, purchase_orders, ...e }) =>
+        ({ ...e, cost: Number(e.cost), qty: e.qty == null ? null : Number(e.qty), provider_name: providers?.name ?? null, po_number: purchase_orders?.number ?? null }))
+    },
+  })
 }
 
 export function useInventory() {
@@ -111,7 +143,7 @@ export function useSaveProduct() {
       }
       return data.id as string
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.products }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
   })
 }
 
@@ -129,7 +161,7 @@ export function usePatchProduct() {
         if (error) throw error
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.products }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
   })
 }
 
