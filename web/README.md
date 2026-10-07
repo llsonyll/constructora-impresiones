@@ -71,6 +71,15 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,
   marcado *por revisar*) y se agrega. Sin internet o sin permiso → ítem libre.
 
+## Ventas de hoy (`/hoy`)
+
+- Ventas de un día (hoy por defecto, se puede elegir otra fecha) con total, desglose por medio de pago, turno y tipo
+  (*Ferretería* = productos con stock, *Impresiones y copias* = servicios, *Otros* = ítems libres).
+- Filtros por turno, medio de pago y cajero (solo admin). RLS: el cajero ve solo sus ventas; el admin, todas.
+- Incluye las ventas que siguen en la cola del equipo (⏳ por sincronizar) y se actualiza en vivo (Realtime en `sales`).
+- Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
+  se pueden ver con *Ver anuladas*.
+
 ## Impresiones y copias (POS)
 
 - Productos de la categoría *Impresión y fotocopia* son **servicios** (`track_stock = false`): se venden por hoja y no
