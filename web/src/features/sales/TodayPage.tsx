@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { localDb } from '@/db/local'
@@ -63,9 +63,9 @@ export default function TodayPage() {
   const sumBy = <K extends string>(keyOf: (v: DaySale) => K) =>
     valid.reduce((acc, v) => ({ ...acc, [keyOf(v)]: (acc[keyOf(v)] ?? 0) + v.total }), {} as Partial<Record<K, number>>)
   const byMethod = sumBy(v => v.payment_method)
-  const byShift = sumBy(v => v.shift)
-  const byKind = valid.flatMap(v => v.items).reduce((acc, i) => ({ ...acc, [i.kind]: (acc[i.kind] ?? 0) + i.subtotal }),
-    {} as Partial<Record<LineKind, number>>)
+  // Tipo × turno: cada línea suma a su tipo en el turno de su venta.
+  const matrix = Object.fromEntries(KINDS.map(k => [k, { manana: 0, tarde: 0 }])) as Record<LineKind, Record<Shift, number>>
+  for (const v of valid) for (const i of v.items) matrix[i.kind][v.shift] += i.subtotal
   const pendingCount = valid.filter(v => v.pending).length
   const cashiers = [...new Set(sales.map(s => s.cashier_id).filter((x): x is string => !!x))]
   const isToday = day === todayLocal()
@@ -84,7 +84,7 @@ export default function TodayPage() {
         {!isToday && <button onClick={() => setDay(todayLocal())} className="min-h-11 rounded border bg-white px-3 text-sm">Hoy</button>}
       </div>
 
-      <section className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1fr]">
+      <section className="grid gap-2 sm:grid-cols-2">
         <div className="rounded-lg bg-white p-3 shadow">
           <div className="text-xs text-stone-500">Total</div>
           <div className="text-2xl font-semibold tabular-nums">{money(total)}</div>
@@ -95,11 +95,8 @@ export default function TodayPage() {
           </div>
         </div>
         <Breakdown title="Por medio de pago" rows={Object.entries(byMethod).map(([k, v]) => [PAYMENT_LABEL[k as PaymentMethod], v!])} />
-        <Breakdown title="Por turno y tipo" rows={[
-          ...Object.entries(byShift).map(([k, v]) => [`Turno ${SHIFT_LABEL[k as Shift].toLowerCase()}`, v!] as [string, number]),
-          ...(['ferreteria', 'impresion', 'otros'] as const).filter(k => byKind[k]).map(k => [KIND_LABEL[k], byKind[k]!] as [string, number]),
-        ]} />
       </section>
+      <KindByShift matrix={matrix} />
 
       <div className="flex flex-wrap gap-2">
         {(['', 'manana', 'tarde'] as const).map(s => (
@@ -177,6 +174,45 @@ export default function TodayPage() {
         {!isLoading && !listed.length && <li className="p-6 text-center text-stone-500">No hay ventas {isToday ? 'hoy' : 'ese día'}.</li>}
       </ul>
     </div>
+  )
+}
+
+const KINDS: LineKind[] = ['ferreteria', 'impresion', 'otros']
+const SHIFTS: Shift[] = ['manana', 'tarde']
+
+/** Tabla tipo × turno con totales por fila y columna (siempre muestra los tres tipos y los dos turnos). */
+function KindByShift({ matrix }: { matrix: Record<LineKind, Record<Shift, number>> }) {
+  const rowTotal = (k: LineKind) => matrix[k].manana + matrix[k].tarde
+  const colTotal = (t: Shift) => KINDS.reduce((s, k) => s + matrix[k][t], 0)
+  const cell = (n: number, strong = false) =>
+    <td className={`px-2 py-1.5 text-right tabular-nums ${strong ? 'font-semibold' : ''} ${n ? '' : 'text-stone-400'}`}>{money(n)}</td>
+  return (
+    <section className="overflow-x-auto rounded-lg bg-white p-3 shadow">
+      <div className="mb-1 text-xs text-stone-500">Por tipo y turno</div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-stone-500">
+            <th className="py-1 text-left font-normal">Tipo</th>
+            {SHIFTS.map(t => <th key={t} className="px-2 py-1 text-right font-normal">{SHIFT_LABEL[t]}</th>)}
+            <th className="px-2 py-1 text-right font-normal">Total</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {KINDS.map(k => (
+            <tr key={k}>
+              <td className="py-1.5">{KIND_LABEL[k]}</td>
+              {SHIFTS.map(t => <Fragment key={t}>{cell(matrix[k][t])}</Fragment>)}
+              {cell(rowTotal(k), true)}
+            </tr>
+          ))}
+          <tr className="border-t-2">
+            <td className="py-1.5 font-semibold">Total</td>
+            {SHIFTS.map(t => <Fragment key={t}>{cell(colTotal(t), true)}</Fragment>)}
+            {cell(KINDS.reduce((s, k) => s + rowTotal(k), 0), true)}
+          </tr>
+        </tbody>
+      </table>
+    </section>
   )
 }
 
