@@ -65,14 +65,20 @@ export default function PricingPage() {
       <div className="flex items-center gap-2">
         <Link to="/inventario" className="-ml-2 grid size-11 place-items-center text-xl text-amber-800" aria-label="Volver a Inventario">←</Link>
         <h1 className="flex-1 text-lg font-semibold">Poner precios</h1>
-        <button onClick={() => setCreating({})} className="min-h-11 rounded-lg border bg-white px-4 text-sm">+ Nuevo</button>
+        <button onClick={() => setCreating({})} className="min-h-11 rounded-lg bg-amber-700 px-4 text-sm text-white">+ Nuevo</button>
       </div>
 
       <div className="flex gap-2">
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar producto…"
-               className="min-w-0 flex-1 rounded-lg border p-3 text-base" />
-        <button onClick={() => setScanMode('find')} className="shrink-0 rounded-lg bg-amber-700 px-4 text-white" aria-label="Escanear para buscar">
-          📷 Escanear
+        <div className="relative min-w-0 flex-1">
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar producto" aria-label="Buscar producto"
+                 className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
+          {query && (
+            <button onClick={() => setQuery('')} className="absolute inset-y-0 right-0 grid w-11 place-items-center text-stone-500" aria-label="Limpiar búsqueda">✕</button>
+          )}
+        </div>
+        <button onClick={() => setScanMode('find')} className="grid min-h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-700 text-xl text-white" aria-label="Escanear para buscar">
+          📷
         </button>
       </div>
 
@@ -94,14 +100,13 @@ export default function PricingPage() {
         </button>
       )}
 
-      <div className="flex gap-1 overflow-x-auto">
-        {QUEUES.map(q => (
-          <button key={q.id} onClick={() => { setQueue(q.id); setCurrentId(null) }}
-                  className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${queue === q.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
-            {q.label} {products.filter(q.test).length}
-          </button>
-        ))}
-      </div>
+      <label className="flex items-center gap-2 text-sm text-stone-600">
+        <span className="shrink-0">Recorrer:</span>
+        <select value={queue} onChange={e => { setQueue(e.target.value as Queue); setCurrentId(null) }}
+                className="min-h-11 w-full min-w-0 rounded-lg border bg-white px-2 text-base text-stone-900">
+          {QUEUES.map(q => <option key={q.id} value={q.id}>{q.label} ({products.filter(q.test).length})</option>)}
+        </select>
+      </label>
 
       {flash && <p className="rounded-lg bg-green-50 p-2 text-sm text-green-800">{flash}</p>}
       {isLoading && <p className="text-stone-500">Cargando…</p>}
@@ -217,7 +222,7 @@ function ProductCard({ product, position, assigned, onScanAssign, onNext }: Card
         </div>
         <div className="flex items-center rounded-lg border focus-within:ring-2 focus-within:ring-amber-600">
           <span className="pl-3 text-xl text-stone-500">S/</span>
-          <input value={price} onChange={e => setPrice(e.target.value)} inputMode="decimal" placeholder="Precio de venta"
+          <input value={price} onChange={e => setPrice(e.target.value)} inputMode="decimal" placeholder="0.00" aria-label="Precio de venta"
                  className="min-w-0 flex-1 rounded-lg p-3 text-2xl font-semibold outline-none" />
         </div>
         {product.cost != null && product.cost > 0 && (

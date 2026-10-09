@@ -58,15 +58,23 @@ export default function StockCountPage() {
       </p>
       {done != null && <p className="rounded bg-green-50 p-2 text-sm text-green-800">Conteo guardado: {done} productos ajustados.</p>}
 
-      <div className="flex flex-wrap gap-2">
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
-        <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
-          <option value="">Todas las categorías</option>
-          <CategoryOptions categories={categories} />
-        </select>
-        <label className="flex min-h-11 items-center gap-2 px-1 text-sm">
-          <input type="checkbox" className="size-5" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Solo sin contar
-        </label>
+      <div className="sticky top-[calc(2.75rem+env(safe-area-inset-top))] z-[5] -mx-4 space-y-2 bg-stone-100 px-4 py-2">
+        <div className="relative">
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" aria-label="Buscar producto"
+                 className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
+          {query && <button onClick={() => setQuery('')} className="absolute inset-y-0 right-0 grid w-11 place-items-center text-stone-500" aria-label="Limpiar búsqueda">✕</button>}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} aria-label="Categoría"
+                  className="min-h-11 w-full min-w-0 rounded-lg border bg-white px-2 text-sm">
+            <option value="">Todas las categorías</option>
+            <CategoryOptions categories={categories} />
+          </select>
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border bg-white px-2 text-sm">
+            <input type="checkbox" className="size-5 shrink-0" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Solo sin contar
+          </label>
+        </div>
       </div>
 
       {isLoading && <p className="text-stone-500">Cargando…</p>}
@@ -78,7 +86,7 @@ export default function StockCountPage() {
           return (
             <li key={p.id} className="flex items-center gap-3 p-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{p.name}</div>
+                <div className="line-clamp-2 text-sm font-medium break-words">{p.name}</div>
                 <div className="text-xs text-stone-500">{p.sku} · sistema: {p.stock} {p.unit}</div>
               </div>
               {diff != null && diff !== 0 && (
@@ -96,11 +104,12 @@ export default function StockCountPage() {
         })}
       </ul>
 
-      <div className="fixed inset-x-0 bottom-0 flex flex-wrap items-center gap-2 border-t bg-white px-safe-3 pt-3 pb-safe-3 shadow">
+      <div className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-[1fr_auto] items-center gap-2 border-t bg-white px-safe-3 pt-2 pb-safe-3 shadow
+                      md:flex">
         <span className="text-sm">{entered.length} contados · {changes} con diferencia</span>
-        <input value={note} onChange={e => setNote(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" aria-label="Motivo" />
-        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) setCounts({}) }} className="min-h-11 rounded border px-3 text-sm">Limpiar</button>
-        <button onClick={save} disabled={!entered.length || bulk.isPending} className="min-h-11 rounded bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
+        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) setCounts({}) }} className="min-h-11 rounded-lg border px-3 text-sm md:order-last">Limpiar</button>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="Motivo" className="min-h-11 min-w-0 rounded-lg border px-2 text-base md:flex-1" aria-label="Motivo" />
+        <button onClick={save} disabled={!entered.length || bulk.isPending} className="min-h-11 rounded-lg bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
           {bulk.isPending ? 'Guardando…' : 'Guardar conteo'}
         </button>
         {bulk.error && <p className="w-full text-sm text-red-600">{friendlyError(bulk.error)}</p>}

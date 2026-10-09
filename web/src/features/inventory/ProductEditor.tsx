@@ -35,17 +35,19 @@ interface Props {
   product: InventoryProduct | null
   /** Código escaneado que no existía: precarga el alta de un producto nuevo. */
   initialBarcode?: string
+  /** Alta desde una búsqueda sin resultados: el nombre buscado. */
+  initialName?: string
   onClose: () => void
   onSaved: (id: string, name: string) => void
 }
 
-export default function ProductEditor({ product, initialBarcode = '', onClose, onSaved }: Props) {
+export default function ProductEditor({ product, initialBarcode = '', initialName = '', onClose, onSaved }: Props) {
   const { data: categories = [] } = useCategories()
   const { data: providers = [] } = useProviders()
   const save = useSaveProduct()
 
   const [initial] = useState(() => ({
-    sku: product?.sku ?? '', name: product?.name ?? '', brand: product?.brand ?? '', barcode: product?.barcode ?? initialBarcode,
+    sku: product?.sku ?? '', name: product?.name ?? initialName.toUpperCase(), brand: product?.brand ?? '', barcode: product?.barcode ?? initialBarcode,
     category_id: product?.category_id?.toString() ?? '', provider_id: product?.provider_id ?? '',
     unit: product?.unit ?? 'und', price: product?.price?.toString() ?? '', cost: product?.cost?.toString() ?? '',
     min_stock: product?.min_stock?.toString() ?? '0', active: product?.active ?? false,
@@ -116,11 +118,34 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
           <Field label="Nombre" className="col-span-2">
             <input className={input} value={f.name} onChange={e => set('name', e.target.value)} required />
           </Field>
+          <Field label="Precio de venta (con IGV)">
+            <input className={`${input} font-semibold`} inputMode="decimal" value={f.price} onChange={e => setPrice(e.target.value)} placeholder="Sin precio" />
+          </Field>
+          <Field label="Último costo (con IGV)">
+            <input className={input} inputMode="decimal" value={f.cost} onChange={e => set('cost', e.target.value)} />
+          </Field>
+          {cost != null && !Number.isNaN(cost) && cost > 0 && (
+            <div className="col-span-2 text-xs">
+              <span className="text-stone-500">Sugerir precio (recargo sobre costo):</span>
+              <div className="mt-1 grid grid-cols-4 gap-1">
+                {MARKUPS.map(mk => (
+                  <button type="button" key={mk} onClick={() => setPrice(suggestPrice(cost, mk).toFixed(2))}
+                          className="min-h-11 rounded border px-1 py-1 hover:bg-amber-50">
+                    +{mk * 100}%<br /><b>{money(suggestPrice(cost, mk))}</b>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <p className={`col-span-2 text-sm ${m != null && m < 0.15 ? 'text-red-600' : 'text-stone-600'}`}>
+            Margen: {m != null ? `${Math.round(m * 100)}% (${money(price! - cost!)} por ${f.unit})` : '—'}
+          </p>
+
           <Field label="SKU">
             <input className={input} value={f.sku} onChange={e => set('sku', e.target.value)}
                    required={!!product} placeholder={product ? '' : 'Automático'} />
           </Field>
-          <Field label="Código de barras">
+          <Field label="Código de barras" className="max-sm:col-span-2">
             <div className="flex gap-1">
               <input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} inputMode="numeric" />
               <button type="button" onClick={() => setScanning(true)} className="min-w-11 shrink-0 rounded border px-2" aria-label="Escanear código">📷</button>
@@ -132,46 +157,25 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
               {[...new Set([f.unit, ...UNITS])].map(u => <option key={u}>{u}</option>)}
             </select>
           </Field>
-          <Field label="Categoría">
+          <Field label="Categoría" className="max-sm:col-span-2">
             <select className={input} value={f.category_id} onChange={e => set('category_id', e.target.value)}>
               <option value="">—</option>
               <CategoryOptions categories={categories} />
             </select>
           </Field>
-          <Field label="Proveedor">
+          <Field label="Proveedor" className="max-sm:col-span-2">
             <select className={input} value={f.provider_id} onChange={e => set('provider_id', e.target.value)}>
               <option value="">—</option>
               {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </Field>
 
-          <Field label="Último costo (referencia, con IGV)">
-            <input className={input} inputMode="decimal" value={f.cost} onChange={e => set('cost', e.target.value)} />
-          </Field>
-          <Field label="Precio de venta (con IGV)">
-            <input className={input} inputMode="decimal" value={f.price} onChange={e => setPrice(e.target.value)} placeholder="Sin precio" />
-          </Field>
-          {cost != null && !Number.isNaN(cost) && cost > 0 && (
-            <div className="col-span-2 flex flex-wrap items-center gap-1 text-xs">
-              <span className="text-stone-500">Sugerir precio (recargo sobre costo):</span>
-              {MARKUPS.map(mk => (
-                <button type="button" key={mk} onClick={() => setPrice(suggestPrice(cost, mk).toFixed(2))}
-                        className="min-h-11 rounded border px-3 hover:bg-amber-50">
-                  Costo +{mk * 100}% → {money(suggestPrice(cost, mk))}
-                </button>
-              ))}
-            </div>
-          )}
-          <p className={`col-span-2 text-sm ${m != null && m < 0.15 ? 'text-red-600' : 'text-stone-600'}`}>
-            Margen: {m != null ? `${Math.round(m * 100)}% (${money(price! - cost!)} por ${f.unit})` : '—'}
-          </p>
-
           {f.track_stock ? (
             <Field label="Stock mínimo (alerta)">
               <input className={input} inputMode="decimal" value={f.min_stock} onChange={e => set('min_stock', e.target.value)} />
             </Field>
-          ) : <div />}
-          <div className="flex flex-col justify-end gap-2 text-sm">
+          ) : <div className="max-sm:hidden" />}
+          <div className="flex flex-col justify-end gap-2 text-sm max-sm:col-span-2">
             <label className="flex min-h-11 items-center gap-2">
               <input type="checkbox" className="size-5" checked={!f.track_stock} onChange={e => set('track_stock', !e.target.checked)} />
               Servicio (no lleva stock)
@@ -191,9 +195,10 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
           </Field>
 
           {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyError(save.error)}</p>}
-          <div className="col-span-2 flex justify-end gap-2">
-            <button type="button" onClick={requestClose} className="min-h-11 rounded border px-4">Cancelar</button>
-            <button disabled={save.isPending} className="min-h-11 rounded bg-amber-700 px-4 text-white disabled:opacity-50">
+          {/* Fija al pie de la hoja: guardar sin bajar hasta el final del formulario. */}
+          <div className="sticky bottom-0 z-10 col-span-2 -mx-3 flex justify-end gap-2 border-t bg-white px-3 py-3 sm:-mx-5 sm:px-5">
+            <button type="button" onClick={requestClose} className="min-h-12 rounded-lg border px-4 max-sm:flex-1">Cancelar</button>
+            <button disabled={save.isPending} className="min-h-12 rounded-lg bg-amber-700 px-6 font-medium text-white disabled:opacity-50 max-sm:flex-[2]">
               {save.isPending ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
