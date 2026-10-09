@@ -1,10 +1,11 @@
 import Dexie, { type Table } from 'dexie'
-import type { PendingSale, Product } from '@/types/domain'
+import type { Category, PendingSale, Product } from '@/types/domain'
 
-/** Base local (IndexedDB): catálogo en caché + cola de ventas por sincronizar. */
+/** Base local (IndexedDB): catálogo y categorías en caché + cola de ventas por sincronizar. */
 class LocalDB extends Dexie {
   products!: Table<Product, string>
   outbox!: Table<PendingSale, string>
+  categories!: Table<Category, number>
 
   constructor() {
     super('la-constructora')
@@ -12,6 +13,7 @@ class LocalDB extends Dexie {
       products: 'id, sku, barcode, name, category_id',
       outbox: 'id, status, sold_at',
     })
+    this.version(2).stores({ categories: 'id' })
   }
 }
 

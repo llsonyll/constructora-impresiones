@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CategoryOptions from './CategoryOptions'
 import { Link } from 'react-router-dom'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
@@ -119,7 +120,7 @@ export default function InventoryPage() {
         </div>
         <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
           <option value="">Todas las categorías</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <CategoryOptions categories={categories} />
         </select>
       </div>
 

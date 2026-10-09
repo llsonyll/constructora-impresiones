@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
@@ -134,7 +135,7 @@ export default function ProductEditor({ product, initialBarcode = '', onClose, o
           <Field label="Categoría">
             <select className={input} value={f.category_id} onChange={e => set('category_id', e.target.value)}>
               <option value="">—</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <CategoryOptions categories={categories} />
             </select>
           </Field>
           <Field label="Proveedor">

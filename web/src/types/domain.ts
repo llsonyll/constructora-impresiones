@@ -1,6 +1,10 @@
 export type Role = 'admin' | 'cajero' | 'almacen'
 export type PaymentMethod = 'efectivo' | 'yape' | 'plin' | 'tarjeta' | 'transferencia'
 export type Shift = 'manana' | 'tarde'
+/** Caja a la que pertenece una venta: ferretería o copias y librería (fotocopias, impresiones, librería). */
+export type Caja = 'ferreteria' | 'copias'
+
+export interface Category { id: number; name: string; caja: Caja }
 
 export interface Profile { id: string; full_name: string; role: Role; active: boolean }
 
@@ -38,6 +42,7 @@ export interface CartLine {
 /** Venta pendiente de sincronizar. `id` se genera en el cliente => create_sale es idempotente. */
 export interface PendingSale {
   id: string
+  caja?: Caja             // opcional: ventas en cola de antes de las dos cajas (el servidor asume ferretería)
   shift: Shift
   payment_method: PaymentMethod
   sold_at: string

@@ -1,10 +1,9 @@
 import { useMemo, useState } from 'react'
+import { CAJAS, CAJA_ICON, CAJA_LABEL } from '@/lib/caja'
 import { money, round2 } from '@/lib/format'
-import type { PaymentMethod, Shift } from '@/types/domain'
-import {
-  KIND_LABEL, type LineKind, PAYMENT_LABEL, SHIFT_LABEL, todayLocal, useCashierNames, useRangeSales,
-} from './api'
-import { Breakdown, KINDS, KindByShift, kindShiftMatrix } from './summary'
+import type { Caja, PaymentMethod, Shift } from '@/types/domain'
+import { PAYMENT_LABEL, SHIFT_LABEL, todayLocal, useCashierNames, useRangeSales } from './api'
+import { Breakdown, CajaByShift, byCategory, cajaShiftMatrix } from './summary'
 
 const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 const dayOf = (iso: string) => todayLocal(new Date(iso))
@@ -29,31 +28,33 @@ function presets(today: string): { id: string; label: string; from: string; to: 
   ]
 }
 
-interface ProductRow { key: string; name: string; kind: LineKind; qty: number; total: number; cost: number | null }
+interface ProductRow { key: string; name: string; category: string; qty: number; total: number; cost: number | null }
 
-/** Reportes por rango de fechas (admin): totales, tipo × turno, por día, productos y exportación CSV. */
+/** Reportes por rango de fechas (admin): totales, caja × turno, categorías, por día, productos y exportación CSV. */
 export default function ReportsPage() {
   const today = todayLocal()
   const ranges = presets(today)
   const [from, setFrom] = useState(ranges[3].from)
   const [to, setTo] = useState(today)
+  const [caja, setCaja] = useState<Caja | ''>('')
   const [shift, setShift] = useState<Shift | ''>('')
   const [method, setMethod] = useState<PaymentMethod | ''>('')
   const [cashier, setCashier] = useState('')
-  const [kind, setKind] = useState<LineKind | ''>('')
+  const [category, setCategory] = useState('')
 
   const { data: sales = [], isLoading, isFetching, error } = useRangeSales(from, to)
   const { data: names = {} } = useCashierNames()
 
-  const filtered = useMemo(() => sales.filter(s => (!shift || s.shift === shift) && (!method || s.payment_method === method)
-    && (!cashier || s.cashier_id === cashier)), [sales, shift, method, cashier])
+  const filtered = useMemo(() => sales.filter(s => (!caja || s.caja === caja) && (!shift || s.shift === shift) && (!method || s.payment_method === method)
+    && (!cashier || s.cashier_id === cashier)), [sales, caja, shift, method, cashier])
   const valid = useMemo(() => filtered.filter(s => s.status === 'completada'), [filtered])
   const voided = filtered.filter(s => s.status === 'anulada')
 
   const total = valid.reduce((s, v) => s + v.total, 0)
   const byMethod = valid.reduce((acc, v) => ({ ...acc, [v.payment_method]: (acc[v.payment_method] ?? 0) + v.total }),
     {} as Partial<Record<PaymentMethod, number>>)
-  const matrix = kindShiftMatrix(valid)
+  const matrix = cajaShiftMatrix(valid)
+  const categories = byCategory(valid)
   const cashiers = [...new Set(sales.map(s => s.cashier_id).filter((x): x is string => !!x))]
 
   // Margen: solo líneas con costo registrado (snapshot al vender); se informa qué parte de las ventas lo tiene.
@@ -63,12 +64,12 @@ export default function ReportsPage() {
   const costCoverage = total ? withCost.reduce((s, i) => s + i.subtotal, 0) / total : 0
 
   const byDay = useMemo(() => {
-    const map = new Map<string, { count: number } & Record<LineKind, number>>()
+    const map = new Map<string, { count: number } & Record<Caja, number>>()
     for (const v of valid) {
       const d = dayOf(v.sold_at)
-      const row = map.get(d) ?? { count: 0, ferreteria: 0, impresion: 0, otros: 0 }
+      const row = map.get(d) ?? { count: 0, ferreteria: 0, copias: 0 }
       row.count++
-      for (const i of v.items) row[i.kind] += i.subtotal
+      row[v.caja] += v.total
       map.set(d, row)
     }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]))
@@ -77,26 +78,26 @@ export default function ReportsPage() {
   const products = useMemo(() => {
     const map = new Map<string, ProductRow>()
     for (const v of valid) for (const i of v.items) {
-      if (kind && i.kind !== kind) continue
+      if (category && i.category !== category) continue
       const key = i.product_id ?? `libre:${i.description.trim().toLowerCase()}`
-      const row = map.get(key) ?? { key, name: i.description, kind: i.kind, qty: 0, total: 0, cost: 0 }
+      const row = map.get(key) ?? { key, name: i.description, category: i.category, qty: 0, total: 0, cost: 0 }
       row.qty += i.qty
       row.total += i.subtotal
       row.cost = row.cost == null || i.unit_cost == null ? null : row.cost + i.qty * i.unit_cost
       map.set(key, row)
     }
     return [...map.values()].sort((a, b) => b.total - a.total)
-  }, [valid, kind])
+  }, [valid, category])
   const [showAll, setShowAll] = useState(false)
 
   function exportCsv() {
-    const header = ['Venta', 'Fecha', 'Hora', 'Turno', 'Cajero', 'Pago', 'Estado', 'Tipo', 'Producto', 'Cantidad',
+    const header = ['Venta', 'Fecha', 'Hora', 'Turno', 'Cajero', 'Pago', 'Estado', 'Caja', 'Categoria', 'Producto', 'Cantidad',
                     'PrecioUnitario', 'Subtotal', 'CostoUnitario', 'TotalVenta']
     const rows = filtered.slice().reverse().flatMap(v => v.items.map(i => [
       v.number ?? '', dayOf(v.sold_at),
       new Date(v.sold_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }),
       SHIFT_LABEL[v.shift], v.cashier_id ? names[v.cashier_id] ?? '' : '', PAYMENT_LABEL[v.payment_method], v.status,
-      KIND_LABEL[i.kind], i.description, i.qty, i.unit_price.toFixed(2), i.subtotal.toFixed(2),
+      CAJA_LABEL[v.caja], i.category, i.description, i.qty, i.unit_price.toFixed(2), i.subtotal.toFixed(2),
       i.unit_cost == null ? '' : i.unit_cost.toFixed(2), v.total.toFixed(2),
     ]))
     const csv = [header, ...rows].map(r => r.map(x => `"${String(x).replace(/"/g, '""')}"`).join(',')).join('\r\n')
@@ -134,6 +135,11 @@ export default function ReportsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {(['', ...CAJAS] as const).map(c => (
+          <button key={c} onClick={() => { setCaja(c); setCategory('') }} className={chip(caja === c)}>{c ? `${CAJA_ICON[c]} ${CAJA_LABEL[c]}` : 'Ambas cajas'}</button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
         {(['', 'manana', 'tarde'] as const).map(s => (
           <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
         ))}
@@ -163,9 +169,10 @@ export default function ReportsPage() {
              sub={withCost.length ? `sobre ${Math.round(costCoverage * 100)}% de las ventas (con costo)` : 'sin costos registrados'} />
       </section>
 
-      <section className="grid gap-2 md:grid-cols-[1fr_2fr]">
+      <section className="grid gap-2 md:grid-cols-3">
         <Breakdown title="Por medio de pago" rows={Object.entries(byMethod).map(([k, v]) => [PAYMENT_LABEL[k as PaymentMethod], v!])} />
-        <KindByShift matrix={matrix} />
+        <Breakdown title="Por categoría" rows={categories} />
+        <CajaByShift matrix={matrix} />
       </section>
 
       <section className="overflow-x-auto rounded-lg bg-white p-3 shadow">
@@ -175,7 +182,7 @@ export default function ReportsPage() {
             <tr className="text-xs text-stone-500">
               <th className="py-1 text-left font-normal">Día</th>
               <th className="px-2 py-1 text-right font-normal">Ventas</th>
-              {KINDS.map(k => <th key={k} className="px-2 py-1 text-right font-normal max-sm:hidden">{KIND_LABEL[k]}</th>)}
+              {CAJAS.map(c => <th key={c} className="px-2 py-1 text-right font-normal max-sm:hidden">{CAJA_LABEL[c]}</th>)}
               <th className="px-2 py-1 text-right font-normal">Total</th>
             </tr>
           </thead>
@@ -184,11 +191,11 @@ export default function ReportsPage() {
               <tr key={d}>
                 <td className="py-1.5 capitalize">{dayLabel(d)}</td>
                 <td className="px-2 text-right tabular-nums">{r.count}</td>
-                {KINDS.map(k => <td key={k} className={`px-2 text-right tabular-nums max-sm:hidden ${r[k] ? '' : 'text-stone-400'}`}>{money(r[k])}</td>)}
-                <td className="px-2 text-right font-semibold tabular-nums">{money(round2(r.ferreteria + r.impresion + r.otros))}</td>
+                {CAJAS.map(c => <td key={c} className={`px-2 text-right tabular-nums max-sm:hidden ${r[c] ? '' : 'text-stone-400'}`}>{money(r[c])}</td>)}
+                <td className="px-2 text-right font-semibold tabular-nums">{money(round2(r.ferreteria + r.copias))}</td>
               </tr>
             ))}
-            {!byDay.length && <tr><td colSpan={6} className="py-4 text-center text-stone-500">Sin ventas en el período.</td></tr>}
+            {!byDay.length && <tr><td colSpan={5} className="py-4 text-center text-stone-500">Sin ventas en el período.</td></tr>}
           </tbody>
         </table>
       </section>
@@ -196,9 +203,11 @@ export default function ReportsPage() {
       <section className="overflow-x-auto rounded-lg bg-white p-3 shadow">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="mr-auto text-xs text-stone-500">Productos más vendidos</span>
-          {(['', ...KINDS] as const).map(k => (
-            <button key={k} onClick={() => setKind(k)} className={chip(kind === k)}>{k ? KIND_LABEL[k] : 'Todos'}</button>
-          ))}
+          <select value={category} onChange={e => setCategory(e.target.value)} aria-label="Categoría"
+                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+            <option value="">Todas las categorías</option>
+            {categories.map(([name]) => <option key={name} value={name}>{name}</option>)}
+          </select>
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -212,7 +221,7 @@ export default function ReportsPage() {
           <tbody className="divide-y">
             {(showAll ? products : products.slice(0, 20)).map(p => (
               <tr key={p.key}>
-                <td className="py-1.5">{p.name}<span className="ml-1 text-xs text-stone-400">{KIND_LABEL[p.kind]}</span></td>
+                <td className="py-1.5">{p.name}<span className="ml-1 text-xs text-stone-400">{p.category}</span></td>
                 <td className="px-2 text-right tabular-nums">{round2(p.qty)}</td>
                 <td className="px-2 text-right tabular-nums">{money(p.total)}</td>
                 <td className="px-2 text-right tabular-nums max-sm:hidden">
