@@ -39,7 +39,11 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
 ## Inventario (admin, almacén)
 
-- Lista con filtros *Sin precio / Por revisar / Stock bajo / Inactivos*, costo y margen.
+- Lista pensada para el celular: buscador fijo arriba (nombre, marca, SKU o código; 📷 escanea), dos selectores
+  (estado: *Sin precio / Por revisar / Stock bajo / Inactivos / Recientes* y categoría) y filas con precio y stock.
+  En escritorio se ven además categoría, costo y margen. Se dibujan 60 filas y *Ver más* agrega otras tantas.
+- Agregar: botón flotante *+ Nuevo* en el celular, o *+ Crear «…»* cuando la búsqueda no encuentra nada (precarga el nombre).
+- El editor muestra primero nombre, precio y costo (con sugerencias de recargo), y *Guardar* queda fijo al pie.
 - Editor: poner precio activa el producto (aparece en el POS); sugerencias de precio por recargo sobre costo.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
