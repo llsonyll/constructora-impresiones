@@ -27,7 +27,8 @@ export interface InventoryProduct {
   job_keywords: string[]
 }
 
-export interface Category { id: number; name: string }
+import type { Category } from '@/types/domain'
+export type { Category }
 export interface ProviderRef { id: string; name: string }
 
 export interface StockMovement {
@@ -96,7 +97,7 @@ export function useCategories() {
     queryKey: ['categories'],
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<Category[]> => {
-      const { data, error } = await supabase.from('categories').select('id, name').order('name')
+      const { data, error } = await supabase.from('categories').select('id, name, caja').order('name')
       if (error) throw error
       return data
     },

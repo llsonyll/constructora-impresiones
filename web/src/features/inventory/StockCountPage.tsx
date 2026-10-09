@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import CategoryOptions from './CategoryOptions'
 import { Link } from 'react-router-dom'
 import { friendlyError, useBulkCount, useCategories, useInventory } from './api'
 
@@ -61,7 +62,7 @@ export default function StockCountPage() {
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
         <select value={category} onChange={e => setCategory(e.target.value ? Number(e.target.value) : '')} className="min-h-11 rounded border px-2 text-base">
           <option value="">Todas las categorías</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <CategoryOptions categories={categories} />
         </select>
         <label className="flex min-h-11 items-center gap-2 px-1 text-sm">
           <input type="checkbox" className="size-5" checked={onlyPending} onChange={e => setOnlyPending(e.target.checked)} /> Solo sin contar

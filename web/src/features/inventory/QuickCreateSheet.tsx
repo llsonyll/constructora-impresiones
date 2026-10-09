@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
@@ -13,6 +14,8 @@ interface Props {
   initialBarcode?: string
   /** En el POS el producto se vende al instante, así que el precio es obligatorio. */
   requirePrice?: boolean
+  /** Categoría sugerida (en el POS, la que está elegida o Librería en la caja de copias). */
+  initialCategory?: number | null
   onCreated: (p: CreatedProduct) => void
   onClose: () => void
 }
@@ -20,13 +23,14 @@ interface Props {
 const UNITS = ['und', 'm', 'kg', 'par', 'juego', 'paquete', 'bolsa', 'caja', 'rollo']
 
 /** Alta rápida desde el celular: nombre + precio (+ código, foto, categoría opcionales). */
-export default function QuickCreateSheet({ initialName = '', initialBarcode = '', requirePrice = false, onCreated, onClose }: Props) {
+export default function QuickCreateSheet({ initialName = '', initialBarcode = '', requirePrice = false, initialCategory = null, onCreated, onClose }: Props) {
   const qc = useQueryClient()
   const { data: categories = [] } = useCategories()
   const [name, setName] = useState(initialName)
   const [price, setPrice] = useState('')
   const [barcode, setBarcode] = useState(initialBarcode)
-  const [category, setCategory] = useState('')
+  const initialCat = initialCategory?.toString() ?? ''
+  const [category, setCategory] = useState(initialCat)
   const [unit, setUnit] = useState('und')
   const [photo, setPhoto] = useState<File | null>(null)
   const [scanning, setScanning] = useState(false)
@@ -57,7 +61,7 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
   }
 
   // Tocar fuera o "atrás" no debe perder lo escrito sin preguntar.
-  const dirty = name !== initialName || price !== '' || barcode !== initialBarcode || category !== '' || unit !== 'und' || !!photo
+  const dirty = name !== initialName || price !== '' || barcode !== initialBarcode || category !== initialCat || unit !== 'und' || !!photo
   const requestClose = () => { if (!dirty || confirm('¿Descartar este producto nuevo?')) onClose() }
 
   const input = 'w-full rounded-lg border p-3 text-base'
@@ -85,7 +89,7 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
         </div>
         <select className={input} value={category} onChange={e => setCategory(e.target.value)}>
           <option value="">Categoría (opcional)</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <CategoryOptions categories={categories} />
         </select>
         <PhotoInput file={photo} onChange={setPhoto} />
         <p className="text-xs text-stone-500">Se crea con SKU automático y marcado “por revisar” para completar costo y categoría luego.</p>

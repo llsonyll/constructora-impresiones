@@ -100,7 +100,7 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Prop
               ) : (
                 <p className="text-sm text-stone-500">
                   No hay productos configurados para este tipo de trabajo. Configúralos en Inventario
-                  (categoría “Impresión y fotocopia”, sección “Trabajos detectados”).
+                  (categorías “Fotocopias” e “Impresiones”, sección “Trabajos detectados”).
                 </p>
               )}
 

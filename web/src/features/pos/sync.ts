@@ -1,17 +1,23 @@
 import { localDb } from '@/db/local'
 import { supabase } from '@/lib/supabase'
-import type { PendingSale, Product } from '@/types/domain'
+import type { Category, PendingSale, Product } from '@/types/domain'
 
-/** Descarga el catálogo activo y lo guarda para uso offline. */
+/** Descarga el catálogo activo y las categorías (con su caja) y los guarda para uso offline. */
 export async function refreshCatalog(): Promise<number> {
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords')
-    .eq('active', true)
-  if (error) throw error
-  await localDb.transaction('rw', localDb.products, async () => {
+  const [prods, cats] = await Promise.all([
+    supabase.from('products')
+      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords')
+      .eq('active', true),
+    supabase.from('categories').select('id, name, caja'),
+  ])
+  if (prods.error) throw prods.error
+  if (cats.error) throw cats.error
+  const data = prods.data
+  await localDb.transaction('rw', localDb.products, localDb.categories, async () => {
     await localDb.products.clear()
     await localDb.products.bulkPut(data as Product[])
+    await localDb.categories.clear()
+    await localDb.categories.bulkPut(cats.data as Category[])
   })
   return data.length
 }

@@ -71,10 +71,22 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,
   marcado *por revisar*) y se agrega. Sin internet o sin permiso → ítem libre.
 
+## Dos cajas: Ferretería y Copias y librería
+
+- Cada categoría tiene su caja (`categories.caja`): *Fotocopias*, *Impresiones* y *Librería* van a **Copias y librería**;
+  el resto (y los productos sin categoría) a **Ferretería**. Para mover un producto de caja, cambia su categoría.
+- En **Ventas** se elige la caja arriba (queda guardada en el equipo). Cada caja tiene su color, su catálogo, sus
+  categorías como filtros y su propio ticket (se puede dejar uno a medias y atender en la otra).
+- Cada venta queda con su caja (`sales.caja`, la envía `create_sale`). Escanear un producto de la otra caja lo lleva a su
+  ticket y cambia de caja; al buscar, se avisa cuántos resultados hay en la otra caja.
+- Copias e impresiones (servicios) abren un teclado de cantidad: tocar *Fotocopia B/N* → `1` `5` → *Agregar*, o los
+  atajos 10/20/50/100. Sin búsqueda, los productos más usados en el equipo salen primero.
+- *Hoy* y *Reportes* separan totales y medios de pago por caja, y suman por categoría.
+
 ## Ventas de hoy (`/hoy`)
 
-- Ventas de un día (hoy por defecto, se puede elegir otra fecha) con total, desglose por medio de pago y tabla tipo × turno
-  (*Ferretería* = productos con stock, *Impresiones y fotocopias* = servicios, *Otros* = ítems libres).
+- Ventas de un día (hoy por defecto, se puede elegir otra fecha): por caja (total y medios de pago, para cuadrar cada
+  caja), por categoría y tabla caja × turno. Filtro por caja.
 - Filtros por turno, medio de pago y cajero (solo admin). RLS: el cajero ve solo sus ventas; el admin, todas.
 - Incluye las ventas que siguen en la cola del equipo (⏳ por sincronizar) y se actualiza en vivo (Realtime en `sales`).
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
@@ -85,13 +97,13 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Rango de fechas (desde/hasta, ambos inclusive, en hora local) con atajos: hoy, ayer, últimos 7 días, este mes, mes pasado.
 - Filtros por turno, medio de pago y cajero. Total, número de ventas, ticket promedio, anuladas y **margen estimado**
   (solo con las líneas que tienen costo registrado al vender, `sale_items.unit_cost`; se indica qué % de las ventas cubre).
-- Medio de pago, tabla tipo × turno (la misma de *Hoy*), ventas por día y productos más vendidos (filtrables por tipo).
+- Filtro por caja. Medio de pago, categoría, tabla caja × turno, ventas por día y caja y productos más vendidos (por categoría).
 - **Exportar CSV**: una fila por línea de venta (incluye anuladas con su estado), UTF-8 con BOM para Excel.
 - Las consultas paginan de a 1000 ventas (límite de PostgREST), así que sirven para rangos largos.
 
 ## Impresiones y copias (POS)
 
-- Productos de la categoría *Impresión y fotocopia* son **servicios** (`track_stock = false`): se venden por hoja y no
+- Productos de las categorías *Fotocopias* e *Impresiones* son **servicios** (`track_stock = false`): se venden por hoja y no
   descuentan stock (`create_sale` no genera movimientos para ellos). En Inventario se marcan con *Servicio (no lleva stock)*.
 - Botón 🖨️ en Ventas: trabajos que detecta el agente local (`http://localhost:4000`). Se reparten las hojas entre los
   productos (columnas `job_sources`, `job_color`, `job_duplex`, `job_keywords`; se editan en la sección

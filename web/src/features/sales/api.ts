@@ -1,17 +1,18 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { PaymentMethod, Shift } from '@/types/domain'
+import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 
-/** Tipo de línea para los totales: impresiones (servicios), ferretería (con stock) u otros (ítem libre). */
-export type LineKind = 'impresion' | 'ferreteria' | 'otros'
+/** Categoría para los totales de líneas sin producto o sin categoría. */
+export const FREE_ITEM = 'Ítem libre'
+export const NO_CATEGORY = 'Sin categoría'
 
 export interface SaleLine {
   description: string
   qty: number
   unit_price: number
   subtotal: number
-  kind: LineKind
+  category: string               // nombre de la categoría del producto, o FREE_ITEM / NO_CATEGORY
   product_id?: string | null
   unit_cost?: number | null      // costo al momento de la venta (para margen; solo lo usa el admin)
 }
@@ -20,6 +21,7 @@ export interface DaySale {
   id: string
   number: number | null          // null mientras está en la cola local
   cashier_id: string | null
+  caja: Caja
   shift: Shift
   payment_method: PaymentMethod
   total: number
@@ -35,7 +37,6 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   efectivo: 'Efectivo', yape: 'Yape', plin: 'Plin', tarjeta: 'Tarjeta', transferencia: 'Transferencia',
 }
 export const SHIFT_LABEL: Record<Shift, string> = { manana: 'Mañana', tarde: 'Tarde' }
-export const KIND_LABEL: Record<LineKind, string> = { ferreteria: 'Ferretería', impresion: 'Impresiones y fotocopias', otros: 'Otros' }
 
 /** Rango [inicio, fin) del día local `YYYY-MM-DD`, en ISO (UTC) para comparar con `sold_at`. */
 export function dayRange(day: string) {
@@ -51,7 +52,7 @@ export function todayLocal(d = new Date()) {
 
 type Row = Omit<DaySale, 'items' | 'pending'> & {
   sale_items: { description: string; qty: number; unit_price: number; subtotal: number; product_id: string | null;
-                unit_cost: number | null; products: { track_stock: boolean } | null }[]
+                unit_cost: number | null; products: { categories: { name: string } | null } | null }[]
 }
 
 export const salesKeys = {
@@ -59,8 +60,8 @@ export const salesKeys = {
   range: (from: string, to: string) => ['sales', 'range', from, to] as const,
 }
 
-const SALE_COLS = 'id, number, cashier_id, shift, payment_method, total, status, sold_at, customer_name, note, ' +
-  'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(track_stock))'
+const SALE_COLS = 'id, number, cashier_id, caja, shift, payment_method, total, status, sold_at, customer_name, note, ' +
+  'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(categories(name)))'
 const PAGE = 1000   // tope de filas por consulta de PostgREST en Supabase
 
 /** Ventas con `sold_at` en [from, to), más recientes primero, paginando de a 1000. */
@@ -81,7 +82,7 @@ export async function fetchSales(from: string, to: string): Promise<DaySale[]> {
     items: sale_items.map(i => ({
       description: i.description, qty: Number(i.qty), unit_price: Number(i.unit_price), subtotal: Number(i.subtotal),
       product_id: i.product_id, unit_cost: i.unit_cost == null ? null : Number(i.unit_cost),
-      kind: i.product_id == null ? 'otros' : i.products?.track_stock === false ? 'impresion' : 'ferreteria',
+      category: i.product_id == null ? FREE_ITEM : i.products?.categories?.name ?? NO_CATEGORY,
     })),
   }))
 }

@@ -1,6 +1,6 @@
 import { localDb } from '@/db/local'
 import { currentShift, round2 } from '@/lib/format'
-import type { CartLine, PaymentMethod, PendingSale } from '@/types/domain'
+import type { Caja, CartLine, PaymentMethod, PendingSale } from '@/types/domain'
 import { flushOutbox } from './sync'
 
 /**
@@ -8,11 +8,12 @@ import { flushOutbox } from './sync'
  * `id` identifica el ticket: repetir la llamada con el mismo id no crea una segunda venta
  * ni vuelve a descontar stock (create_sale en el servidor también es idempotente por id).
  */
-export async function checkout(lines: CartLine[], payment_method: PaymentMethod,
+export async function checkout(lines: CartLine[], caja: Caja, payment_method: PaymentMethod,
                                extra: Pick<PendingSale, 'customer_name' | 'customer_doc' | 'note'> = {},
                                id: string = crypto.randomUUID()) {
   const sale: PendingSale = {
     id,
+    caja,
     shift: currentShift(),
     payment_method,
     sold_at: new Date().toISOString(),

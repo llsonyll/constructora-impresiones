@@ -3,22 +3,24 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { CAJAS, CAJA_ICON, CAJA_LABEL } from '@/lib/caja'
 import { money } from '@/lib/format'
-import type { PaymentMethod, Shift } from '@/types/domain'
+import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import {
-  type DaySale, type LineKind, PAYMENT_LABEL, SHIFT_LABEL, dayRange, salesKeys, todayLocal,
+  type DaySale, FREE_ITEM, NO_CATEGORY, PAYMENT_LABEL, SHIFT_LABEL, dayRange, salesKeys, todayLocal,
   useCashierNames, useDaySales, useVoidSale,
 } from './api'
-import { Breakdown, KindByShift, kindShiftMatrix } from './summary'
+import { Breakdown, CajaByShift, CajaCard, byCategory, cajaShiftMatrix } from './summary'
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 
-/** Ventas del día: totales por medio de pago, turno y tipo; detalle de cada venta y anulación (admin). */
+/** Ventas del día: totales por caja, medio de pago, turno y categoría; detalle de cada venta y anulación (admin). */
 export default function TodayPage() {
   const { profile } = useAuth()
   const isAdmin = profile?.role === 'admin'
   const [day, setDay] = useState(todayLocal)
+  const [caja, setCaja] = useState<Caja | ''>('')
   const [shift, setShift] = useState<Shift | ''>('')
   const [method, setMethod] = useState<PaymentMethod | ''>('')
   const [cashier, setCashier] = useState('')
@@ -33,38 +35,37 @@ export default function TodayPage() {
   // Ventas que siguen en la cola del equipo (sin internet o sincronizando): también cuentan para el día.
   const outbox = useLiveQuery(() => localDb.outbox.toArray(), [], [])
   const products = useLiveQuery(() => localDb.products.toArray(), [], [])
+  const categories = useLiveQuery(() => localDb.categories.toArray(), [], [])
   // Al vaciarse la cola, las ventas ya están en el servidor: recargar.
   useEffect(() => { void qc.invalidateQueries({ queryKey: salesKeys.day(day) }) }, [outbox.length, day, qc])
 
   const sales = useMemo(() => {
     const { from, to } = dayRange(day)
     const ids = new Set(synced.map(s => s.id))
-    const services = new Set(products.filter(p => p.track_stock === false).map(p => p.id))
+    const catName = new Map(categories.map(c => [c.id, c.name]))
+    const prodCat = new Map(products.map(p => [p.id, p.category_id != null ? catName.get(p.category_id) : undefined]))
     const pending: DaySale[] = outbox
       .filter(s => !ids.has(s.id) && s.sold_at >= from && s.sold_at < to)
       .map(s => ({
-        id: s.id, number: null, cashier_id: profile?.id ?? null, shift: s.shift, payment_method: s.payment_method,
+        id: s.id, number: null, cashier_id: profile?.id ?? null, caja: s.caja ?? 'ferreteria', shift: s.shift, payment_method: s.payment_method,
         total: s.total, status: 'completada', sold_at: s.sold_at, customer_name: s.customer_name ?? null,
         note: s.note ?? null, pending: true,
         items: s.items.map(i => ({
           description: i.description, qty: i.qty, unit_price: i.unit_price, subtotal: Math.round(i.qty * i.unit_price * 100) / 100,
-          kind: (i.product_id == null ? 'otros' : services.has(i.product_id) ? 'impresion' : 'ferreteria') as LineKind,
+          category: i.product_id == null ? FREE_ITEM : prodCat.get(i.product_id) ?? NO_CATEGORY,
         })),
       }))
     return [...pending, ...synced].sort((a, b) => b.sold_at.localeCompare(a.sold_at))
-  }, [synced, outbox, products, day, profile?.id])
+  }, [synced, outbox, products, categories, day, profile?.id])
 
-  const filtered = sales.filter(s => (!shift || s.shift === shift) && (!method || s.payment_method === method)
+  const filtered = sales.filter(s => (!caja || s.caja === caja) && (!shift || s.shift === shift) && (!method || s.payment_method === method)
     && (!cashier || s.cashier_id === cashier))
   const valid = filtered.filter(s => s.status === 'completada')
   const voided = filtered.filter(s => s.status === 'anulada')
   const listed = showVoided ? filtered : valid
 
   const total = valid.reduce((s, v) => s + v.total, 0)
-  const sumBy = <K extends string>(keyOf: (v: DaySale) => K) =>
-    valid.reduce((acc, v) => ({ ...acc, [keyOf(v)]: (acc[keyOf(v)] ?? 0) + v.total }), {} as Partial<Record<K, number>>)
-  const byMethod = sumBy(v => v.payment_method)
-  const matrix = kindShiftMatrix(valid)
+  const matrix = cajaShiftMatrix(valid)
   const pendingCount = valid.filter(v => v.pending).length
   const cashiers = [...new Set(sales.map(s => s.cashier_id).filter((x): x is string => !!x))]
   const isToday = day === todayLocal()
@@ -83,19 +84,21 @@ export default function TodayPage() {
         {!isToday && <button onClick={() => setDay(todayLocal())} className="min-h-11 rounded border bg-white px-3 text-sm">Hoy</button>}
       </div>
 
-      <section className="grid gap-2 sm:grid-cols-2">
-        <div className="rounded-lg bg-white p-3 shadow">
-          <div className="text-xs text-stone-500">Total</div>
-          <div className="text-2xl font-semibold tabular-nums">{money(total)}</div>
-          <div className="text-xs text-stone-500">
-            {valid.length} venta{valid.length === 1 ? '' : 's'}
-            {pendingCount > 0 && <span className="text-amber-700"> · {pendingCount} por sincronizar</span>}
-            {voided.length > 0 && ` · ${voided.length} anulada${voided.length === 1 ? '' : 's'}`}
-          </div>
-        </div>
-        <Breakdown title="Por medio de pago" rows={Object.entries(byMethod).map(([k, v]) => [PAYMENT_LABEL[k as PaymentMethod], v!])} />
+      <div className="flex flex-wrap gap-2">
+        {(['', ...CAJAS] as const).map(c => (
+          <button key={c} onClick={() => setCaja(c)} className={chip(caja === c)}>{c ? `${CAJA_ICON[c]} ${CAJA_LABEL[c]}` : 'Ambas cajas'}</button>
+        ))}
+      </div>
+      <div className="text-sm text-stone-600">
+        Total <strong className="text-lg tabular-nums text-stone-900">{money(total)}</strong> · {valid.length} venta{valid.length === 1 ? '' : 's'}
+        {pendingCount > 0 && <span className="text-amber-700"> · {pendingCount} por sincronizar</span>}
+        {voided.length > 0 && ` · ${voided.length} anulada${voided.length === 1 ? '' : 's'}`}
+      </div>
+      <section className={`grid gap-2 ${caja ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
+        {(caja ? [caja] : CAJAS).map(c => <CajaCard key={c} caja={c} sales={valid} />)}
+        <Breakdown title="Por categoría" rows={byCategory(valid)} />
       </section>
-      <KindByShift matrix={matrix} />
+      <CajaByShift matrix={matrix} />
 
       <div className="flex flex-wrap gap-2">
         {(['', 'manana', 'tarde'] as const).map(s => (
@@ -138,7 +141,7 @@ export default function TodayPage() {
                   <div className={`truncate text-sm ${anulada ? 'line-through' : ''}`}>{s.items.map(i => `${i.qty}× ${i.description}`).join(', ')}</div>
                   <div className="text-xs text-stone-500">
                     {s.number != null ? `#${s.number}` : <span className="text-amber-700">⏳ por sincronizar</span>}
-                    {' · '}{PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
+                    {' · '}{CAJA_ICON[s.caja]} {PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
                     {isAdmin && s.cashier_id && ` · ${names[s.cashier_id] ?? 'Cajero'}`}
                     {anulada && <span className="ml-1 rounded bg-stone-200 px-1 text-stone-600">anulada</span>}
                   </div>
