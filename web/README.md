@@ -101,6 +101,14 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - **Exportar CSV**: una fila por línea de venta (incluye anuladas con su estado), UTF-8 con BOM para Excel.
 - Las consultas paginan de a 1000 ventas (límite de PostgREST), así que sirven para rangos largos.
 
+## Historial de Firebase (app de impresiones)
+
+Las 184 ventas de `/index.html` (25/09 – 07/10/2026) están importadas en `sales` con `legacy_ref` = id de Firebase
+(migración `20261009150000_legacy_firebase_import`). Productos del catálogo antiguo → servicios `IMP-0xx`;
+impresiones/fotocopias "Personalizado" → `IMP-900`; "Otros" → ítems libres. Sin movimientos de stock.
+"Yo"/"Hermano" se asignan con `legacy_user_map`. Si aparecieran ventas nuevas en Firebase, se pueden importar
+de nuevo con `select import_legacy_sales('<respaldo JSON de index.html>'::jsonb)` como admin: las ya importadas se omiten.
+
 ## Impresiones y copias (POS)
 
 - Productos de las categorías *Fotocopias* e *Impresiones* son **servicios** (`track_stock = false`): se venden por hoja y no
