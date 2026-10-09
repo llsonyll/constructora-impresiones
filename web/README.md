@@ -105,7 +105,8 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
 Las 184 ventas de `/index.html` (25/09 – 07/10/2026) están importadas en `sales` con `legacy_ref` = id de Firebase
 (migración `20261009150000_legacy_firebase_import`). Productos del catálogo antiguo → servicios `IMP-0xx`;
-impresiones/fotocopias "Personalizado" → `IMP-900`; "Otros" → ítems libres. Sin movimientos de stock.
+impresiones/fotocopias "Personalizado" → `IMP-900`; "Otros" → ítems libres. Todas en la caja *Copias y librería*
+(`20261009160000_legacy_import_caja`), sin movimientos de stock; recibieron los números de venta 23–206.
 "Yo"/"Hermano" se asignan con `legacy_user_map`. Si aparecieran ventas nuevas en Firebase, se pueden importar
 de nuevo con `select import_legacy_sales('<respaldo JSON de index.html>'::jsonb)` como admin: las ya importadas se omiten.
 
