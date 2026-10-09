@@ -6,6 +6,7 @@ import type { Role } from '@/types/domain'
 const NAV: { to: string; label: string; roles: Role[] }[] = [
   { to: '/ventas', label: 'Ventas', roles: ['admin', 'cajero'] },
   { to: '/hoy', label: 'Hoy', roles: ['admin', 'cajero'] },
+  { to: '/reportes', label: 'Reportes', roles: ['admin'] },
   { to: '/inventario', label: 'Inventario', roles: ['admin', 'almacen'] },
   { to: '/proveedores', label: 'Proveedores', roles: ['admin', 'almacen'] },
   { to: '/documentos', label: 'Documentos', roles: ['admin', 'cajero'] },
