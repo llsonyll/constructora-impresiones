@@ -80,6 +80,15 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
   se pueden ver con *Ver anuladas*.
 
+## Reportes (`/reportes`, solo admin)
+
+- Rango de fechas (desde/hasta, ambos inclusive, en hora local) con atajos: hoy, ayer, últimos 7 días, este mes, mes pasado.
+- Filtros por turno, medio de pago y cajero. Total, número de ventas, ticket promedio, anuladas y **margen estimado**
+  (solo con las líneas que tienen costo registrado al vender, `sale_items.unit_cost`; se indica qué % de las ventas cubre).
+- Medio de pago, tabla tipo × turno (la misma de *Hoy*), ventas por día y productos más vendidos (filtrables por tipo).
+- **Exportar CSV**: una fila por línea de venta (incluye anuladas con su estado), UTF-8 con BOM para Excel.
+- Las consultas paginan de a 1000 ventas (límite de PostgREST), así que sirven para rangos largos.
+
 ## Impresiones y copias (POS)
 
 - Productos de la categoría *Impresión y fotocopia* son **servicios** (`track_stock = false`): se venden por hoja y no

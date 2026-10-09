@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import { localDb } from '@/db/local'
@@ -6,9 +6,10 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { money } from '@/lib/format'
 import type { PaymentMethod, Shift } from '@/types/domain'
 import {
-  type DaySale, KIND_LABEL, type LineKind, PAYMENT_LABEL, SHIFT_LABEL, dayRange, salesKeys, todayLocal,
+  type DaySale, type LineKind, PAYMENT_LABEL, SHIFT_LABEL, dayRange, salesKeys, todayLocal,
   useCashierNames, useDaySales, useVoidSale,
 } from './api'
+import { Breakdown, KindByShift, kindShiftMatrix } from './summary'
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
@@ -63,9 +64,7 @@ export default function TodayPage() {
   const sumBy = <K extends string>(keyOf: (v: DaySale) => K) =>
     valid.reduce((acc, v) => ({ ...acc, [keyOf(v)]: (acc[keyOf(v)] ?? 0) + v.total }), {} as Partial<Record<K, number>>)
   const byMethod = sumBy(v => v.payment_method)
-  // Tipo × turno: cada línea suma a su tipo en el turno de su venta.
-  const matrix = Object.fromEntries(KINDS.map(k => [k, { manana: 0, tarde: 0 }])) as Record<LineKind, Record<Shift, number>>
-  for (const v of valid) for (const i of v.items) matrix[i.kind][v.shift] += i.subtotal
+  const matrix = kindShiftMatrix(valid)
   const pendingCount = valid.filter(v => v.pending).length
   const cashiers = [...new Set(sales.map(s => s.cashier_id).filter((x): x is string => !!x))]
   const isToday = day === todayLocal()
@@ -173,56 +172,6 @@ export default function TodayPage() {
         })}
         {!isLoading && !listed.length && <li className="p-6 text-center text-stone-500">No hay ventas {isToday ? 'hoy' : 'ese día'}.</li>}
       </ul>
-    </div>
-  )
-}
-
-const KINDS: LineKind[] = ['ferreteria', 'impresion', 'otros']
-const SHIFTS: Shift[] = ['manana', 'tarde']
-
-/** Tabla tipo × turno con totales por fila y columna (siempre muestra los tres tipos y los dos turnos). */
-function KindByShift({ matrix }: { matrix: Record<LineKind, Record<Shift, number>> }) {
-  const rowTotal = (k: LineKind) => matrix[k].manana + matrix[k].tarde
-  const colTotal = (t: Shift) => KINDS.reduce((s, k) => s + matrix[k][t], 0)
-  const cell = (n: number, strong = false) =>
-    <td className={`px-2 py-1.5 text-right tabular-nums ${strong ? 'font-semibold' : ''} ${n ? '' : 'text-stone-400'}`}>{money(n)}</td>
-  return (
-    <section className="overflow-x-auto rounded-lg bg-white p-3 shadow">
-      <div className="mb-1 text-xs text-stone-500">Por tipo y turno</div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-stone-500">
-            <th className="py-1 text-left font-normal">Tipo</th>
-            {SHIFTS.map(t => <th key={t} className="px-2 py-1 text-right font-normal">{SHIFT_LABEL[t]}</th>)}
-            <th className="px-2 py-1 text-right font-normal">Total</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {KINDS.map(k => (
-            <tr key={k}>
-              <td className="py-1.5">{KIND_LABEL[k]}</td>
-              {SHIFTS.map(t => <Fragment key={t}>{cell(matrix[k][t])}</Fragment>)}
-              {cell(rowTotal(k), true)}
-            </tr>
-          ))}
-          <tr className="border-t-2">
-            <td className="py-1.5 font-semibold">Total</td>
-            {SHIFTS.map(t => <Fragment key={t}>{cell(colTotal(t), true)}</Fragment>)}
-            {cell(KINDS.reduce((s, k) => s + rowTotal(k), 0), true)}
-          </tr>
-        </tbody>
-      </table>
-    </section>
-  )
-}
-
-function Breakdown({ title, rows }: { title: string; rows: [string, number][] }) {
-  return (
-    <div className="rounded-lg bg-white p-3 text-sm shadow">
-      <div className="mb-1 text-xs text-stone-500">{title}</div>
-      {rows.length ? rows.map(([label, v]) => (
-        <div key={label} className="flex justify-between"><span>{label}</span><span className="tabular-nums">{money(v)}</span></div>
-      )) : <div className="text-stone-400">—</div>}
     </div>
   )
 }

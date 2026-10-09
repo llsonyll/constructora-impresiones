@@ -12,6 +12,8 @@ export interface SaleLine {
   unit_price: number
   subtotal: number
   kind: LineKind
+  product_id?: string | null
+  unit_cost?: number | null      // costo al momento de la venta (para margen; solo lo usa el admin)
 }
 
 export interface DaySale {
@@ -49,10 +51,49 @@ export function todayLocal(d = new Date()) {
 
 type Row = Omit<DaySale, 'items' | 'pending'> & {
   sale_items: { description: string; qty: number; unit_price: number; subtotal: number; product_id: string | null;
-                products: { track_stock: boolean } | null }[]
+                unit_cost: number | null; products: { track_stock: boolean } | null }[]
 }
 
-export const salesKeys = { day: (day: string) => ['sales', 'day', day] as const }
+export const salesKeys = {
+  day: (day: string) => ['sales', 'day', day] as const,
+  range: (from: string, to: string) => ['sales', 'range', from, to] as const,
+}
+
+const SALE_COLS = 'id, number, cashier_id, shift, payment_method, total, status, sold_at, customer_name, note, ' +
+  'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(track_stock))'
+const PAGE = 1000   // tope de filas por consulta de PostgREST en Supabase
+
+/** Ventas con `sold_at` en [from, to), más recientes primero, paginando de a 1000. */
+export async function fetchSales(from: string, to: string): Promise<DaySale[]> {
+  const rows: Row[] = []
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('sales').select(SALE_COLS)
+      .gte('sold_at', from).lt('sold_at', to)
+      .order('sold_at', { ascending: false }).order('id')
+      .range(offset, offset + PAGE - 1)
+    if (error) throw error
+    rows.push(...(data as unknown as Row[]))
+    if (data.length < PAGE) break
+  }
+  return rows.map(({ sale_items, ...s }) => ({
+    ...s,
+    total: Number(s.total),
+    items: sale_items.map(i => ({
+      description: i.description, qty: Number(i.qty), unit_price: Number(i.unit_price), subtotal: Number(i.subtotal),
+      product_id: i.product_id, unit_cost: i.unit_cost == null ? null : Number(i.unit_cost),
+      kind: i.product_id == null ? 'otros' : i.products?.track_stock === false ? 'impresion' : 'ferreteria',
+    })),
+  }))
+}
+
+/** Ventas de un rango de días locales `YYYY-MM-DD` (ambos inclusive). */
+export function useRangeSales(fromDay: string, toDay: string) {
+  return useQuery({
+    queryKey: salesKeys.range(fromDay, toDay),
+    enabled: fromDay <= toDay,
+    queryFn: () => fetchSales(dayRange(fromDay).from, dayRange(toDay).to),
+  })
+}
 
 /** Ventas del día (RLS: el cajero ve solo las suyas; el admin, todas). Se refresca en vivo con Realtime. */
 export function useDaySales(day: string) {
@@ -68,23 +109,7 @@ export function useDaySales(day: string) {
   return useQuery({
     queryKey: salesKeys.day(day),
     refetchInterval: 60_000,
-    queryFn: async (): Promise<DaySale[]> => {
-      const { from, to } = dayRange(day)
-      const { data, error } = await supabase.from('sales')
-        .select('id, number, cashier_id, shift, payment_method, total, status, sold_at, customer_name, note, ' +
-                'sale_items(description, qty, unit_price, subtotal, product_id, products(track_stock))')
-        .gte('sold_at', from).lt('sold_at', to)
-        .order('sold_at', { ascending: false })
-      if (error) throw error
-      return (data as unknown as Row[]).map(({ sale_items, ...s }) => ({
-        ...s,
-        total: Number(s.total),
-        items: sale_items.map(i => ({
-          description: i.description, qty: Number(i.qty), unit_price: Number(i.unit_price), subtotal: Number(i.subtotal),
-          kind: i.product_id == null ? 'otros' : i.products?.track_stock === false ? 'impresion' : 'ferreteria',
-        })),
-      }))
-    },
+    queryFn: () => { const { from, to } = dayRange(day); return fetchSales(from, to) },
   })
 }
 
