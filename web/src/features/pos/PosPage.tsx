@@ -8,6 +8,7 @@ import PrintJobsPanel from '@/features/print/PrintJobsPanel'
 import { usePrintAgent } from '@/features/print/usePrintAgent'
 import { describirJob } from '@shared/print/core.js'
 import { CAJAS, CAJA_ICON, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
+import { normalizeCode } from '@/features/locations/api'
 import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
@@ -74,7 +75,9 @@ export default function PosPage() {
   useEffect(() => { setCategory(null) }, [caja])
 
   const matches = (p: Product, q: string) => p.sku.toLowerCase() === q || p.barcode === q ||
-    p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false)
+    p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false) ||
+    // "E2-N5" / "e2n5": lo que hay en esa ubicación
+    (/^[a-z]\d/.test(q) && (p.locations?.some(c => { const n = normalizeCode(q); return c === n || c.startsWith(`${n}-`) }) ?? false))
 
   // Sin búsqueda: lo más usado en este equipo primero (servicios antes que productos en copias).
   const results = useMemo(() => {
@@ -207,6 +210,7 @@ export default function PosPage() {
                       ? <span className="text-stone-500">por {p.unit}</span>
                       : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
                   </div>
+                  {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500">📍 {p.locations[0]}</div>}
                 </div>
               </button>
             )

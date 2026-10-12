@@ -26,6 +26,22 @@ export interface Product {
   job_color: boolean | null
   job_duplex: boolean
   job_keywords: string[]
+  locations?: string[]   // códigos de ubicación física, la principal primero (sin datos en cachés viejas)
+}
+
+export type FurnitureType = 'estante' | 'vitrina' | 'mostrador'
+
+/** Ubicación física: código MUEBLE[-CUERPO]-NIVEL[-SECCIÓN], calculado en la BD a partir de las partes. */
+export interface Location {
+  id: number
+  code: string
+  furniture: string        // E0, E1… (V vitrina, M mostrador)
+  body: string | null      // cuerpo de un mueble compuesto
+  level: number            // N1 = repisa más alta
+  slot: string | null      // sección de izquierda a derecha
+  furniture_type: FurnitureType
+  description: string | null
+  active: boolean
 }
 
 /** Origen de los trabajos que detecta el agente local (ver shared/print). */

@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import ProductLocations from '@/features/locations/ProductLocations'
 import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -204,6 +205,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
           </div>
         </form>
 
+        {product && product.track_stock && <ProductLocations product={product} />}
         {product && <PhotoSection product={product} />}
         {product && product.track_stock && <StockSection product={product} />}
         {product && <CostHistorySection product={product} />}

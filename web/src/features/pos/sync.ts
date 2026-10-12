@@ -6,13 +6,19 @@ import type { Category, PendingSale, Product } from '@/types/domain'
 export async function refreshCatalog(): Promise<number> {
   const [prods, cats] = await Promise.all([
     supabase.from('products')
-      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords')
+      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, product_locations(is_primary, locations(code))')
       .eq('active', true),
     supabase.from('categories').select('id, name, caja'),
   ])
   if (prods.error) throw prods.error
   if (cats.error) throw cats.error
-  const data = prods.data
+  type Row = Product & { product_locations: { is_primary: boolean; locations: { code: string } | null }[] }
+  // Ubicaciones como lista de códigos, la principal primero (solo informativo en el POS).
+  const data = (prods.data as unknown as Row[]).map(({ product_locations, ...p }) => ({
+    ...p,
+    locations: [...product_locations].sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+      .map(l => l.locations?.code).filter((c): c is string => !!c),
+  }))
   await localDb.transaction('rw', localDb.products, localDb.categories, async () => {
     await localDb.products.clear()
     await localDb.products.bulkPut(data as Product[])
