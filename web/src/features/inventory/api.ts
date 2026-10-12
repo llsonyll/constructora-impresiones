@@ -25,7 +25,11 @@ export interface InventoryProduct {
   job_color: boolean | null
   job_duplex: boolean
   job_keywords: string[]
+  locations: ProductLocation[] // la principal primero
 }
+
+/** Ubicación asignada a un producto. qty es solo referencial (el stock real es products.stock). */
+export interface ProductLocation { location_id: number; code: string; is_primary: boolean; qty: number | null }
 
 import type { Category } from '@/types/domain'
 export type { Category }
@@ -40,9 +44,12 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, product_costs(cost)'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, product_costs(cost), product_locations(location_id, is_primary, qty, created_at, locations(code))'
 
-type Row = Omit<InventoryProduct, 'cost'> & { product_costs: { cost: number } | null }
+type Row = Omit<InventoryProduct, 'cost' | 'locations'> & {
+  product_costs: { cost: number } | null
+  product_locations: { location_id: number; is_primary: boolean; qty: number | null; created_at: string; locations: { code: string } | null }[]
+}
 
 export const inventoryKeys = {
   products: ['inventory', 'products'] as const,
@@ -87,7 +94,12 @@ export function useInventory() {
     queryFn: async (): Promise<InventoryProduct[]> => {
       const { data, error } = await supabase.from('products').select(PRODUCT_COLS).order('name')
       if (error) throw error
-      return (data as unknown as Row[]).map(({ product_costs, ...p }) => ({ ...p, cost: product_costs?.cost ?? null }))
+      return (data as unknown as Row[]).map(({ product_costs, product_locations, ...p }) => ({
+        ...p, cost: product_costs?.cost ?? null,
+        locations: [...product_locations]
+          .sort((a, b) => Number(b.is_primary) - Number(a.is_primary) || a.created_at.localeCompare(b.created_at))
+          .map(l => ({ location_id: l.location_id, code: l.locations?.code ?? '?', is_primary: l.is_primary, qty: l.qty == null ? null : Number(l.qty) })),
+      }))
     },
   })
 }
@@ -130,7 +142,7 @@ export function useMovements(productId: string | undefined) {
   })
 }
 
-export type ProductInput = Omit<InventoryProduct, 'id' | 'stock' | 'updated_at' | 'image_path'> & { id?: string }
+export type ProductInput = Omit<InventoryProduct, 'id' | 'stock' | 'updated_at' | 'image_path' | 'locations'> & { id?: string }
 
 /** Crea o actualiza producto + costo. El stock NO se toca aquí (solo por movimientos). */
 export function useSaveProduct() {

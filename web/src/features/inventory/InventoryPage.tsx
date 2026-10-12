@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import { normalizeCode } from '@/features/locations/api'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import CategoryOptions from './CategoryOptions'
 import ProductEditor from './ProductEditor'
 
-type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'inactivos' | 'recientes'
+type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'sin_ubicacion' | 'inactivos' | 'recientes'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 // Filas que se dibujan de una vez (el celular se pone lento con cientos); "Ver más" agrega otras tantas.
@@ -17,6 +18,8 @@ const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boole
   { id: 'sin_precio', label: 'Sin precio', test: p => p.price == null },
   { id: 'revisar', label: 'Por revisar', test: p => p.needs_review },
   { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.track_stock && p.stock <= p.min_stock },
+  // Los servicios (copias, impresiones) no ocupan lugar en la tienda.
+  { id: 'sin_ubicacion', label: 'Sin ubicación', test: p => p.track_stock && !p.locations.length },
   { id: 'inactivos', label: 'Inactivos', test: p => !p.active },
   // Incluye cambios de stock por ventas/ajustes, no solo ediciones.
   { id: 'recientes', label: 'Recientes (24 h)', test: p => Date.now() - Date.parse(p.updated_at) < DAY_MS },
@@ -28,7 +31,9 @@ export const margin = (p: Pick<InventoryProduct, 'price' | 'cost'>) =>
 export default function InventoryPage() {
   const { data: products = [], isLoading, error } = useInventory()
   const { data: categories = [] } = useCategories()
-  const [filter, setFilter] = useState<Filter>('todos')
+  // ?estado=sin_ubicacion (enlace desde Ubicaciones) abre la lista ya filtrada.
+  const [params] = useSearchParams()
+  const [filter, setFilter] = useState<Filter>(() => FILTERS.find(f => f.id === params.get('estado'))?.id ?? 'todos')
   const [category, setCategory] = useState<number | ''>('')
   const [query, setQuery] = useState('')
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
@@ -79,9 +84,12 @@ export default function InventoryPage() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const test = FILTERS.find(f => f.id === filter)!.test
+    // "E2-N5", "e2n5" o "E4": también lista lo que está en esa ubicación (o mueble).
+    const loc = /^[a-z]\d/i.test(q) ? normalizeCode(q) : null
     const matches = (p: InventoryProduct) => (category === '' || p.category_id === category)
       && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-          || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false))
+          || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false)
+          || (loc != null && p.locations.some(l => l.code === loc || l.code.startsWith(`${loc}-`))))
     const pinned = savedIds.map(id => products.find(p => p.id === id)).filter((p): p is InventoryProduct => !!p && matches(p))
     const rest = products.filter(p => !savedIds.includes(p.id) && test(p) && matches(p))
     if (filter === 'recientes') rest.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
@@ -105,10 +113,13 @@ export default function InventoryPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-4">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
-        <Link to="/inventario/precios" className="flex min-h-11 items-center rounded-lg border bg-white px-3 text-sm">📱 Precios</Link>
-        <Link to="/inventario/conteo" className="flex min-h-11 items-center rounded-lg border bg-white px-3 text-sm">Conteo</Link>
+        <div className="grid grid-cols-3 gap-2 max-md:w-full md:flex">
+          <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>📱</span>Precios</Link>
+          <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>📍</span>Ubicaciones</Link>
+          <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>🔢</span>Conteo</Link>
+        </div>
         <button onClick={newProduct} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white max-md:hidden">+ Nuevo producto</button>
       </div>
 
@@ -117,7 +128,7 @@ export default function InventoryPage() {
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
             <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
-            <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Nombre, marca o código"
+            <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Nombre, código o ubicación"
                    onKeyDown={e => e.key === 'Enter' && findByCode(query)} enterKeyHint="search" aria-label="Buscar producto"
                    className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
             {query && (
@@ -164,6 +175,7 @@ export default function InventoryPage() {
                   <div className="line-clamp-2 text-sm font-medium break-words">{p.name}</div>
                   <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-stone-500">
                     <span className="truncate">{p.sku}{p.brand && ` · ${p.brand}`}</span>
+                    {p.locations[0] && <span className="font-mono text-stone-700">📍{p.locations[0].code}{p.locations.length > 1 && ` +${p.locations.length - 1}`}</span>}
                     {saved && <span className="rounded bg-green-100 px-1 text-green-800">✓ guardado</span>}
                     {!p.active && <span className="rounded bg-stone-200 px-1">inactivo</span>}
                     {p.needs_review && <span className="rounded bg-yellow-100 px-1 text-yellow-800">revisar</span>}
