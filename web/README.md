@@ -113,6 +113,19 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
   se pueden ver con *Ver anuladas*.
 
+## Cierre de caja (`/caja`)
+
+- Por **caja** (Ferretería / Copias) y **turno** (mañana / tarde) de un día. Sin monto de apertura:
+  **efectivo esperado = ventas en efectivo − gastos** pagados con el efectivo de esa caja.
+- **Gastos** (`cash_expenses`): monto + en qué; se registran en el turno abierto. Con el turno cerrado no se agregan
+  ni quitan (trigger): hay que reabrirlo.
+- **Cerrar** (`close_cash`, security definer): el servidor suma todas las ventas completadas de esa caja/turno/día
+  (hora de Lima) de cualquier usuario y guarda una foto en `cash_closures` (por medio de pago, gastos, esperado,
+  contado y diferencia: sobra / falta). Un cierre por caja+día+turno. No deja cerrar si este equipo tiene ventas
+  de ese turno sin sincronizar.
+- Si después se anula una venta, el cierre no cambia y la pantalla avisa que las ventas cambiaron. **Reabrir**
+  (solo admin) borra el cierre para volver a cerrar. Historial de los últimos 30 días abajo.
+
 ## Reportes (`/reportes`, solo admin)
 
 - Rango de fechas (desde/hasta, ambos inclusive, en hora local) con atajos: hoy, ayer, últimos 7 días, este mes, mes pasado.
