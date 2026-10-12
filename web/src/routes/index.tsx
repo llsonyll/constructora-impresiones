@@ -5,6 +5,7 @@ import LoginPage from '@/features/auth/LoginPage'
 import PosPage from '@/features/pos/PosPage'
 import TodayPage from '@/features/sales/TodayPage'
 import ReportsPage from '@/features/sales/ReportsPage'
+import CashPage from '@/features/cash/CashPage'
 import InventoryPage from '@/features/inventory/InventoryPage'
 import StockCountPage from '@/features/inventory/StockCountPage'
 import PricingPage from '@/features/inventory/PricingPage'
@@ -36,6 +37,7 @@ export default function AppRoutes() {
           <Route index element={<Navigate to={profile.role === 'almacen' ? '/inventario' : '/ventas'} replace />} />
           <Route path="ventas" element={<RequireRole roles={['admin', 'cajero']}><PosPage /></RequireRole>} />
           <Route path="hoy" element={<RequireRole roles={['admin', 'cajero']}><TodayPage /></RequireRole>} />
+          <Route path="caja" element={<RequireRole roles={['admin', 'cajero']}><CashPage /></RequireRole>} />
           <Route path="reportes" element={<RequireRole roles={['admin']}><ReportsPage /></RequireRole>} />
           <Route path="inventario" element={<RequireRole roles={['admin', 'almacen']}><InventoryPage /></RequireRole>} />
           <Route path="inventario/conteo" element={<RequireRole roles={['admin', 'almacen']}><StockCountPage /></RequireRole>} />
