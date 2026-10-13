@@ -69,8 +69,10 @@ export function useOverlay(onClose: () => void, active = true) {
       // Cerrada desde la pantalla (✕, Guardar…): quitar sus entradas de historial y las de capas hijas.
       const removed = stack.splice(i)
       syncScrollLock()
-      const n = removed.filter(x => x.pushed).length
-      if (n) { skipPops++; history.go(-n) }
+      const pushed = removed.filter(x => x.pushed)
+      // Si se cerró al navegar (un enlace dentro de la hoja), la entrada de arriba ya no es la de la capa:
+      // volver atrás desharía esa navegación.
+      if (pushed.length && history.state?.overlay === pushed[pushed.length - 1].id) { skipPops++; history.go(-pushed.length) }
     }
   }, [active])
 }
