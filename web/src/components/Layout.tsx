@@ -105,7 +105,7 @@ export default function Layout() {
           <ul className="divide-y rounded-xl border">
             {more.map(s => (
               <li key={s.to}>
-                <Link to={s.to} onClick={closeMore} className="flex min-h-12 items-center gap-3 px-3">
+                <Link to={s.to} replace onClick={closeMore} className="flex min-h-12 items-center gap-3 px-3">
                   <s.icon className="size-5 text-stone-500" />{s.label}
                 </Link>
               </li>
