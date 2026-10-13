@@ -220,7 +220,7 @@ const SOURCES: { id: JobSource; label: string }[] = [
 ]
 type JobForm = { job_sources: JobSource[]; job_color: string; job_duplex: boolean; job_keywords: string }
 
-/** Cómo se ofrece el producto al repartir los trabajos que detecta el agente (ver shared/print/core.js). */
+/** Cómo se ofrece el producto al repartir los trabajos que detecta el agente (ver features/print/core.ts). */
 function JobFields<F extends JobForm>({ f, set }: { f: F; set: <K extends keyof F>(k: K, v: F[K]) => void }) {
   const toggle = (id: JobSource, on: boolean) =>
     set('job_sources', (on ? [...f.job_sources, id] : f.job_sources.filter(s => s !== id)) as F['job_sources'])

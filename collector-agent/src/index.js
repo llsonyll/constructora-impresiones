@@ -24,10 +24,9 @@ function log(msg) {
   }
 }
 
-// Por ahora el agente NO escribe en Firebase: todo lo detectado queda
-// en este buffer en memoria, servido por /jobs para que la app web lo
-// consuma por HTTP directo (ver test-agente.html). Firestore se retoma
-// más adelante si se decide llevar los datos a la nube.
+// El agente no escribe en ninguna base de datos: todo lo detectado queda
+// en este buffer en memoria, servido por /jobs para que el POS lo consuma
+// por HTTP directo y lo asigne a una venta.
 const jobBuffer = createJobBuffer((config.localServer && config.localServer.bufferSize) || 300);
 
 async function onCapture(data) {
@@ -39,7 +38,7 @@ const konicaPoller = createPoller(config, { onCapture, log });
 const papercutWatcher = createWatcher(config, { onCapture, log });
 createLocalServer(config, { log, jobBuffer });
 
-log('Agente de captura iniciado (modo local, sin Firebase).');
+log('Agente de captura iniciado (modo local).');
 
 setInterval(() => {
   konicaPoller.tick().catch((e) => log(`[konica] error inesperado: ${e.message}`));

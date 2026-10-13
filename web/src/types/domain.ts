@@ -44,7 +44,7 @@ export interface Location {
   active: boolean
 }
 
-/** Origen de los trabajos que detecta el agente local (ver shared/print). */
+/** Origen de los trabajos que detecta el agente local (ver features/print). */
 export type JobSource = 'konica-copia' | 'pc-print'
 
 export interface CartLine {

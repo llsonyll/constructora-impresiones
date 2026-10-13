@@ -1,10 +1,7 @@
-import type { ProductoImpresion } from '@shared/print/core.js'
+import type { ProductoImpresion } from './core'
 import type { Product } from '@/types/domain'
 
-/**
- * Adaptador Supabase → shared/print: el POS guarda la configuración de trabajos en columnas
- * `job_*` de `products`; la app de impresiones (Firebase) usa los mismos campos en español.
- */
+/** `products` (columnas `job_*`) → la forma que usa la lógica de trabajos (core.ts). */
 export const toProductoImpresion = (p: Product): ProductoImpresion => ({
   id: p.id,
   nombre: p.name,
