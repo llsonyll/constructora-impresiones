@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPin, Printer, ScanBarcode } from 'lucide-react'
+import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { localDb } from '@/db/local'
@@ -7,7 +9,8 @@ import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import PrintJobsPanel from '@/features/print/PrintJobsPanel'
 import { usePrintAgent } from '@/features/print/usePrintAgent'
 import { describirJob } from '@/features/print/core'
-import { CAJAS, CAJA_ICON, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
+import CajaIcon from '@/components/CajaIcon'
+import { CAJAS, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
 import { normalizeCode } from '@/features/locations/api'
 import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
@@ -33,7 +36,6 @@ export default function PosPage() {
   const [scanning, setScanning] = useState(false)
   const [creating, setCreating] = useState<{ barcode?: string; name?: string } | null>(null)
   const [ticketOpen, setTicketOpen] = useState(false)
-  const [flash, setFlash] = useState<{ text: string; tone: 'ok' | 'warn' } | null>(null)
   const [online, setOnline] = useState(navigator.onLine)
   const [paying, setPaying] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
@@ -63,7 +65,6 @@ export default function PosPage() {
     window.addEventListener('online', up); window.addEventListener('offline', down)
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down) }
   }, [])
-  useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 2500); return () => clearTimeout(t) }, [flash])
   useEffect(() => { if (!agent.ultimoNuevo) return; const t = setTimeout(agent.descartarAviso, 8000); return () => clearTimeout(t) }, [agent.ultimoNuevo])
 
   const inCaja = useMemo(() => products.filter(p => cajaOf(p, catMap) === caja), [products, catMap, caja])
@@ -104,8 +105,10 @@ export default function PosPage() {
     if (qty === 1) carts[target].dispatch({ type: 'addProduct', product: p })
     else carts[target].dispatch({ type: 'addLine', product_id: p.id, description: p.name, qty, unit_price: p.price })
     used(p.id)
-    if (target !== caja) { setCaja(target); setFlash({ text: `${p.name} es de ${CAJA_LABEL[target]}: cambiaste a esa caja`, tone: 'warn' }) }
-    else setFlash({ text: `+${qty} ${p.name}`, tone: 'ok' })
+    // Un solo aviso a la vez (id fijo): tocar rápido varios productos no apila mensajes.
+    const undo = { label: 'Deshacer', onClick: () => carts[target].dispatch({ type: 'undoAdd', product_id: p.id, unit_price: p.price, qty }) }
+    if (target !== caja) { setCaja(target); toast.warning(`${p.name} es de ${CAJA_LABEL[target]}: cambiaste a esa caja`, { id: 'pos', action: undo }) }
+    else toast(`+${qty} ${p.name}`, { id: 'pos', action: undo })
   }
 
   /** Tocar una tarjeta: los servicios (copias, impresiones) piden cantidad; el resto suma 1. */
@@ -118,7 +121,7 @@ export default function PosPage() {
     if (canCreate && online) setCreating({ barcode: code })
     else {
       setCustomDesc(`Código ${code}`); setTicketOpen(true)
-      setFlash({ text: online ? 'No está en el catálogo: agrégalo como ítem libre' : 'Sin internet: agrégalo como ítem libre', tone: 'warn' })
+      toast.warning(online ? 'No está en el catálogo: agrégalo como ítem libre' : 'Sin internet: agrégalo como ítem libre', { id: 'pos' })
     }
   }
 
@@ -133,9 +136,9 @@ export default function PosPage() {
       ids[caja] = null
       dispatch({ type: 'clear' })
       setTicketOpen(false)
-      setFlash({ text: `Venta registrada en ${CAJA_LABEL[caja]}`, tone: 'ok' })
+      toast.success(`Venta registrada en ${CAJA_LABEL[caja]}`, { id: 'pos' })
     } catch {
-      setFlash({ text: 'No se pudo registrar la venta. Intenta de nuevo.', tone: 'warn' })
+      toast.error('No se pudo registrar la venta. Intenta de nuevo.', { id: 'pos' })
     } finally {
       payingRef.current = false
       setPaying(false)
@@ -155,7 +158,7 @@ export default function PosPage() {
             <button key={c} role="tab" aria-selected={caja === c} onClick={() => setCaja(c)}
                     className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium
                                 ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : 'text-stone-600'}`}>
-              <span aria-hidden>{CAJA_ICON[c]}</span>{CAJA_LABEL[c]}
+              <CajaIcon caja={c} />{CAJA_LABEL[c]}
               {countOf(c) > 0 && (
                 <span className={`rounded-full px-1.5 text-xs ${caja === c ? 'bg-white/25' : 'bg-white'}`}>{countOf(c)}</span>
               )}
@@ -167,10 +170,10 @@ export default function PosPage() {
                  onKeyDown={e => e.key === 'Enter' && query.trim() && handleCode(query.trim())}
                  placeholder={`Buscar en ${CAJA_LABEL[caja]}…`} className="min-w-0 flex-1 rounded-lg border p-3 text-base" />
           {query && <button onClick={() => setQuery('')} className="grid min-w-11 shrink-0 place-items-center rounded-lg border bg-white" aria-label="Limpiar búsqueda">✕</button>}
-          <button onClick={() => setScanning(true)} className={`min-w-12 shrink-0 rounded-lg px-4 text-white ${theme.solid}`} aria-label="Escanear código">📷</button>
+          <button onClick={() => setScanning(true)} className={`min-w-12 shrink-0 rounded-lg px-4 text-white ${theme.solid}`} aria-label="Escanear código"><ScanBarcode className="mx-auto size-6" /></button>
           {(caja === 'copias' || agent.pendientes.length > 0) && <button onClick={() => setPrintOpen(true)} aria-label={`Trabajos de impresión (${agent.pendientes.length} pendientes)`}
                   className="relative min-w-12 shrink-0 rounded-lg border bg-white px-3">
-            🖨️
+            <Printer className="mx-auto size-6" />
             {agent.pendientes.length > 0 && (
               <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs text-white">{agent.pendientes.length}</span>
             )}
@@ -188,7 +191,7 @@ export default function PosPage() {
         )}
         {agent.ultimoNuevo && (
           <div role="status" className="mb-3 flex items-center gap-2 rounded-lg bg-stone-900 p-2 pl-3 text-sm text-white">
-            <span className="min-w-0 flex-1">🖨️ Nuevo trabajo: {describirJob(agent.ultimoNuevo)}</span>
+            <span className="min-w-0 flex-1"><Printer className="mr-1 inline size-4 align-[-0.15em]" />Nuevo trabajo: {describirJob(agent.ultimoNuevo)}</span>
             <button onClick={() => { agent.descartarAviso(); setPrintOpen(true) }} className="min-h-11 rounded bg-amber-600 px-3">Asignar</button>
             <button onClick={agent.descartarAviso} className="grid size-11 place-items-center" aria-label="Cerrar aviso">✕</button>
           </div>
@@ -211,7 +214,7 @@ export default function PosPage() {
                       ? <span className="text-stone-500">por {p.unit}</span>
                       : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
                   </div>
-                  {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500">📍 {p.locations[0]}</div>}
+                  {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500"><MapPin className="inline size-3.5 align-[-0.15em]" /> {p.locations[0]}</div>}
                 </div>
               </button>
             )
@@ -226,7 +229,7 @@ export default function PosPage() {
         </div>
         {otherMatches > 0 && (
           <button onClick={() => setCaja(otherCaja)} className="mt-3 min-h-11 w-full rounded-lg border border-dashed bg-white px-3 text-sm text-stone-600">
-            {otherMatches} resultado{otherMatches === 1 ? '' : 's'} en {CAJA_ICON[otherCaja]} {CAJA_LABEL[otherCaja]} →
+            {otherMatches} resultado{otherMatches === 1 ? '' : 's'} en <CajaIcon caja={otherCaja} /> {CAJA_LABEL[otherCaja]} →
           </button>
         )}
       </section>
@@ -237,7 +240,7 @@ export default function PosPage() {
                          md:static md:block md:h-fit md:rounded-xl md:p-4 md:shadow md:sticky md:top-4`}>
         <div className="flex items-center">
           <h2 className="flex-1 font-semibold">
-            Ticket <span className={`ml-1 rounded px-2 py-0.5 text-xs ${theme.soft} ${theme.text}`}>{CAJA_ICON[caja]} {CAJA_LABEL[caja]}</span>
+            Ticket <span className={`ml-1 rounded px-2 py-0.5 text-xs ${theme.soft} ${theme.text}`}><CajaIcon caja={caja} /> {CAJA_LABEL[caja]}</span>
             {pendingCount > 0 && <span className="ml-2 rounded bg-amber-100 px-2 text-xs text-amber-800">{pendingCount} por sincronizar</span>}
           </h2>
           <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
@@ -295,17 +298,11 @@ export default function PosPage() {
       {!ticketOpen && (
         <button onClick={() => setTicketOpen(true)}
                 className={`fixed inset-x-3 bottom-safe-3 z-20 flex items-center justify-between rounded-xl p-4 text-white shadow-lg md:hidden ${theme.solid}`}>
-          <span>{CAJA_ICON[caja]} {count ? `${count} ítem${count === 1 ? '' : 's'}` : 'Ticket vacío'}</span>
+          <span className="flex items-center gap-2"><CajaIcon caja={caja} /> {count ? `${count} ítem${count === 1 ? '' : 's'}` : 'Ticket vacío'}</span>
           <span className="font-semibold">{money(total)} →</span>
         </button>
       )}
 
-      {flash && (
-        // Abajo, sobre la barra del ticket: no tapa el buscador ni las líneas del ticket.
-        <div role="status" className={`pointer-events-none fixed inset-x-3 bottom-safe-20 z-40 truncate rounded-lg px-4 py-2 text-center text-sm text-white shadow
-                                        md:inset-x-auto md:bottom-4 md:left-1/2 md:max-w-md md:-translate-x-1/2
-                                        ${flash.tone === 'ok' ? 'bg-stone-900/90' : 'bg-amber-700'}`}>{flash.text}</div>
-      )}
 
       {printOpen && (
         <PrintJobsPanel agent={agent} products={products} onClose={() => setPrintOpen(false)}
@@ -313,7 +310,7 @@ export default function PosPage() {
                           // Las impresiones siempre van a la caja de copias.
                           for (const l of printLines) { carts.copias.dispatch({ type: 'addLine', ...l }); used(l.product_id) }
                           setCaja('copias')
-                          setFlash({ text: resto > 0 ? `Agregado al ticket · quedan ${resto} hoja${resto === 1 ? '' : 's'} pendiente${resto === 1 ? '' : 's'}` : 'Agregado al ticket', tone: 'ok' })
+                          toast(resto > 0 ? `Agregado al ticket · quedan ${resto} hoja${resto === 1 ? '' : 's'} pendiente${resto === 1 ? '' : 's'}` : 'Agregado al ticket', { id: 'pos' })
                         }} />
       )}
 

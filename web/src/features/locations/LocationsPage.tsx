@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { MapPin, ScanBarcode } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import Sheet from '@/components/Sheet'
 import { type InventoryProduct, useInventory } from '@/features/inventory/api'
@@ -52,11 +54,9 @@ export default function LocationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-4">
-      <div className="flex items-center gap-2">
-        <Link to="/inventario" className="-ml-2 grid size-11 place-items-center text-xl text-amber-800" aria-label="Volver a Inventario">←</Link>
-        <h1 className="mr-auto text-lg font-semibold">Ubicaciones</h1>
+      <PageHeader title="Ubicaciones" back="/inventario" backLabel="Inventario">
         <button onClick={() => setForm('new')} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white">+ Ubicación</button>
-      </div>
+      </PageHeader>
 
       <form onSubmit={onJump} className="flex gap-2">
         <input value={jump} onChange={e => { setJump(e.target.value); setJumpError('') }} placeholder="Ir a… (p. ej. E2-N5)"
@@ -199,7 +199,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
         <div className="flex gap-2">
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Agregar producto: buscar…" aria-label="Buscar producto para agregar"
                  className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 text-base" />
-          <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded-lg bg-amber-700 px-3 text-sm text-white">📷 Escanear</button>
+          <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded-lg bg-amber-700 px-3 text-sm text-white"><ScanBarcode className="mr-1 inline size-5 align-[-0.25em]" />Escanear</button>
         </div>
         {matches.length > 0 && (
           <ul className="divide-y rounded-lg border">
@@ -207,7 +207,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
               <li key={p.id}>
                 <button onClick={() => { void add(p); setQuery('') }} className="flex min-h-11 w-full items-center gap-2 px-3 py-1.5 text-left text-sm active:bg-amber-50">
                   <span className="min-w-0 flex-1">{p.name}
-                    {p.locations[0] && <span className="ml-1 font-mono text-xs text-stone-500">📍{p.locations[0].code}</span>}
+                    {p.locations[0] && <span className="ml-1 font-mono text-xs text-stone-500"><MapPin className="inline size-3.5 align-[-0.15em]" />{p.locations[0].code}</span>}
                   </span>
                   <span className="text-amber-800">+ Agregar</span>
                 </button>
@@ -246,7 +246,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
                         onClose={() => setScanning(false)} onDetected={onScan} />
       )}
       {scanning && flash && (
-        <div role="status" className={`pointer-events-none fixed inset-x-3 top-[calc(4rem+env(safe-area-inset-top))] z-[70] rounded-lg px-4 py-2 text-center text-sm text-white shadow-lg
+        <div role="status" className={`pointer-events-none fixed inset-x-3 top-[calc(var(--header-h)+1.25rem+env(safe-area-inset-top))] z-[70] rounded-lg px-4 py-2 text-center text-sm text-white shadow-lg
                                         ${flash.ok ? 'bg-green-700' : 'bg-red-700'}`}>{flash.text}</div>
       )}
       {creating && (

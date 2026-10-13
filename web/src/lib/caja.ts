@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Printer, Wrench, type LucideIcon } from 'lucide-react'
 import type { Caja, Category, Product } from '@/types/domain'
 
 export const CAJAS: Caja[] = ['ferreteria', 'copias']
 export const CAJA_LABEL: Record<Caja, string> = { ferreteria: 'Ferretería', copias: 'Copias y librería' }
-export const CAJA_ICON: Record<Caja, string> = { ferreteria: '🔧', copias: '🖨️' }
+// Íconos de cada caja (ver components/CajaIcon): iguales en todos los celulares y toman el color del texto.
+export const CAJA_ICON: Record<Caja, LucideIcon> = { ferreteria: Wrench, copias: Printer }
 
 /** Color de cada caja: el POS cambia de color para que se note en cuál se está cobrando. */
 export const CAJA_THEME: Record<Caja, { solid: string; soft: string; text: string; border: string }> = {

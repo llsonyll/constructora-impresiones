@@ -1,9 +1,11 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import PageHeader from '@/components/PageHeader'
 import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { PAYMENT_LABEL, SHIFT_LABEL, dayRange, todayLocal, useCashierNames, useDaySales } from '@/features/sales/api'
-import { CAJAS, CAJA_ICON, CAJA_LABEL, CAJA_THEME } from '@/lib/caja'
+import CajaIcon from '@/components/CajaIcon'
+import { CAJAS, CAJA_LABEL, CAJA_THEME } from '@/lib/caja'
 import { currentShift, money, round2 } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import {
@@ -62,11 +64,10 @@ export default function CashPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-3 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-4">
-      <div className="flex items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold">Cierre de caja</h1>
+      <PageHeader title="Cierre de caja">
         <input type="date" value={day} max={todayLocal()} onChange={e => e.target.value && setDay(e.target.value)}
                className="min-h-11 rounded-lg border bg-white px-2 text-base" aria-label="Día" />
-      </div>
+      </PageHeader>
 
       <div role="tablist" aria-label="Caja" className="grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
         {CAJAS.map(c => {
@@ -74,7 +75,7 @@ export default function CashPage() {
           return (
             <button key={c} role="tab" aria-selected={caja === c} onClick={() => setCaja(c)}
                     className={`flex min-h-12 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : 'text-stone-600'}`}>
-              <span aria-hidden>{CAJA_ICON[c]}</span>{CAJA_LABEL[c]}
+              <CajaIcon caja={c} />{CAJA_LABEL[c]}
               {closed > 0 && <span className={`whitespace-nowrap rounded-full px-1.5 text-xs ${caja === c ? 'bg-white/25' : 'bg-white'}`}>{closed}/2 ✓</span>}
             </button>
           )
@@ -107,7 +108,7 @@ export default function CashPage() {
               <button onClick={() => { setDay(c.day); setCaja(c.caja); setShift(c.shift) }}
                       className="flex w-full items-center gap-2 py-2 text-left text-sm">
                 <span className="min-w-0 flex-1">
-                  <span className="capitalize">{dayLabel(c.day)}</span> · {SHIFT_LABEL[c.shift]} · {CAJA_ICON[c.caja]}
+                  <span className="capitalize">{dayLabel(c.day)}</span> · {SHIFT_LABEL[c.shift]} · <CajaIcon caja={c.caja} />
                   <span className="block text-xs text-stone-500">{money(c.total_sales)} · {names[c.closed_by] ?? 'Usuario'}</span>
                 </span>
                 <Diff value={c.difference} />

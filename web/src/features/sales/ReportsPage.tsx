@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
-import { CAJAS, CAJA_ICON, CAJA_LABEL } from '@/lib/caja'
+import FilterBar from '@/components/FilterBar'
+import PageHeader from '@/components/PageHeader'
+import CajaIcon from '@/components/CajaIcon'
+import { CAJAS, CAJA_LABEL } from '@/lib/caja'
 import { money, round2 } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import { PAYMENT_LABEL, SHIFT_LABEL, todayLocal, useCashierNames, useRangeSales } from './api'
@@ -110,52 +113,60 @@ export default function ReportsPage() {
 
   const activePreset = ranges.find(r => r.from === from && r.to === to)?.id
   const badRange = from > to
+  const filterSummary = [
+    ranges.find(r => r.id === activePreset)?.label ?? `${dayLabel(from)} – ${dayLabel(to)}`,
+    caja && CAJA_LABEL[caja], shift && SHIFT_LABEL[shift], method && PAYMENT_LABEL[method],
+    cashier && (names[cashier] ?? 'Cajero'), category,
+  ].filter(Boolean).join(' · ')
+  const isDefault = from === ranges[3].from && to === today && !caja && !shift && !method && !cashier && !category
+  const resetFilters = () => { setFrom(ranges[3].from); setTo(today); setCaja(''); setShift(''); setMethod(''); setCashier(''); setCategory('') }
 
   return (
     <div className="mx-auto max-w-5xl space-y-3 p-3 md:p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold">Reportes</h1>
+      <PageHeader title="Reportes">
         <button onClick={exportCsv} disabled={!filtered.length} className="min-h-11 rounded border bg-white px-3 text-sm disabled:opacity-40">
           Exportar CSV
         </button>
-      </div>
+      </PageHeader>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-stone-500">Desde
-          <input type="date" value={from} max={today} onChange={e => e.target.value && setFrom(e.target.value)}
-                 className="mt-1 block min-h-11 rounded border bg-white px-2 text-base text-stone-900" />
-        </label>
-        <label className="text-xs text-stone-500">Hasta
-          <input type="date" value={to} max={today} onChange={e => e.target.value && setTo(e.target.value)}
-                 className="mt-1 block min-h-11 rounded border bg-white px-2 text-base text-stone-900" />
-        </label>
-        {ranges.map(r => (
-          <button key={r.id} onClick={() => { setFrom(r.from); setTo(r.to) }} className={chip(activePreset === r.id)}>{r.label}</button>
-        ))}
-      </div>
+      <FilterBar summary={filterSummary} onReset={isDefault ? undefined : resetFilters}>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-stone-500">Desde
+            <input type="date" value={from} max={today} onChange={e => e.target.value && setFrom(e.target.value)}
+                   className="mt-1 block min-h-11 rounded border bg-white px-2 text-base text-stone-900" />
+          </label>
+          <label className="text-xs text-stone-500">Hasta
+            <input type="date" value={to} max={today} onChange={e => e.target.value && setTo(e.target.value)}
+                   className="mt-1 block min-h-11 rounded border bg-white px-2 text-base text-stone-900" />
+          </label>
+          {ranges.map(r => (
+            <button key={r.id} onClick={() => { setFrom(r.from); setTo(r.to) }} className={chip(activePreset === r.id)}>{r.label}</button>
+          ))}
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        {(['', ...CAJAS] as const).map(c => (
-          <button key={c} onClick={() => { setCaja(c); setCategory('') }} className={chip(caja === c)}>{c ? `${CAJA_ICON[c]} ${CAJA_LABEL[c]}` : 'Ambas cajas'}</button>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(['', 'manana', 'tarde'] as const).map(s => (
-          <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
-        ))}
-        <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
-                className="min-h-11 rounded-full border bg-white px-3 text-sm">
-          <option value="">Todo medio de pago</option>
-          {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        {cashiers.length > 1 && (
-          <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
+        <div className="flex flex-wrap gap-2">
+          {(['', ...CAJAS] as const).map(c => (
+            <button key={c} onClick={() => { setCaja(c); setCategory('') }} className={chip(caja === c)}>{c ? <><CajaIcon caja={c} /> {CAJA_LABEL[c]}</> : 'Ambas cajas'}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(['', 'manana', 'tarde'] as const).map(s => (
+            <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
+          ))}
+          <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
                   className="min-h-11 rounded-full border bg-white px-3 text-sm">
-            <option value="">Todos los cajeros</option>
-            {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
+            <option value="">Todo medio de pago</option>
+            {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-        )}
-      </div>
+          {cashiers.length > 1 && (
+            <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
+                    className="min-h-11 rounded-full border bg-white px-3 text-sm">
+              <option value="">Todos los cajeros</option>
+              {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
+            </select>
+          )}
+        </div>
+      </FilterBar>
 
       {badRange && <p className="text-red-600">La fecha “desde” es posterior a “hasta”.</p>}
       {isLoading && !badRange && <p className="text-stone-500">Cargando…</p>}

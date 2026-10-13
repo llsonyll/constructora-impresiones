@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Camera, Package } from 'lucide-react'
 
 interface Props {
   file: File | null
@@ -22,9 +23,9 @@ export default function PhotoInput({ file, onChange, currentUrl, label = 'Tomar 
     <div className="flex items-center gap-3">
       {src
         ? <img src={src} alt="" className="h-20 w-20 rounded-lg border object-cover" />
-        : <div className="grid h-20 w-20 place-items-center rounded-lg border border-dashed text-2xl text-stone-400">📦</div>}
+        : <div className="grid h-20 w-20 place-items-center rounded-lg border border-dashed text-stone-400"><Package className="size-8" /></div>}
       <label className="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm">
-        📸 {src ? 'Cambiar foto' : label}
+        <Camera className="mr-2 size-5" />{src ? 'Cambiar foto' : label}
         <input type="file" accept="image/*" capture="environment" className="hidden"
                onChange={e => onChange(e.target.files?.[0] ?? null)} />
       </label>

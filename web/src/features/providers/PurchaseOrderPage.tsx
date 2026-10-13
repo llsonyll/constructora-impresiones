@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ScanBarcode } from 'lucide-react'
+import { toast } from 'sonner'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { IGV_RATE, money, round2 } from '@/lib/format'
 import { type CostEntry, type InventoryProduct, useCostHistory, useInventory } from '@/features/inventory/api'
@@ -9,6 +12,9 @@ import {
   usePurchaseOrder, useProviderList, useReceivePurchaseOrder, useSavePurchaseOrder, useSetPoStatus, useUpdateInvoiceRef, whatsappUrl,
 } from './api'
 import ReceiptSummary from './ReceiptSummary'
+
+// Arriba: abajo está la barra de acciones de la orden.
+const flashMsg = (text: string) => toast(text, { id: 'orden', position: 'top-center' })
 
 /** auto: el costo es el propuesto (último costo), no uno escrito; se convierte si se cambia "incluyen IGV". */
 interface Line { key: string; product_id: string; qty: string; unit_cost: string; auto?: boolean }
@@ -48,7 +54,6 @@ export default function PurchaseOrderPage() {
   const [query, setQuery] = useState('')
   const [scanning, setScanning] = useState(false)
   const [creating, setCreating] = useState<{ barcode?: string; name?: string } | null>(null)
-  const [flash, setFlash] = useState<string | null>(null)
   const [receipt, setReceipt] = useState<ReceiptLine[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -70,7 +75,6 @@ export default function PurchaseOrderPage() {
     setForm(f); setSavedSnapshot(isNew ? '' : JSON.stringify(strip(f)))
   }, [isNew, order, params])
 
-  useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 2500); return () => clearTimeout(t) }, [flash])
 
   const status = isNew ? 'borrador' : order?.status ?? 'borrador'
   const editable = status === 'borrador' || status === 'enviada'
@@ -129,7 +133,7 @@ export default function PurchaseOrderPage() {
       const cost = full ? defaultCost(full, f.costs_include_igv) : ''
       return { ...f, lines: [...f.lines, { key: newKey(), product_id: p.id, qty: fmtQty(qty), unit_cost: cost, auto: true }] }
     })
-    setFlash(`+${fmtQty(qty)} ${p.name}`)
+    flashMsg(`+${fmtQty(qty)} ${p.name}`)
     setQuery('')
   }
 
@@ -146,14 +150,14 @@ export default function PurchaseOrderPage() {
     if (!form) return
     const inOrder = new Set(form.lines.map(l => l.product_id))
     const low = purchasable.filter(p => p.provider_id === form.provider_id && !inOrder.has(p.id) && p.stock <= p.min_stock)
-    if (!low.length) return setFlash('Ningún producto de este proveedor está bajo el mínimo')
+    if (!low.length) return flashMsg('Ningún producto de este proveedor está bajo el mínimo')
     setForm(f => f && {
       ...f,
       lines: [...f.lines, ...low.map(p => ({
         key: newKey(), product_id: p.id, qty: fmtQty(Math.max(p.min_stock - p.stock, 1)), unit_cost: defaultCost(p, f.costs_include_igv), auto: true,
       }))],
     })
-    setFlash(`Se agregaron ${low.length} productos con stock bajo`)
+    flashMsg(`Se agregaron ${low.length} productos con stock bajo`)
   }
 
   const lineSubtotal = (l: Line) => (valid(l.qty) && valid(l.unit_cost) ? round2(num(l.qty) * num(l.unit_cost)) : 0)
@@ -188,12 +192,12 @@ export default function PurchaseOrderPage() {
     try { await fn() } catch (e) { setActionError(friendlyPoError(e)) } finally { setBusy(false) }
   }
 
-  const onSave = () => run(async () => { if (await persist()) setFlash('Orden guardada') })
+  const onSave = () => run(async () => { if (await persist()) flashMsg('Orden guardada') })
 
   const onMarkSent = () => run(async () => {
     const id = await persist(); if (!id) return
     await setStatus.mutateAsync({ id, status: 'enviada' })
-    setFlash('Marcada como enviada')
+    flashMsg('Marcada como enviada')
   })
 
   const onReceive = () => run(async () => {
@@ -202,7 +206,7 @@ export default function PurchaseOrderPage() {
     if (!confirm(`¿Recibir la mercadería? Entrarán ${fmtQty(units)} unidades de ${form.lines.length} productos al stock y se actualizarán los costos. No se puede deshacer.`)) return
     const id = await persist(); if (!id) return
     setReceipt(await receive.mutateAsync(id))
-    setFlash(null)
+    toast.dismiss()
     window.scrollTo({ top: 0 })
   })
 
@@ -231,12 +235,11 @@ export default function PurchaseOrderPage() {
 
   return (
     <div className="space-y-3 p-4 pb-[calc(10rem+env(safe-area-inset-bottom))]">
-      <div className="flex flex-wrap items-center gap-2">
-        <button onClick={back} className="-ml-1 flex min-h-11 items-center px-1 text-sm text-amber-800">← Proveedores</button>
-        <h1 className="text-lg font-semibold">{isNew ? 'Nueva orden de compra' : order && poLabel(order.number)}</h1>
-        <span className={`rounded px-1.5 text-xs ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
-        {dirty && <span className="text-xs text-amber-700">● sin guardar</span>}
-      </div>
+      <PageHeader back={back} backLabel="Proveedores" title={<>
+        {isNew ? 'Nueva orden de compra' : order && poLabel(order.number)}
+        <span className={`ml-2 rounded px-1.5 align-middle text-xs font-normal ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
+        {dirty && <span className="ml-2 align-middle text-xs font-normal text-amber-700">● sin guardar</span>}
+      </>} />
 
       {receipt ? (
         <ReceiptSummary lines={receipt} onDone={() => setReceipt(null)} />
@@ -278,7 +281,7 @@ export default function PurchaseOrderPage() {
                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleCode(query) } }}
                        placeholder="Agregar producto: nombre, SKU o código" enterKeyHint="done"
                        className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base" />
-                <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded bg-amber-700 px-4 text-white" aria-label="Escanear producto">📷</button>
+                <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded bg-amber-700 px-4 text-white" aria-label="Escanear producto"><ScanBarcode className="mx-auto size-6" /></button>
               </div>
               {query.trim().length >= 2 && (
                 <ul className="absolute inset-x-0 top-12 z-10 max-h-80 divide-y overflow-y-auto rounded-lg border bg-white shadow-lg">
@@ -405,7 +408,7 @@ export default function PurchaseOrderPage() {
               // Recibida: solo se puede completar el N° de factura/guía.
               <button onClick={() => run(async () => {
                 await updateRef.mutateAsync({ id: routeId!, invoice_ref: form.invoice_ref })
-                setSavedSnapshot(JSON.stringify(strip(form))); setFlash('N° de factura guardado')
+                setSavedSnapshot(JSON.stringify(strip(form))); flashMsg('N° de factura guardado')
               })} disabled={busy} className="min-h-11 rounded bg-amber-700 px-4 text-sm text-white disabled:opacity-50">Guardar N° de factura</button>
             )}
             {status === 'cancelada' && <>
@@ -417,10 +420,6 @@ export default function PurchaseOrderPage() {
         </div>
       )}
 
-      {flash && (
-        <div role="status" className="pointer-events-none fixed inset-x-3 bottom-36 z-40 truncate rounded-lg bg-stone-900/90 px-4 py-2 text-center text-sm text-white shadow
-                                      md:inset-x-auto md:left-1/2 md:max-w-md md:-translate-x-1/2">{flash}</div>
-      )}
 
       {scanning && <BarcodeScanner title="Agregar a la orden" onClose={() => setScanning(false)}
                                    onDetected={c => { setScanning(false); handleCode(c) }} />}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { ScanBarcode, Search } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import PhotoInput from '@/components/PhotoInput'
 import Sheet from '@/components/Sheet'
@@ -62,15 +63,13 @@ export default function PricingPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-3 p-3 pb-[calc(7rem+env(safe-area-inset-bottom))]">
-      <div className="flex items-center gap-2">
-        <Link to="/inventario" className="-ml-2 grid size-11 place-items-center text-xl text-amber-800" aria-label="Volver a Inventario">←</Link>
-        <h1 className="flex-1 text-lg font-semibold">Poner precios</h1>
+      <PageHeader title="Poner precios" back="/inventario" backLabel="Inventario">
         <button onClick={() => setCreating({})} className="min-h-11 rounded-lg bg-amber-700 px-4 text-sm text-white">+ Nuevo</button>
-      </div>
+      </PageHeader>
 
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
-          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400"><Search className="size-5" /></span>
           <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar producto" aria-label="Buscar producto"
                  className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
           {query && (
@@ -78,7 +77,7 @@ export default function PricingPage() {
           )}
         </div>
         <button onClick={() => setScanMode('find')} className="grid min-h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-700 text-xl text-white" aria-label="Escanear para buscar">
-          📷
+          <ScanBarcode className="size-6" />
         </button>
       </div>
 
@@ -212,7 +211,7 @@ function ProductCard({ product, position, assigned, onScanAssign, onNext }: Card
       <div className="flex gap-2">
         <input value={barcode} onChange={e => setBarcode(e.target.value)} inputMode="numeric" placeholder="Código de barras"
                className="min-w-0 flex-1 rounded-lg border p-3 font-mono" />
-        <button onClick={onScanAssign} className="min-w-12 shrink-0 rounded-lg border px-4" aria-label="Escanear código del producto">📷</button>
+        <button onClick={onScanAssign} className="min-w-12 shrink-0 rounded-lg border px-4" aria-label="Escanear código del producto"><ScanBarcode className="mx-auto size-6" /></button>
       </div>
 
       <div>

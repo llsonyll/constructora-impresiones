@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { ScanBarcode } from 'lucide-react'
 import ProductLocations from '@/features/locations/ProductLocations'
 import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
@@ -149,7 +150,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
           <Field label="Código de barras" className="max-sm:col-span-2">
             <div className="flex gap-1">
               <input className={input} value={f.barcode} onChange={e => set('barcode', e.target.value)} inputMode="numeric" />
-              <button type="button" onClick={() => setScanning(true)} className="min-w-11 shrink-0 rounded border px-2" aria-label="Escanear código">📷</button>
+              <button type="button" onClick={() => setScanning(true)} className="min-w-11 shrink-0 rounded border px-2" aria-label="Escanear código"><ScanBarcode className="mx-auto size-6" /></button>
             </div>
           </Field>
           <Field label="Marca"><input className={input} value={f.brand} onChange={e => set('brand', e.target.value)} /></Field>
@@ -227,7 +228,7 @@ function JobFields<F extends JobForm>({ f, set }: { f: F; set: <K extends keyof 
   return (
     <details className="col-span-2 rounded border p-3 text-sm" open={f.job_sources.length > 0}>
       <summary className="min-h-11 cursor-pointer content-center font-medium">Trabajos detectados (impresiones y copias)</summary>
-      <p className="mb-2 text-xs text-stone-500">Se ofrece en el panel 🖨️ del POS al asignar las hojas de un trabajo del agente.</p>
+      <p className="mb-2 text-xs text-stone-500">Se ofrece en el panel de impresiones del POS al asignar las hojas de un trabajo del agente.</p>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 flex flex-wrap gap-4">
           {SOURCES.map(s => (

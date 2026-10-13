@@ -82,7 +82,7 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Prop
                 <div className="divide-y">
                   {lista.map(({ p, sug }) => (
                     <div key={p.id} className={`flex items-center gap-2 py-1 text-sm ${sug ? 'font-medium' : ''}`}>
-                      <span className="min-w-0 flex-1">{sug && '⭐ '}{p.nombre}</span>
+                      <span className="min-w-0 flex-1">{sug && '★ '}{p.nombre}</span>
                       <input type="number" min={0} step="0.10" inputMode="decimal" aria-label={`Precio por hoja de ${p.nombre}`}
                              title="Precio por hoja (solo para esta venta)"
                              // No controlado: al escribir "0." un input controlado volvería a "0".
