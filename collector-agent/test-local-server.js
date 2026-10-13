@@ -12,5 +12,5 @@ createLocalServer(
   { log: (msg) => console.log(msg) }
 );
 
-console.log('Prueba mínima corriendo. Abre https://tu-sitio.github.io/test-agente.html para probar, o entra a http://localhost:4000/health directo en el navegador de esa PC.');
+console.log('Prueba mínima corriendo. Entra a http://localhost:4000/health en el navegador de esa PC.');
 console.log('Presiona Ctrl+C para detener.');

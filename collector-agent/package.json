@@ -2,7 +2,7 @@
   "name": "ferreteria-collector-agent",
   "version": "1.0.0",
   "private": true,
-  "description": "Agente de captura de impresiones/copias (PaperCut CSV + SNMP Konica) hacia Firestore",
+  "description": "Agente de captura de impresiones/copias (PaperCut CSV + SNMP Konica) para el POS",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

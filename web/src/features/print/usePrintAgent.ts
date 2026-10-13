@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { createAgentClient, type EstadoAgente } from '@shared/print/agent.js'
-import type { Job } from '@shared/print/core.js'
+import { createAgentClient, type EstadoAgente } from './agent'
+import type { Job } from './core'
 
 /**
  * Conecta con el agente local (localhost:4000) al montar y lo consulta mientras responda.
- * Los pendientes se guardan en localStorage de este origen (no se mezclan con los de /index.html).
+ * Los pendientes se guardan en localStorage del navegador, así sobreviven a recargas.
  */
 export function usePrintAgent() {
   const [pendientes, setPendientes] = useState<Job[]>([])

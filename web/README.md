@@ -1,7 +1,7 @@
 # La Constructora — plataforma (web)
 
 React + TS + Vite + Tailwind + TanStack Query + Dexie (offline) + Supabase.
-La app actual de impresiones (`/index.html`, Firebase) sigue intacta en la raíz del repo.
+La antigua app de impresiones (`/index.html`, Firebase) se retiró el 13/10/2026; su historial está importado (ver abajo).
 
 ## Estructura
 
@@ -141,8 +141,8 @@ Las 184 ventas de `/index.html` (25/09 – 07/10/2026) están importadas en `sal
 (migración `20261009150000_legacy_firebase_import`). Productos del catálogo antiguo → servicios `IMP-0xx`;
 impresiones/fotocopias "Personalizado" → `IMP-900`; "Otros" → ítems libres. Todas en la caja *Copias y librería*
 (`20261009160000_legacy_import_caja`), sin movimientos de stock; recibieron los números de venta 23–206.
-"Yo"/"Hermano" se asignan con `legacy_user_map`. Si aparecieran ventas nuevas en Firebase, se pueden importar
-de nuevo con `select import_legacy_sales('<respaldo JSON de index.html>'::jsonb)` como admin: las ya importadas se omiten.
+"Yo"/"Hermano" se asignan con `legacy_user_map`. `import_legacy_sales(jsonb)` sigue disponible (solo admin) por si
+hiciera falta reimportar desde el respaldo final de Firebase (13/10/2026, guardado fuera del repo): las ya importadas se omiten.
 
 ## Impresiones y copias (POS)
 
@@ -151,8 +151,8 @@ de nuevo con `select import_legacy_sales('<respaldo JSON de index.html>'::jsonb)
 - Botón 🖨️ en Ventas: trabajos que detecta el agente local (`http://localhost:4000`). Se reparten las hojas entre los
   productos (columnas `job_sources`, `job_color`, `job_duplex`, `job_keywords`; se editan en la sección
   *Trabajos detectados* del producto), con precio editable solo para esa venta; las hojas sin asignar quedan pendientes.
-- La lógica es la misma de `/index.html`: vive en `../shared/print/` (alias `@shared`) y `features/print/adapter.ts`
-  traduce `products` a la forma que espera.
+- Lógica en `features/print/`: `core.ts` (qué productos ofrecer por trabajo, reparto de hojas), `agent.ts` (cliente
+  del agente, pendientes en localStorage) y `adapter.ts` (traduce `products` a la forma de `core.ts`).
 - El agente debe permitir el dominio de Vercel en `localServer.allowedOrigin` (ver `collector-agent/README.md`).
 
 ## Offline (POS)

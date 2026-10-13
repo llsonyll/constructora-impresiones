@@ -3,7 +3,7 @@ const { Service } = require('node-windows');
 
 const svc = new Service({
   name: 'FerreteriaCollector',
-  description: 'Captura automática de impresiones y copias (Epson/PaperCut + Konica SNMP) hacia Firestore.',
+  description: 'Captura automática de impresiones y copias (Epson/PaperCut + Konica SNMP) para el POS de La Constructora.',
   script: path.join(__dirname, 'src', 'index.js'),
   // reinicia solo si se cae inesperadamente
   wait: 2,

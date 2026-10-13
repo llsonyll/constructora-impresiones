@@ -5,7 +5,7 @@ import type { Product } from '@/types/domain'
 import {
   cambiarHojas, cambiarPrecio, describirJob, formatJobTimestamp, hojasAsignadas, lineasDeReparto,
   precioEn, productosParaJob, totalReparto, type Job, type Reparto,
-} from '@shared/print/core.js'
+} from './core'
 import { toProductoImpresion } from './adapter'
 import type { PrintAgent } from './usePrintAgent'
 

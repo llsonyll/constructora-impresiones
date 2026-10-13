@@ -21,7 +21,7 @@ export interface InventoryProduct {
   updated_at: string           // cambia también con ventas/ajustes (el trigger de stock actualiza la fila)
   cost: number | null          // de product_costs (solo admin/almacén lo ven)
   track_stock: boolean         // false = servicio (impresión, fotocopia): sin stock
-  job_sources: JobSource[]     // trabajos del agente a los que se ofrece (ver shared/print)
+  job_sources: JobSource[]     // trabajos del agente a los que se ofrece (ver features/print)
   job_color: boolean | null
   job_duplex: boolean
   job_keywords: string[]
