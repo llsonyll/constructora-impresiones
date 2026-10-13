@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Hash, MapPin, ScanBarcode, Search, Tag } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { normalizeCode } from '@/features/locations/api'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
@@ -46,20 +48,7 @@ export default function InventoryPage() {
   const [newBarcode, setNewBarcode] = useState('')
   // Búsqueda sin resultados → "Crear «…»" abre el alta con ese nombre.
   const [newName, setNewName] = useState('')
-  const [notice, setNotice] = useState<string | null>(null)
   const [savedIds, setSavedIds] = useState<string[]>([])
-  const [toast, setToast] = useState<{ id: string; name: string } | null>(null)
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 8000)
-    return () => clearTimeout(t)
-  }, [toast])
-
-  useEffect(() => {
-    if (!notice) return
-    const t = setTimeout(() => setNotice(null), 4000)
-    return () => clearTimeout(t)
-  }, [notice])
 
   /** Código escaneado o tecleado por un lector USB (Enter): abre el producto si existe; si no, ofrece crearlo. */
   function findByCode(raw: string) {
@@ -73,7 +62,7 @@ export default function InventoryPage() {
     } else {
       setNewBarcode(code); setNewName('')
       setEditingId('new')
-      setNotice(`El código ${code} no está en el inventario: completa los datos para crearlo`)
+      toast.warning(`El código ${code} no está en el inventario: completa los datos para crearlo`, { duration: 4000 })
     }
   }
 
@@ -98,7 +87,7 @@ export default function InventoryPage() {
 
   function onSaved(id: string, name: string) {
     setSavedIds(ids => [id, ...ids.filter(x => x !== id)])
-    setToast({ id, name })
+    toast.success(`Guardado: ${name}`, { duration: 8000, action: { label: 'Abrir', onClick: () => setEditingId(id) } })
     setEditingId(null)
   }
 
@@ -116,18 +105,18 @@ export default function InventoryPage() {
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
         <div className="grid grid-cols-3 gap-2 max-md:w-full md:flex">
-          <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>📱</span>Precios</Link>
-          <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>📍</span>Ubicaciones</Link>
-          <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><span aria-hidden>🔢</span>Conteo</Link>
+          <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Tag aria-hidden className="size-5 text-stone-500" />Precios</Link>
+          <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><MapPin aria-hidden className="size-5 text-stone-500" />Ubicaciones</Link>
+          <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Hash aria-hidden className="size-5 text-stone-500" />Conteo</Link>
         </div>
         <button onClick={newProduct} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white max-md:hidden">+ Nuevo producto</button>
       </div>
 
       {/* Buscador fijo bajo la barra superior: siempre a mano al bajar por la lista. */}
-      <div className="sticky top-[calc(2.75rem+env(safe-area-inset-top))] z-[5] -mx-3 space-y-2 bg-stone-100 px-3 py-2 md:mx-0 md:px-0">
+      <div className="sticky top-below-header z-[5] -mx-3 space-y-2 bg-stone-100 px-3 py-2 md:mx-0 md:px-0">
         <div className="flex gap-2">
           <div className="relative min-w-0 flex-1">
-            <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400"><Search className="size-5" /></span>
             <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Nombre, código o ubicación"
                    onKeyDown={e => e.key === 'Enter' && findByCode(query)} enterKeyHint="search" aria-label="Buscar producto"
                    className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
@@ -135,7 +124,7 @@ export default function InventoryPage() {
               <button onClick={() => setQuery('')} className="absolute inset-y-0 right-0 grid w-11 place-items-center text-stone-500" aria-label="Limpiar búsqueda">✕</button>
             )}
           </div>
-          <button onClick={() => setScanning(true)} className="grid min-h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-700 text-xl text-white" aria-label="Buscar por código de barras">📷</button>
+          <button onClick={() => setScanning(true)} className="grid min-h-12 w-12 shrink-0 place-items-center rounded-lg bg-amber-700 text-xl text-white" aria-label="Buscar por código de barras"><ScanBarcode className="mx-auto size-6" /></button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <select value={filter} onChange={e => setFilter(e.target.value as Filter)} aria-label="Estado"
@@ -175,7 +164,7 @@ export default function InventoryPage() {
                   <div className="line-clamp-2 text-sm font-medium break-words">{p.name}</div>
                   <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-stone-500">
                     <span className="truncate">{p.sku}{p.brand && ` · ${p.brand}`}</span>
-                    {p.locations[0] && <span className="font-mono text-stone-700">📍{p.locations[0].code}{p.locations.length > 1 && ` +${p.locations.length - 1}`}</span>}
+                    {p.locations[0] && <span className="font-mono text-stone-700"><MapPin className="inline size-3.5 align-[-0.15em]" />{p.locations[0].code}{p.locations.length > 1 && ` +${p.locations.length - 1}`}</span>}
                     {saved && <span className="rounded bg-green-100 px-1 text-green-800">✓ guardado</span>}
                     {!p.active && <span className="rounded bg-stone-200 px-1">inactivo</span>}
                     {p.needs_review && <span className="rounded bg-yellow-100 px-1 text-yellow-800">revisar</span>}
@@ -222,25 +211,11 @@ export default function InventoryPage() {
       )}
 
       {/* Botón flotante para agregar desde el celular (en escritorio está arriba). */}
-      {!toast && !notice && (
-        <button onClick={newProduct} aria-label="Nuevo producto"
-                className="fixed right-4 bottom-safe-4 z-20 flex min-h-14 items-center gap-2 rounded-full bg-amber-700 px-5 text-white shadow-lg md:hidden">
-          <span className="text-2xl leading-none">+</span><span className="text-sm font-medium">Nuevo</span>
-        </button>
-      )}
+      <button onClick={newProduct} aria-label="Nuevo producto"
+              className="fixed right-4 bottom-safe-4 z-20 flex min-h-14 items-center gap-2 rounded-full bg-amber-700 px-5 text-white shadow-lg md:hidden">
+        <span className="text-2xl leading-none">+</span><span className="text-sm font-medium">Nuevo</span>
+      </button>
 
-      {toast && (
-        <div role="status" className="fixed bottom-safe-3 left-1/2 z-20 flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-stone-900 py-1 pl-4 pr-1 text-sm text-white shadow-lg">
-          <span className="truncate">✓ Guardado: {toast.name}</span>
-          <button onClick={() => { setEditingId(toast.id); setToast(null) }} className="min-h-11 shrink-0 px-3 font-medium text-amber-300">Abrir</button>
-        </div>
-      )}
-
-      {notice && (
-        // Abajo: arriba taparía el campo Nombre del alta que se acaba de abrir.
-        <div role="status" className="pointer-events-none fixed inset-x-3 bottom-safe-3 z-[60] rounded-lg bg-amber-700 px-4 py-2 text-center text-sm text-white shadow-lg
-                                      md:inset-x-auto md:left-1/2 md:max-w-md md:-translate-x-1/2">{notice}</div>
-      )}
 
       {scanning && <BarcodeScanner title="Buscar producto" onClose={() => setScanning(false)}
                                    onDetected={c => { setScanning(false); findByCode(c) }} />}

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { ScanBarcode } from 'lucide-react'
 import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -85,7 +86,7 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
         </div>
         <div className="flex gap-2">
           <input className={input} value={barcode} onChange={e => setBarcode(e.target.value)} inputMode="numeric" placeholder="Código de barras (opcional)" />
-          <button type="button" onClick={() => setScanning(true)} className="min-w-12 shrink-0 rounded-lg border px-3" aria-label="Escanear código">📷</button>
+          <button type="button" onClick={() => setScanning(true)} className="min-w-12 shrink-0 rounded-lg border px-3" aria-label="Escanear código"><ScanBarcode className="mx-auto size-6" /></button>
         </div>
         <select className={input} value={category} onChange={e => setCategory(e.target.value)}>
           <option value="">Categoría (opcional)</option>

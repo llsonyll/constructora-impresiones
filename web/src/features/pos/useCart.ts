@@ -7,6 +7,7 @@ type Action =
   | { type: 'addCustom'; description: string; qty: number; unit_price: number }
   | { type: 'addLine'; product_id: string; description: string; qty: number; unit_price: number }
   | { type: 'setQty'; key: string; qty: number }
+  | { type: 'undoAdd'; product_id: string; unit_price: number; qty: number }
   | { type: 'remove'; key: string }
   | { type: 'clear' }
 
@@ -31,6 +32,13 @@ function reducer(state: CartLine[], a: Action): CartLine[] {
     case 'setQty':
       return a.qty <= 0 ? state.filter(l => l.key !== a.key)
                         : state.map(l => l.key === a.key ? { ...l, qty: a.qty } : l)
+    // "Deshacer" del aviso: resta lo que se acaba de sumar (y quita la línea si queda en 0).
+    case 'undoAdd': {
+      const line = state.find(l => l.product_id === a.product_id && l.unit_price === a.unit_price)
+      if (!line) return state
+      return line.qty - a.qty <= 0 ? state.filter(l => l !== line)
+                                   : state.map(l => l === line ? { ...l, qty: round2(l.qty - a.qty) } : l)
+    }
     case 'remove': return state.filter(l => l.key !== a.key)
     case 'clear': return []
   }

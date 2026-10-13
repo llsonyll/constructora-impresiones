@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useQueryClient } from '@tanstack/react-query'
+import FilterBar from '@/components/FilterBar'
+import PageHeader from '@/components/PageHeader'
 import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { CAJAS, CAJA_ICON, CAJA_LABEL } from '@/lib/caja'
+import CajaIcon from '@/components/CajaIcon'
+import { CAJAS, CAJA_LABEL } from '@/lib/caja'
 import { money } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import {
@@ -77,16 +80,15 @@ export default function TodayPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-3 p-3 md:p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold">{isToday ? 'Ventas de hoy' : 'Ventas del día'}</h1>
+      <PageHeader title={isToday ? 'Ventas de hoy' : 'Ventas del día'}>
         <input type="date" value={day} max={todayLocal()} onChange={e => e.target.value && setDay(e.target.value)}
                className="min-h-11 rounded border bg-white px-2 text-base" aria-label="Día" />
         {!isToday && <button onClick={() => setDay(todayLocal())} className="min-h-11 rounded border bg-white px-3 text-sm">Hoy</button>}
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap gap-2">
         {(['', ...CAJAS] as const).map(c => (
-          <button key={c} onClick={() => setCaja(c)} className={chip(caja === c)}>{c ? `${CAJA_ICON[c]} ${CAJA_LABEL[c]}` : 'Ambas cajas'}</button>
+          <button key={c} onClick={() => setCaja(c)} className={chip(caja === c)}>{c ? <><CajaIcon caja={c} /> {CAJA_LABEL[c]}</> : 'Ambas cajas'}</button>
         ))}
       </div>
       <div className="text-sm text-stone-600">
@@ -100,29 +102,34 @@ export default function TodayPage() {
       </section>
       <CajaByShift matrix={matrix} />
 
-      <div className="flex flex-wrap gap-2">
-        {(['', 'manana', 'tarde'] as const).map(s => (
-          <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
-        ))}
-        <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
-                className="min-h-11 rounded-full border bg-white px-3 text-sm">
-          <option value="">Todo medio de pago</option>
-          {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        {isAdmin && cashiers.length > 1 && (
-          <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
+      {/* Filtros de la lista de ventas (los totales de arriba solo dependen de la caja). */}
+      <FilterBar summary={[shift && SHIFT_LABEL[shift], method && PAYMENT_LABEL[method],
+                           cashier && (names[cashier] ?? 'Cajero'), showVoided && 'con anuladas'].filter(Boolean).join(' · ')}
+                 onReset={() => { setShift(''); setMethod(''); setCashier(''); setShowVoided(false) }}>
+        <div className="flex flex-wrap gap-2">
+          {(['', 'manana', 'tarde'] as const).map(s => (
+            <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
+          ))}
+          <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
                   className="min-h-11 rounded-full border bg-white px-3 text-sm">
-            <option value="">Todos los cajeros</option>
-            {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
+            <option value="">Todo medio de pago</option>
+            {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
-        )}
-        {voided.length > 0 && (
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" className="size-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
-            Ver anuladas
-          </label>
-        )}
-      </div>
+          {isAdmin && cashiers.length > 1 && (
+            <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
+                    className="min-h-11 rounded-full border bg-white px-3 text-sm">
+              <option value="">Todos los cajeros</option>
+              {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
+            </select>
+          )}
+          {voided.length > 0 && (
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input type="checkbox" className="size-5" checked={showVoided} onChange={e => setShowVoided(e.target.checked)} />
+              Ver anuladas
+            </label>
+          )}
+        </div>
+      </FilterBar>
 
       {isLoading && <p className="text-stone-500">Cargando…</p>}
       {error && <p className="text-red-600">No se pudieron cargar las ventas: {(error as Error).message}</p>}
@@ -141,7 +148,7 @@ export default function TodayPage() {
                   <div className={`truncate text-sm ${anulada ? 'line-through' : ''}`}>{s.items.map(i => `${i.qty}× ${i.description}`).join(', ')}</div>
                   <div className="text-xs text-stone-500">
                     {s.number != null ? `#${s.number}` : <span className="text-amber-700">⏳ por sincronizar</span>}
-                    {' · '}{CAJA_ICON[s.caja]} {PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
+                    {' · '}<CajaIcon caja={s.caja} /> {PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
                     {isAdmin && s.cashier_id && ` · ${names[s.cashier_id] ?? 'Cajero'}`}
                     {anulada && <span className="ml-1 rounded bg-stone-200 px-1 text-stone-600">anulada</span>}
                   </div>

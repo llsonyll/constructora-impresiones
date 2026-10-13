@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
-import { CAJAS, CAJA_ICON, CAJA_LABEL } from '@/lib/caja'
+import CajaIcon from '@/components/CajaIcon'
+import { CAJAS, CAJA_LABEL } from '@/lib/caja'
 import { money } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import { type DaySale, PAYMENT_LABEL, SHIFT_LABEL } from './api'
@@ -44,7 +45,7 @@ export function CajaByShift({ matrix }: { matrix: CajaShiftMatrix }) {
         <tbody className="divide-y">
           {CAJAS.map(c => (
             <tr key={c}>
-              <td className="py-1.5">{CAJA_ICON[c]} {CAJA_LABEL[c]}</td>
+              <td className="py-1.5"><CajaIcon caja={c} /> {CAJA_LABEL[c]}</td>
               {SHIFTS.map(t => <Fragment key={t}>{cell(matrix[c][t])}</Fragment>)}
               {cell(rowTotal(c), true)}
             </tr>
@@ -68,7 +69,7 @@ export function CajaCard({ caja, sales }: { caja: Caja; sales: DaySale[] }) {
   for (const v of mine) byMethod.set(v.payment_method, (byMethod.get(v.payment_method) ?? 0) + v.total)
   return (
     <div className="rounded-lg bg-white p-3 shadow">
-      <div className="text-xs text-stone-500">{CAJA_ICON[caja]} {CAJA_LABEL[caja]}</div>
+      <div className="text-xs text-stone-500"><CajaIcon caja={caja} /> {CAJA_LABEL[caja]}</div>
       <div className="text-2xl font-semibold tabular-nums">{money(total)}</div>
       <div className="mb-1 text-xs text-stone-500">{mine.length} venta{mine.length === 1 ? '' : 's'}</div>
       {[...byMethod.entries()].sort((a, b) => b[1] - a[1]).map(([m, v]) => (

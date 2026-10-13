@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import PageHeader from '@/components/PageHeader'
 import { money } from '@/lib/format'
 import {
   type PoStatus, type Provider, poLabel, STATUS_LABEL, STATUS_STYLE, usePurchaseOrders, useProviderList, whatsappUrl,
@@ -16,10 +17,9 @@ export default function ProvidersPage() {
 
   return (
     <div className="space-y-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold">Proveedores</h1>
-        <Link to="/proveedores/ordenes/nueva" className="flex min-h-11 items-center rounded bg-amber-700 px-3 text-sm text-white">+ Nueva orden</Link>
-      </div>
+      <PageHeader title="Proveedores">
+        <Link to="/proveedores/ordenes/nueva" className="flex min-h-11 items-center rounded-lg bg-amber-700 px-3 text-sm text-white">+ Nueva orden</Link>
+      </PageHeader>
       <div className="flex gap-1 border-b">
         {[['ordenes', 'Órdenes de compra'], ['proveedores', 'Proveedores']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}

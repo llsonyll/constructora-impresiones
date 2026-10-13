@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Search } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
 import CategoryOptions from './CategoryOptions'
-import { Link } from 'react-router-dom'
 import { friendlyError, useBulkCount, useCategories, useInventory } from './api'
 
 const DRAFT_KEY = 'conteo-borrador'
@@ -49,18 +50,15 @@ export default function StockCountPage() {
 
   return (
     <div className="space-y-3 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))]">
-      <div className="flex items-center gap-2">
-        <Link to="/inventario" className="-ml-1 flex min-h-11 items-center px-1 text-sm text-amber-800">← Inventario</Link>
-        <h1 className="text-lg font-semibold">Conteo de stock</h1>
-      </div>
+      <PageHeader title="Conteo de stock" back="/inventario" backLabel="Inventario" />
       <p className="text-sm text-stone-600">
         Escribe la cantidad contada. Deja en blanco lo que no contaste (no se toca). El borrador se guarda en este navegador.
       </p>
       {done != null && <p className="rounded bg-green-50 p-2 text-sm text-green-800">Conteo guardado: {done} productos ajustados.</p>}
 
-      <div className="sticky top-[calc(2.75rem+env(safe-area-inset-top))] z-[5] -mx-4 space-y-2 bg-stone-100 px-4 py-2">
+      <div className="sticky top-below-header z-[5] -mx-4 space-y-2 bg-stone-100 px-4 py-2">
         <div className="relative">
-          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400">🔍</span>
+          <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400"><Search className="size-5" /></span>
           <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar o escanear" aria-label="Buscar producto"
                  className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
           {query && <button onClick={() => setQuery('')} className="absolute inset-y-0 right-0 grid w-11 place-items-center text-stone-500" aria-label="Limpiar búsqueda">✕</button>}
