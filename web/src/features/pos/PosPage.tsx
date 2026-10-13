@@ -147,7 +147,8 @@ export default function PosPage() {
 
   return (
     <div className="grid gap-4 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:grid-cols-[1fr_22rem] md:p-4 md:pb-4">
-      <section>
+      {/* min-w-0: sin esto la fila de categorías estira la página más allá del ancho del celular. */}
+      <section className="min-w-0">
         {/* Caja: cada una con su ticket, su catálogo y su color. */}
         <div role="tablist" aria-label="Caja" className="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
           {CAJAS.map(c => (
