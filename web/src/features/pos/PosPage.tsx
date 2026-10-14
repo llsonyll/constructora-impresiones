@@ -16,7 +16,7 @@ import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
 import type { Caja, Category, PaymentMethod, Product } from '@/types/domain'
-import { useCart } from './useCart'
+import { useCarts } from './useCart'
 import { checkout } from './checkout'
 import QtyPad from './QtyPad'
 
@@ -48,7 +48,8 @@ export default function PosPage() {
   // Un id por ticket: si el cobro se reintenta, se reutiliza y no se duplica la venta.
   const saleIdRef = useRef<Record<Caja, string | null>>({ ferreteria: null, copias: null })
   // Un ticket por caja: se puede atender a alguien en copias sin perder el ticket de ferretería a medias.
-  const carts: Record<Caja, ReturnType<typeof useCart>> = { ferreteria: useCart(), copias: useCart() }
+  // Viven en CartsProvider: otras pantallas (Ubicaciones) también agregan a ellos.
+  const carts = useCarts()
   const { lines, total, dispatch } = carts[caja]
   const theme = CAJA_THEME[caja]
   // En el celular el ticket es una hoja a pantalla completa: "atrás" la cierra. En escritorio es una columna fija.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPin, ScanBarcode } from 'lucide-react'
+import { MapPin, Package, ScanBarcode } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -9,6 +9,9 @@ import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import type { Location } from '@/types/domain'
 import { friendlyLocationError, normalizeCode, useLocations, useProductLocation } from './api'
 import LocationForm from './LocationForm'
+import ProductPreviewSheet from './ProductPreviewSheet'
+import { imageUrl } from '@/lib/images'
+import { money } from '@/lib/format'
 
 /**
  * Ubicaciones por mueble: cuadrícula con cuántos productos hay en cada casillero. Al tocar uno se ven sus
@@ -152,6 +155,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
   const [scanning, setScanning] = useState(false)
   const [scanKey, setScanKey] = useState(0)
   const [creating, setCreating] = useState<string | null>(null)
+  const [preview, setPreview] = useState<InventoryProduct | null>(null)
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null)
   const lastScan = useRef({ code: '', at: 0 })
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 3000); return () => clearTimeout(t) }, [flash])
@@ -185,7 +189,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
 
   return (
     <>
-      <Sheet onClose={onClose} label={`Ubicación ${location.code}`} hidden={scanning || !!creating} className="space-y-3 sm:max-w-lg">
+      <Sheet onClose={onClose} label={`Ubicación ${location.code}`} hidden={scanning || !!creating || !!preview} className="space-y-3 sm:max-w-lg">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <h2 className="font-mono text-xl font-semibold">{location.code}</h2>
@@ -223,14 +227,20 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
             {products.map(p => {
               const pl = p.locations.find(l => l.location_id === location.id)!
               return (
-                <li key={p.id} className="flex items-center gap-2 pl-3">
-                  <div className="min-w-0 flex-1 py-1.5">
-                    <div className="line-clamp-2 text-sm">{p.name}</div>
-                    <div className="text-xs text-stone-500">
-                      stock {p.stock} {p.unit}{pl.qty != null && ` · aquí ~${pl.qty}`}
-                      {pl.is_primary ? ' · ★ principal' : ` · principal: ${p.locations.find(l => l.is_primary)?.code ?? '—'}`}
+                <li key={p.id} className="flex items-center gap-2">
+                  {/* Tocar el producto abre la vista rápida (foto, stock, precio, agregar al ticket). */}
+                  <button onClick={() => setPreview(p)} className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pl-2 text-left active:bg-amber-50"
+                          aria-label={`Ver ${p.name}`}>
+                    <Thumb path={p.image_path} />
+                    <div className="min-w-0 flex-1">
+                      <div className="line-clamp-2 text-sm">{p.name}</div>
+                      <div className="text-xs text-stone-500">
+                        stock {p.stock} {p.unit}{pl.qty != null && ` · aquí ~${pl.qty}`}
+                        {pl.is_primary ? ' · ★ principal' : ` · principal: ${p.locations.find(l => l.is_primary)?.code ?? '—'}`}
+                      </div>
                     </div>
-                  </div>
+                    <span className="shrink-0 text-sm tabular-nums">{p.price != null ? money(p.price) : <span className="text-xs text-amber-700">sin precio</span>}</span>
+                  </button>
                   <button onClick={() => mut.mutate({ op: 'remove', productId: p.id, locationId: location.id })}
                           aria-label={`Quitar ${p.name} de ${location.code}`} className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
                 </li>
@@ -249,10 +259,25 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
         <div role="status" className={`pointer-events-none fixed inset-x-3 top-[calc(var(--header-h)+1.25rem+env(safe-area-inset-top))] z-[70] rounded-lg px-4 py-2 text-center text-sm text-white shadow-lg
                                         ${flash.ok ? 'bg-green-700' : 'bg-red-700'}`}>{flash.text}</div>
       )}
+      {preview && (
+        // Datos frescos del producto (p. ej. tras ponerle precio): se busca por id en la lista actual.
+        <ProductPreviewSheet product={allProducts.find(x => x.id === preview.id) ?? preview} hereLocationId={location.id}
+                             onClose={() => setPreview(null)} />
+      )}
       {creating && (
         <QuickCreateSheet initialBarcode={creating} onClose={() => setCreating(null)}
                           onCreated={p => { setCreating(null); void add(p) }} />
       )}
     </>
+  )
+}
+
+/** Miniatura de la foto del producto (o un recuadro vacío) para las listas. */
+function Thumb({ path }: { path: string | null }) {
+  const src = imageUrl(path)
+  return (
+    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded bg-stone-100">
+      {src ? <img src={src} alt="" loading="lazy" className="size-full object-cover" /> : <Package className="size-5 text-stone-400" aria-hidden />}
+    </span>
   )
 }

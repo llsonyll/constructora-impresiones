@@ -60,6 +60,10 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
   sus productos y permite agregar buscando o **escaneando seguido** (código desconocido → alta rápida). *Ir a…* acepta
   `e2n5`. *+ Ubicación* crea una o un mueble entero (niveles desde/hasta × secciones). Con productos no se elimina:
   se desactiva.
+- Cada producto de un casillero muestra miniatura, stock y precio; al tocarlo se abre una **vista rápida** (foto, stock,
+  precio de venta, cantidad referencial y otras ubicaciones) con **Agregar al ticket** (admin; va a la caja del producto,
+  con *Deshacer* y *Ver ticket*). Los tickets del POS viven en `CartsProvider` (`features/pos/useCart.tsx`), compartidos
+  por toda la app y guardados en el equipo (`localStorage` `pos.tickets`): cambiar de pantalla o recargar no los pierde.
 - Ficha del producto: sección *Ubicación en tienda* (autocompletado, ★ principal, cantidad, quitar).
 - Inventario: 📍 en cada fila, filtro *Sin ubicación* (sin servicios) y búsqueda por código (`E2-N5` o `E4`).
   Ventas: la ubicación principal se ve en la tarjeta (va en el catálogo offline) y también se puede buscar por código.
