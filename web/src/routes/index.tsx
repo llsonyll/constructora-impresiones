@@ -3,6 +3,7 @@ import Layout from '@/components/Layout'
 import { useAuth } from '@/features/auth/AuthProvider'
 import LoginPage from '@/features/auth/LoginPage'
 import PosPage from '@/features/pos/PosPage'
+import { CartsProvider } from '@/features/pos/useCart'
 import TodayPage from '@/features/sales/TodayPage'
 import ReportsPage from '@/features/sales/ReportsPage'
 import CashPage from '@/features/cash/CashPage'
@@ -31,6 +32,7 @@ export default function AppRoutes() {
   if (!profile?.active) return <p className="p-6">Tu cuenta está pendiente de aprobación por un administrador.</p>
 
   return (
+    <CartsProvider>
     <HashRouter>
       <Routes>
         <Route element={<Layout />}>
@@ -49,5 +51,6 @@ export default function AppRoutes() {
         </Route>
       </Routes>
     </HashRouter>
+    </CartsProvider>
   )
 }

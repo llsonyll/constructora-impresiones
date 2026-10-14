@@ -21,6 +21,9 @@ export function cajaOf(p: Pick<Product, 'category_id'>, cats: Map<number, Catego
 const KEY = 'pos.caja'
 const read = (): Caja => { try { return localStorage.getItem(KEY) === 'copias' ? 'copias' : 'ferreteria' } catch { return 'ferreteria' } }
 
+/** Deja elegida una caja para cuando se abra el POS (p. ej. tras agregar desde otra pantalla). */
+export function saveCajaPref(caja: Caja) { try { localStorage.setItem(KEY, caja) } catch { /* opcional */ } }
+
 /** Caja elegida en este equipo (cada mostrador suele usar siempre la misma). */
 export function useCajaPref() {
   const [caja, setCaja] = useState<Caja>(read)
