@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPin, Printer, ScanBarcode } from 'lucide-react'
+import { BookOpen, MapPin, Plus, Printer, ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -7,6 +7,7 @@ import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import PrintJobsPanel from '@/features/print/PrintJobsPanel'
+import NewServiceSheet, { type ServicePrefill } from '@/features/print/NewServiceSheet'
 import { usePrintAgent } from '@/features/print/usePrintAgent'
 import { describirJob } from '@/features/print/core'
 import CajaIcon from '@/components/CajaIcon'
@@ -29,6 +30,8 @@ export default function PosPage() {
   const { profile } = useAuth()
   // Alta de productos desde la caja: por ahora solo admin/almacén (RLS de products igual lo exige).
   const canCreate = profile?.role === 'admin' || profile?.role === 'almacen'
+  // Servicios de copias (fotocopia, impresión, otros): también el cajero, vía RPC create_copy_service.
+  const canCreateService = profile?.role === 'admin' || profile?.role === 'cajero'
   const [query, setQuery] = useState('')
   const [method, setMethod] = useState<PaymentMethod>('efectivo')
   const [customDesc, setCustomDesc] = useState('')
@@ -41,6 +44,9 @@ export default function PosPage() {
   const [printOpen, setPrintOpen] = useState(false)
   const [caja, setCaja] = useCajaPref()
   const [category, setCategory] = useState<number | null>(null)
+  // Caja Copias: dos secciones, servicios (fotocopias, impresiones) y librería (artículos con stock).
+  const [modulo, setModulo] = useState<'servicios' | 'libreria'>('servicios')
+  const [newService, setNewService] = useState<{ prefill: ServicePrefill; fromPanel: boolean } | null>(null)
   const [padFor, setPadFor] = useState<Product | null>(null)
   const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
@@ -75,6 +81,9 @@ export default function PosPage() {
     return categories.filter(c => c.caja === caja && ids.has(c.id)).sort((a, b) => a.name.localeCompare(b.name))
   }, [categories, inCaja, caja])
   useEffect(() => { setCategory(null) }, [caja])
+  const libreriaId = categories.find(c => c.name === 'Librería')?.id
+  const enCopias = caja === 'copias'
+  const countLibreria = enCopias ? inCaja.filter(p => p.category_id === libreriaId).length : 0
 
   const matches = (p: Product, q: string) => p.sku.toLowerCase() === q || p.barcode === q ||
     p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false) ||
@@ -84,12 +93,15 @@ export default function PosPage() {
   // Sin búsqueda: lo más usado en este equipo primero (servicios antes que productos en copias).
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const pool = category == null ? inCaja : inCaja.filter(p => p.category_id === category)
+    // En Copias la sección elige qué se ve; al buscar se busca en toda la caja.
+    const pool = enCopias
+      ? (q ? inCaja : inCaja.filter(p => (p.category_id === libreriaId) === (modulo === 'libreria')))
+      : category == null ? inCaja : inCaja.filter(p => p.category_id === category)
     const found = q ? pool.filter(p => matches(p, q)) : pool
     const sorted = [...found].sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
       || Number(a.track_stock) - Number(b.track_stock) || a.name.localeCompare(b.name))
     return sorted.slice(0, q || category != null ? 60 : 36)
-  }, [inCaja, query, category, usage])
+  }, [inCaja, query, category, usage, enCopias, modulo, libreriaId])
 
   // Coincidencias en la otra caja: se ofrecen para cambiar de caja sin perder la búsqueda.
   const otherCaja: Caja = caja === 'ferreteria' ? 'copias' : 'ferreteria'
@@ -180,7 +192,19 @@ export default function PosPage() {
             )}
           </button>}
         </div>
-        {cajaCats.length > 1 && (
+        {enCopias && (
+          <div role="tablist" aria-label="Sección" className="mb-3 grid grid-cols-2 gap-2">
+            {([['servicios', 'Copias e impresiones', Printer], ['libreria', 'Librería', BookOpen]] as const).map(([id, label, Icon]) => (
+              <button key={id} role="tab" aria-selected={modulo === id} onClick={() => { setModulo(id); setQuery('') }}
+                      className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border-2 px-2 text-sm font-medium
+                                  ${modulo === id ? `${theme.border} ${theme.soft} ${theme.text}` : 'border-transparent bg-white text-stone-600'}`}>
+                <Icon className="size-5" />{label}
+                {id === 'libreria' && <span className="text-xs font-normal opacity-70">{countLibreria}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+        {!enCopias && cajaCats.length > 1 && (
           <div className="-mx-3 mb-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0">
             {[{ id: null as number | null, name: 'Todo' }, ...cajaCats].map(c => (
               <button key={c.id ?? 'todo'} onClick={() => setCategory(c.id)} aria-pressed={category === c.id}
@@ -226,7 +250,24 @@ export default function PosPage() {
               + Crear «{query.trim()}»
             </button>
           )}
-          {!results.length && !(canCreate && online) && <p className="col-span-full text-stone-500">Sin resultados. Usa “ítem libre” en el ticket.</p>}
+          {enCopias && !query.trim() && modulo === 'servicios' && canCreateService && online && (
+            <button onClick={() => setNewService({ prefill: {}, fromPanel: false })}
+                    className={`grid min-h-24 place-items-center rounded-lg border border-dashed bg-white p-3 text-sm ${theme.text}`}>
+              <span><Plus className="mx-auto mb-1 size-5" />Nuevo servicio</span>
+            </button>
+          )}
+          {enCopias && !query.trim() && modulo === 'libreria' && canCreate && online && (
+            <button onClick={() => setCreating({})}
+                    className={`grid min-h-24 place-items-center rounded-lg border border-dashed bg-white p-3 text-sm ${theme.text}`}>
+              <span><Plus className="mx-auto mb-1 size-5" />Nuevo artículo</span>
+            </button>
+          )}
+          {enCopias && !query.trim() && modulo === 'libreria' && !results.length && (
+            <p className="col-span-full text-sm text-stone-500">
+              Todavía no hay artículos de librería con precio.{canCreate ? ' Agrégalos con “Nuevo artículo” o en Inventario.' : ' Pide al administrador que los cargue; mientras, usa “ítem libre”.'}
+            </p>
+          )}
+          {!results.length && !(canCreate && online) && !(enCopias && !query.trim()) && <p className="col-span-full text-stone-500">Sin resultados. Usa “ítem libre” en el ticket.</p>}
         </div>
         {otherMatches > 0 && (
           <button onClick={() => setCaja(otherCaja)} className="mt-3 min-h-11 w-full rounded-lg border border-dashed bg-white px-3 text-sm text-stone-600">
@@ -307,6 +348,8 @@ export default function PosPage() {
 
       {printOpen && (
         <PrintJobsPanel agent={agent} products={products} onClose={() => setPrintOpen(false)}
+                        hidden={!!newService}
+                        onNewService={canCreateService && online ? prefill => setNewService({ prefill, fromPanel: true }) : undefined}
                         onAdd={(printLines, resto) => {
                           // Las impresiones siempre van a la caja de copias.
                           for (const l of printLines) { carts.copias.dispatch({ type: 'addLine', ...l }); used(l.product_id) }
@@ -320,11 +363,21 @@ export default function PosPage() {
                 onAdd={qty => { add(padFor, qty); setPadFor(null) }} />
       )}
 
+      {newService && (
+        <NewServiceSheet prefill={newService.prefill} onClose={() => setNewService(null)}
+                         onCreated={async p => {
+                           await localDb.products.put(p)   // disponible al instante (y offline) sin esperar al refresco
+                           toast.success(`Servicio creado: ${p.name} (${money(p.price)} / ${p.unit})`, { id: 'pos' })
+                           if (!newService.fromPanel) { setCaja('copias'); setModulo('servicios') }
+                           setNewService(null)
+                         }} />
+      )}
+
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setScanning(false); handleCode(c) }} />}
 
       {creating && (
         <QuickCreateSheet initialBarcode={creating.barcode} initialName={creating.name} requirePrice
-                          initialCategory={category ?? (caja === 'copias' ? categories.find(c => c.name === 'Librería')?.id : null)}
+                          initialCategory={category ?? (enCopias ? libreriaId : null)}
                           onClose={() => setCreating(null)}
                           onCreated={async p => {
                             setCreating(null); setQuery('')

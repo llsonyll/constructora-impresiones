@@ -148,6 +148,17 @@ impresiones/fotocopias "Personalizado" → `IMP-900`; "Otros" → ítems libres.
 "Yo"/"Hermano" se asignan con `legacy_user_map`. `import_legacy_sales(jsonb)` sigue disponible (solo admin) por si
 hiciera falta reimportar desde el respaldo final de Firebase (13/10/2026, guardado fuera del repo): las ya importadas se omiten.
 
+## Caja Copias y librería: secciones y servicios nuevos
+
+- La caja *Copias y librería* tiene dos secciones: **Copias e impresiones** (servicios por hoja/unidad, sin stock) y
+  **Librería** (artículos con stock, categoría *Librería*; catálogo inicial `LIB-001…013` con los precios que se
+  cobraban como ítem libre, marcados *por revisar* para cargar costo y stock). Al buscar se busca en toda la caja.
+- **Nuevo servicio** (admin y cajero): tarjeta en *Copias e impresiones* y botón en cada trabajo del panel 🖨️ (precarga
+  tipo y color del trabajo). Tipo fotocopia / impresión / otro, nombre, precio por hoja o unidad, B/N-color, doble cara y
+  palabras clave. Lo crea la RPC `create_copy_service` (security definer): solo servicios sin stock en Fotocopias o
+  Impresiones, SKU `IMP-0xx` siguiente, así el cajero no necesita permiso general sobre `products`.
+- **Nuevo artículo** de librería: admin/almacén (alta rápida con categoría Librería).
+
 ## Impresiones y copias (POS)
 
 - Productos de las categorías *Fotocopias* e *Impresiones* son **servicios** (`track_stock = false`): se venden por hoja y no
