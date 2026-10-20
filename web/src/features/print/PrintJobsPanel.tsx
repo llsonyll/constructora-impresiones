@@ -8,6 +8,7 @@ import {
 } from './core'
 import { toProductoImpresion } from './adapter'
 import type { PrintAgent } from './usePrintAgent'
+import type { ServicePrefill } from './NewServiceSheet'
 
 export interface PrintLine { product_id: string; description: string; qty: number; unit_price: number }
 
@@ -16,6 +17,10 @@ interface Props {
   products: Product[]
   onAdd: (lines: PrintLine[], resto: number) => void
   onClose: () => void
+  /** Abrir "Nuevo servicio" (si el usuario puede crearlos), con tipo y color del trabajo. */
+  onNewService?: (prefill: ServicePrefill) => void
+  /** Oculta el panel sin cerrarlo (mientras el formulario de servicio está encima). */
+  hidden?: boolean
 }
 
 const ESTADO: Record<PrintAgent['estado'], string> = {
@@ -23,7 +28,7 @@ const ESTADO: Record<PrintAgent['estado'], string> = {
 }
 
 /** Trabajos detectados por el agente: repartir las hojas entre productos de impresión y pasarlas al ticket. */
-export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Props) {
+export default function PrintJobsPanel({ agent, products, onAdd, onClose, onNewService, hidden }: Props) {
   const catalogo = useMemo(() => products.map(toProductoImpresion), [products])
   // Reparto en memoria por trabajo (igual que en /index.html): se pierde al cerrar, el trabajo no.
   const [repartos, setRepartos] = useState<Record<string, Reparto>>({})
@@ -53,7 +58,7 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Prop
   const pendientes = agent.pendientes.slice().reverse()
 
   return (
-    <Sheet onClose={onClose} label="Trabajos de impresión" className="space-y-3 sm:max-w-lg">
+    <Sheet onClose={onClose} label="Trabajos de impresión" hidden={hidden} className="space-y-3 sm:max-w-lg">
       <div className="flex items-center gap-2">
         <h2 className="flex-1 font-semibold">Impresiones y copias</h2>
         <span className="text-xs text-stone-500">{ESTADO[agent.estado]}</span>
@@ -99,9 +104,14 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Prop
                 </div>
               ) : (
                 <p className="text-sm text-stone-500">
-                  No hay productos configurados para este tipo de trabajo. Configúralos en Inventario
-                  (categorías “Fotocopias” e “Impresiones”, sección “Trabajos detectados”).
+                  No hay productos configurados para este tipo de trabajo.
+                  {!onNewService && ' Configúralos en Inventario (categorías “Fotocopias” e “Impresiones”, sección “Trabajos detectados”).'}
                 </p>
+              )}
+              {onNewService && (
+                <button onClick={() => onNewService(prefillDe(j))} className="mt-1 min-h-11 text-sm text-sky-800 underline-offset-2 hover:underline">
+                  + {lista.length ? '¿No está? Crear' : 'Crear'} servicio de {j.fuente === 'konica-copia' ? 'fotocopia' : 'impresión'} {j.color ? 'color' : 'B/N'}
+                </button>
               )}
 
               <div className="mt-2 flex items-center gap-2">
@@ -123,3 +133,6 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose }: Prop
     </Sheet>
   )
 }
+
+/** Tipo y color del trabajo para precargar el formulario de servicio nuevo. */
+const prefillDe = (j: Job): ServicePrefill => ({ kind: j.fuente === 'konica-copia' ? 'fotocopia' : 'impresion', color: j.color, duplex: !!j.duplex })
