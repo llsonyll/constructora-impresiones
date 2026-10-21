@@ -9,6 +9,7 @@ import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import type { Location } from '@/types/domain'
 import { friendlyLocationError, normalizeCode, useLocations, useProductLocation } from './api'
 import LocationForm from './LocationForm'
+import FurnitureForm from './FurnitureForm'
 import ProductPreviewSheet from './ProductPreviewSheet'
 import { imageUrl } from '@/lib/images'
 import { money } from '@/lib/format'
@@ -24,6 +25,7 @@ export default function LocationsPage() {
   const [furniture, setFurniture] = useState<string | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [form, setForm] = useState<Location | 'new' | null>(null)
+  const [editFurniture, setEditFurniture] = useState<{ furniture: string; body: string | null } | null>(null)
   const [jump, setJump] = useState('')
   const [jumpError, setJumpError] = useState('')
 
@@ -91,13 +93,22 @@ export default function LocationsPage() {
 
       {bodies.map(body => (
         <FurnitureGrid key={body ?? '-'} title={body ? `${current}-${body}` : current!} locations={inFurniture.filter(l => l.body === body)}
-                       counts={byLocation} selected={selected} onSelect={setSelected} />
+                       counts={byLocation} selected={selected} onSelect={setSelected}
+                       onEdit={() => setEditFurniture({ furniture: current!, body })} />
       ))}
       <p className="text-xs text-stone-500">N1 es la repisa más alta; las secciones van de izquierda a derecha. El número es la cantidad de productos.</p>
 
       {sel && !form && (
         <LocationSheet location={sel} products={byLocation.get(sel.id) ?? []} allProducts={products}
                        onEdit={() => setForm(sel)} onClose={() => setSelected(null)} />
+      )}
+      {editFurniture && (
+        <FurnitureForm furniture={editFurniture.furniture} body={editFurniture.body}
+                       // Todas las casillas del mueble/cuerpo, también las inactivas.
+                       locations={locations.filter(l => l.furniture === editFurniture.furniture && l.body === editFurniture.body)}
+                       productCount={id => byLocation.get(id)?.length ?? 0}
+                       onClose={() => setEditFurniture(null)}
+                       onDone={f => { setEditFurniture(null); setSelected(null); setFurniture(f) }} />
       )}
       {form && (
         <LocationForm location={form === 'new' ? null : form} defaultFurniture={current ?? 'E0'}
@@ -111,13 +122,17 @@ export default function LocationsPage() {
 }
 
 /** Un mueble (o cuerpo): una fila por nivel, de arriba (N1) hacia abajo; los niveles divididos muestran sus secciones. */
-function FurnitureGrid({ title, locations, counts, selected, onSelect }: {
+function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }: {
   title: string; locations: Location[]; counts: Map<number, InventoryProduct[]>; selected: number | null; onSelect: (id: number) => void
+  onEdit: () => void
 }) {
   const levels = [...new Set(locations.map(l => l.level))].sort((a, b) => a - b)
   return (
     <section className="rounded-lg bg-white p-2 shadow">
-      <h2 className="mb-1 px-1 text-sm font-semibold">{title}</h2>
+      <div className="mb-1 flex items-center px-1">
+        <h2 className="flex-1 text-sm font-semibold">{title}</h2>
+        <button onClick={onEdit} aria-label={`Editar mueble ${title}`} className="-my-2 min-h-11 px-2 text-sm text-amber-800">Editar mueble</button>
+      </div>
       <div className="space-y-1">
         {levels.map(level => {
           const row = locations.filter(l => l.level === level)
