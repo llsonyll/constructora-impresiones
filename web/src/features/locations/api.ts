@@ -40,7 +40,7 @@ export type LocationInput = Pick<Location, 'furniture' | 'body' | 'level' | 'slo
 export function friendlyLocationError(e: unknown) {
   const err = e as { code?: string; message?: string }
   if (err.code === '23505') return 'Ya existe una ubicación con ese código.'
-  if (err.code === '23503') return 'Tiene productos asignados: no se puede eliminar. Desactívala o quita los productos primero.'
+  if (err.code === '23503') return err.message?.startsWith('La ubicación') ? err.message : 'Tiene productos asignados: no se puede eliminar. Desactívala o quita los productos primero.'
   if (err.code === '23514') return 'Código inválido. Formato: MUEBLE[-CUERPO]-NIVEL[-SECCIÓN], p. ej. E2-N5 o E0-B-N2-F.'
   if (err.code === '42501') return 'No tienes permiso para esta acción.'
   return err.message ?? 'Error inesperado'
@@ -91,5 +91,27 @@ export function useProductLocation() {
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
+  })
+}
+
+export interface ReshapeInput {
+  furniture: string
+  body: string | null
+  levels: number          // 0 = eliminar el mueble (o cuerpo) completo
+  slots: number           // 0 = niveles enteros; n = secciones A…
+  new_furniture?: string
+  furniture_type?: FurnitureType
+}
+
+/** Corrige un mueble entero en una transacción (RPC reshape_furniture); nunca borra casillas con productos. */
+export function useReshapeFurniture() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: ReshapeInput) => {
+      const { data, error } = await supabase.rpc('reshape_furniture', { p })
+      if (error) throw error
+      return data as { creadas: number; eliminadas: number; modificadas: number; mueble: string }
+    },
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: locationKeys.all }); void qc.invalidateQueries({ queryKey: ['inventory'] }) },
   })
 }
