@@ -16,7 +16,7 @@ const SECTIONS: Section[] = [
   { to: '/caja', label: 'Caja', icon: Wallet, roles: ['admin', 'cajero'] },
   { to: '/reportes', label: 'Reportes', icon: ChartColumn, roles: ['admin'] },
   { to: '/inventario', label: 'Inventario', icon: Package, roles: ['admin', 'almacen'] },
-  { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'almacen'] },
+  { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'cajero', 'almacen'] },
   { to: '/proveedores', label: 'Proveedores', icon: Truck, roles: ['admin', 'almacen'] },
   { to: '/documentos', label: 'Documentos', icon: FileText, roles: ['admin', 'cajero'] },
 ]

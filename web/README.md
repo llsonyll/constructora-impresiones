@@ -48,7 +48,7 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
 
-## Ubicaciones físicas (`/inventario/ubicaciones`, admin y almacén)
+## Ubicaciones físicas (`/inventario/ubicaciones`)
 
 - Código `MUEBLE[-CUERPO]-NIVEL[-SECCIÓN]` (p. ej. `E2-N5`, `E4-N3-B`, `E0-B-N2-F`): nivel contado de **arriba hacia abajo**
   (N1 = repisa más alta), sección de izquierda a derecha. En `locations` las partes van por separado (`furniture`,
@@ -59,15 +59,18 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Pantalla *Ubicaciones*: mueble → cuadrícula por nivel/sección con cuántos productos hay; tocar un casillero muestra
   sus productos y permite agregar buscando o **escaneando seguido** (código desconocido → alta rápida). *Ir a…* acepta
   `e2n5`. *+ Ubicación* crea una o un mueble entero (niveles desde/hasta × secciones). Con productos no se elimina:
-  se desactiva.
+  se desactiva. *Editar mueble* corrige un mueble entero (niveles, secciones por nivel, código, tipo) o lo elimina,
+  con la RPC `reshape_furniture` (una transacción; nunca quita una casilla con productos).
 - Cada producto de un casillero muestra miniatura, stock y precio; al tocarlo se abre una **vista rápida** (foto, stock,
-  precio de venta, cantidad referencial y otras ubicaciones) con **Agregar al ticket** (admin; va a la caja del producto,
+  precio de venta, cantidad referencial y otras ubicaciones) con **Agregar al ticket** (admin y cajero; va a la caja del producto,
   con *Deshacer* y *Ver ticket*). Los tickets del POS viven en `CartsProvider` (`features/pos/useCart.tsx`), compartidos
   por toda la app y guardados en el equipo (`localStorage` `pos.tickets`): cambiar de pantalla o recargar no los pierde.
 - Ficha del producto: sección *Ubicación en tienda* (autocompletado, ★ principal, cantidad, quitar).
 - Inventario: 📍 en cada fila, filtro *Sin ubicación* (sin servicios) y búsqueda por código (`E2-N5` o `E4`).
   Ventas: la ubicación principal se ve en la tarjeta (va en el catálogo offline) y también se puede buscar por código.
-- Lectura para todos los roles; escritura admin/almacén (RLS).
+- Lectura para todos los roles; escritura admin/almacén (RLS). El **cajero** la ve en solo lectura (en *Más*): busca dónde
+  está un producto y lo agrega al ticket, sin *+ Ubicación*, *Editar mueble*, *Editar*, agregar/quitar productos ni el
+  aviso de *sin ubicación*.
 
 ## Proveedores y compras (admin, almacén)
 

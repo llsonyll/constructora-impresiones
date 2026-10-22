@@ -44,7 +44,7 @@ export default function AppRoutes() {
           <Route path="inventario" element={<RequireRole roles={['admin', 'almacen']}><InventoryPage /></RequireRole>} />
           <Route path="inventario/conteo" element={<RequireRole roles={['admin', 'almacen']}><StockCountPage /></RequireRole>} />
           <Route path="inventario/precios" element={<RequireRole roles={['admin', 'almacen']}><PricingPage /></RequireRole>} />
-          <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'almacen']}><LocationsPage /></RequireRole>} />
+          <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><LocationsPage /></RequireRole>} />
           <Route path="proveedores" element={<RequireRole roles={['admin', 'almacen']}><ProvidersPage /></RequireRole>} />
           <Route path="proveedores/ordenes/:id" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPage /></RequireRole>} />
           <Route path="documentos" element={<Soon name="Documentos" />} />
