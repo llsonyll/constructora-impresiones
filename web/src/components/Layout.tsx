@@ -16,7 +16,7 @@ const SECTIONS: Section[] = [
   { to: '/caja', label: 'Caja', icon: Wallet, roles: ['admin', 'cajero'] },
   { to: '/reportes', label: 'Reportes', icon: ChartColumn, roles: ['admin'] },
   { to: '/inventario', label: 'Inventario', icon: Package, roles: ['admin', 'almacen'] },
-  { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'almacen'] },
+  { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'cajero', 'almacen'] },
   { to: '/proveedores', label: 'Proveedores', icon: Truck, roles: ['admin', 'almacen'] },
   { to: '/documentos', label: 'Documentos', icon: FileText, roles: ['admin', 'cajero'] },
 ]
@@ -57,11 +57,12 @@ export default function Layout() {
 
   return (
     // --nav-h: alto de las pestañas inferiores; las barras flotantes (bottom-safe-*) se ponen encima.
-    <div className={cn('min-h-dvh bg-stone-100', showTabs && '[--nav-h:3.5rem] md:[--nav-h:0px]')}>
+    // print: solo el contenido (p. ej. una cotización), sin barras ni fondo.
+    <div className={cn('min-h-dvh bg-stone-100 print:min-h-0 print:bg-white', showTabs && '[--nav-h:3.5rem] md:[--nav-h:0px]')}>
       {/* Celular: sin barra superior; solo el color de la marca detrás de la hora y el notch. */}
-      <div aria-hidden className="sticky top-0 z-10 h-[env(safe-area-inset-top)] bg-amber-800 md:hidden" />
+      <div aria-hidden className="sticky top-0 z-10 h-[env(safe-area-inset-top)] bg-amber-800 md:hidden print:hidden" />
 
-      <header className="sticky top-0 z-10 flex items-center gap-3 bg-amber-800 pt-safe px-safe-3 text-white max-md:hidden">
+      <header className="sticky top-0 z-10 flex items-center gap-3 bg-amber-800 pt-safe px-safe-3 text-white max-md:hidden print:hidden">
         <strong>La Constructora</strong>
         <nav className="flex flex-1 gap-3 overflow-x-auto text-sm">
           {mine.map(n => (
@@ -73,12 +74,12 @@ export default function Layout() {
         <button className="min-h-11 shrink-0 px-1 text-xs underline" onClick={() => supabase.auth.signOut()}>Salir</button>
       </header>
 
-      <div className="pb-[var(--nav-h,0px)]">
+      <div className="pb-[var(--nav-h,0px)] print:pb-0">
         <Outlet />
       </div>
 
       {showTabs && (
-        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t bg-white px-safe-3 pb-[env(safe-area-inset-bottom)] md:hidden">
+        <nav aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t bg-white px-safe-3 pb-[env(safe-area-inset-bottom)] md:hidden print:hidden">
           {tabs.map(t => {
             const active = current === t
             return (

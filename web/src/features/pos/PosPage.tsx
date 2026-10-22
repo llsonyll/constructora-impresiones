@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BookOpen, MapPin, Plus, Printer, ScanBarcode } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BookOpen, FileText, MapPin, Plus, Printer, ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -20,6 +21,7 @@ import type { Caja, Category, PaymentMethod, Product } from '@/types/domain'
 import { useCarts } from './useCart'
 import { checkout } from './checkout'
 import QtyPad from './QtyPad'
+import type { QuoteFromTicket } from '@/features/documents/QuoteEditorPage'
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
   { id: 'efectivo', label: 'Efectivo' }, { id: 'yape', label: 'Yape' },
@@ -28,6 +30,7 @@ const METHODS: { id: PaymentMethod; label: string }[] = [
 
 export default function PosPage() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   // Alta de productos desde la caja: por ahora solo admin/almacén (RLS de products igual lo exige).
   const canCreate = profile?.role === 'admin' || profile?.role === 'almacen'
   // Servicios de copias (fotocopia, impresión, otros): también el cajero, vía RPC create_copy_service.
@@ -56,7 +59,7 @@ export default function PosPage() {
   // Un ticket por caja: se puede atender a alguien en copias sin perder el ticket de ferretería a medias.
   // Viven en CartsProvider: otras pantallas (Ubicaciones) también agregan a ellos.
   const carts = useCarts()
-  const { lines, total, dispatch } = carts[caja]
+  const { lines, total, dispatch, quote } = carts[caja]
   const theme = CAJA_THEME[caja]
   // En el celular el ticket es una hoja a pantalla completa: "atrás" la cierra. En escritorio es una columna fija.
   useOverlay(() => setTicketOpen(false), ticketOpen && !matchMedia('(min-width: 768px)').matches)
@@ -145,7 +148,9 @@ export default function PosPage() {
     const ids = saleIdRef.current
     ids[caja] ??= crypto.randomUUID()
     try {
-      await checkout(lines, caja, method, {}, ids[caja]!)
+      // Ticket cargado desde una cotización: la venta lleva su cliente y queda enlazada a ella.
+      const extra = quote ? { quote_id: quote.id, customer_name: quote.customer_name ?? undefined, customer_doc: quote.customer_doc ?? undefined } : {}
+      await checkout(lines, caja, method, extra, ids[caja]!)
       ids[caja] = null
       dispatch({ type: 'clear' })
       setTicketOpen(false)
@@ -287,6 +292,14 @@ export default function PosPage() {
           </h2>
           <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
         </div>
+        {quote && (
+          <div className="flex items-center gap-2 rounded-lg bg-stone-100 py-1 pl-3 text-sm">
+            <FileText className="size-4 shrink-0 text-stone-500" />
+            <span className="min-w-0 flex-1 truncate">Cotización <b className="font-mono">{quote.label}</b>{quote.customer_name && ` · ${quote.customer_name}`}</span>
+            <button onClick={() => carts[caja].setQuote(null)} aria-label="Desvincular la cotización" title="Cobrar sin enlazar a la cotización"
+                    className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+          </div>
+        )}
         <ul className="divide-y">
           {lines.map(l => (
             <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm">
@@ -334,6 +347,14 @@ export default function PosPage() {
                 className={`w-full rounded-lg p-3 font-medium text-white disabled:opacity-40 ${theme.solid}`}>
           {paying ? 'Registrando…' : `Cobrar ${money(total)}`}
         </button>
+        {lines.length > 0 && !quote && online && (
+          <button onClick={() => navigate('/documentos/cotizacion/nueva', { state: { fromTicket: {
+                    caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
+                  } satisfies QuoteFromTicket } })}
+                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700">
+            <FileText className="size-4" />Cotizar este ticket
+          </button>
+        )}
       </aside>
 
       {/* Barra inferior (solo celular) */}

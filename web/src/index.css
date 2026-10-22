@@ -50,3 +50,6 @@
   /* Sin el retraso de doble toque para zoom en botones y enlaces. */
   a, button, input, select, textarea, label { touch-action: manipulation; }
 }
+
+/* Documentos (cotización, nota de venta): hoja A4 con márgenes al imprimir o guardar como PDF. */
+@page { size: A4; margin: 12mm; }

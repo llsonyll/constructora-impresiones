@@ -14,6 +14,7 @@ import {
   useCashierNames, useDaySales, useVoidSale,
 } from './api'
 import { Breakdown, CajaByShift, CajaCard, byCategory, cajaShiftMatrix } from './summary'
+import SaleNoteSheet from '@/features/documents/SaleNoteSheet'
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
@@ -29,6 +30,7 @@ export default function TodayPage() {
   const [cashier, setCashier] = useState('')
   const [showVoided, setShowVoided] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
+  const [noteFor, setNoteFor] = useState<DaySale | null>(null)
 
   const qc = useQueryClient()
   const { data: synced = [], isLoading, error } = useDaySales(day)
@@ -51,7 +53,7 @@ export default function TodayPage() {
       .filter(s => !ids.has(s.id) && s.sold_at >= from && s.sold_at < to)
       .map(s => ({
         id: s.id, number: null, cashier_id: profile?.id ?? null, caja: s.caja ?? 'ferreteria', shift: s.shift, payment_method: s.payment_method,
-        total: s.total, status: 'completada', sold_at: s.sold_at, customer_name: s.customer_name ?? null,
+        total: s.total, status: 'completada', sold_at: s.sold_at, customer_name: s.customer_name ?? null, customer_doc: s.customer_doc ?? null,
         note: s.note ?? null, pending: true,
         items: s.items.map(i => ({
           description: i.description, qty: i.qty, unit_price: i.unit_price, subtotal: Math.round(i.qty * i.unit_price * 100) / 100,
@@ -169,12 +171,17 @@ export default function TodayPage() {
                     </tbody>
                   </table>
                   {(s.customer_name || s.note) && <p className="text-stone-500">{[s.customer_name, s.note].filter(Boolean).join(' · ')}</p>}
-                  {isAdmin && !anulada && !s.pending && (
-                    <div className="flex justify-end">
-                      <button onClick={() => onVoid(s)} disabled={voidSale.isPending}
-                              className="min-h-11 rounded border border-red-300 px-3 text-red-700 disabled:opacity-50">Anular venta</button>
-                    </div>
-                  )}
+                  {!anulada && (s.pending
+                    ? <p className="text-xs text-stone-500">La nota de venta se puede emitir cuando la venta se sincronice.</p>
+                    : (
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button onClick={() => setNoteFor(s)} className="mr-auto min-h-11 rounded border bg-white px-3">Nota de venta</button>
+                        {isAdmin && (
+                          <button onClick={() => onVoid(s)} disabled={voidSale.isPending}
+                                  className="min-h-11 rounded border border-red-300 px-3 text-red-700 disabled:opacity-50">Anular venta</button>
+                        )}
+                      </div>
+                    ))}
                 </div>
               )}
             </li>
@@ -182,6 +189,7 @@ export default function TodayPage() {
         })}
         {!isLoading && !listed.length && <li className="p-6 text-center text-stone-500">No hay ventas {isToday ? 'hoy' : 'ese día'}.</li>}
       </ul>
+      {noteFor && <SaleNoteSheet sale={noteFor} onClose={() => setNoteFor(null)} />}
     </div>
   )
 }

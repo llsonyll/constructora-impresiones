@@ -11,14 +11,18 @@ import { friendlyLocationError, normalizeCode, useLocations, useProductLocation 
 import LocationForm from './LocationForm'
 import FurnitureForm from './FurnitureForm'
 import ProductPreviewSheet from './ProductPreviewSheet'
+import { useAuth } from '@/features/auth/AuthProvider'
 import { imageUrl } from '@/lib/images'
 import { money } from '@/lib/format'
 
 /**
  * Ubicaciones por mueble: cuadrícula con cuántos productos hay en cada casillero. Al tocar uno se ven sus
  * productos y se pueden meter más escaneando uno tras otro (carga inicial: pararse frente a la repisa y escanear).
+ * El cajero la ve en solo lectura (buscar dónde está algo y agregarlo al ticket); admin y almacén la editan (RLS igual).
  */
 export default function LocationsPage() {
+  const { profile } = useAuth()
+  const canEdit = profile?.role === 'admin' || profile?.role === 'almacen'
   const { data: locations = [], isLoading } = useLocations()
   const { data: products = [] } = useInventory()
   const [showInactive, setShowInactive] = useState(false)
@@ -59,8 +63,8 @@ export default function LocationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-4">
-      <PageHeader title="Ubicaciones" back="/inventario" backLabel="Inventario">
-        <button onClick={() => setForm('new')} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white">+ Ubicación</button>
+      <PageHeader title="Ubicaciones" back={canEdit ? '/inventario' : undefined} backLabel="Inventario">
+        {canEdit && <button onClick={() => setForm('new')} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white">+ Ubicación</button>}
       </PageHeader>
 
       <form onSubmit={onJump} className="flex gap-2">
@@ -70,7 +74,7 @@ export default function LocationsPage() {
       </form>
       {jumpError && <p className="text-sm text-red-600">{jumpError}</p>}
 
-      {unplaced > 0 && (
+      {canEdit && unplaced > 0 && (
         <Link to="/inventario?estado=sin_ubicacion" className="flex min-h-11 items-center justify-between rounded-lg bg-amber-50 px-3 text-sm text-amber-900">
           <span><b>{unplaced}</b> productos sin ubicación</span><span>Ver →</span>
         </Link>
@@ -94,13 +98,13 @@ export default function LocationsPage() {
       {bodies.map(body => (
         <FurnitureGrid key={body ?? '-'} title={body ? `${current}-${body}` : current!} locations={inFurniture.filter(l => l.body === body)}
                        counts={byLocation} selected={selected} onSelect={setSelected}
-                       onEdit={() => setEditFurniture({ furniture: current!, body })} />
+                       onEdit={canEdit ? () => setEditFurniture({ furniture: current!, body }) : undefined} />
       ))}
       <p className="text-xs text-stone-500">N1 es la repisa más alta; las secciones van de izquierda a derecha. El número es la cantidad de productos.</p>
 
       {sel && !form && (
         <LocationSheet location={sel} products={byLocation.get(sel.id) ?? []} allProducts={products}
-                       onEdit={() => setForm(sel)} onClose={() => setSelected(null)} />
+                       onEdit={canEdit ? () => setForm(sel) : undefined} onClose={() => setSelected(null)} />
       )}
       {editFurniture && (
         <FurnitureForm furniture={editFurniture.furniture} body={editFurniture.body}
@@ -124,14 +128,14 @@ export default function LocationsPage() {
 /** Un mueble (o cuerpo): una fila por nivel, de arriba (N1) hacia abajo; los niveles divididos muestran sus secciones. */
 function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }: {
   title: string; locations: Location[]; counts: Map<number, InventoryProduct[]>; selected: number | null; onSelect: (id: number) => void
-  onEdit: () => void
+  onEdit?: () => void
 }) {
   const levels = [...new Set(locations.map(l => l.level))].sort((a, b) => a - b)
   return (
     <section className="rounded-lg bg-white p-2 shadow">
       <div className="mb-1 flex items-center px-1">
         <h2 className="flex-1 text-sm font-semibold">{title}</h2>
-        <button onClick={onEdit} aria-label={`Editar mueble ${title}`} className="-my-2 min-h-11 px-2 text-sm text-amber-800">Editar mueble</button>
+        {onEdit && <button onClick={onEdit} aria-label={`Editar mueble ${title}`} className="-my-2 min-h-11 px-2 text-sm text-amber-800">Editar mueble</button>}
       </div>
       <div className="space-y-1">
         {levels.map(level => {
@@ -161,9 +165,9 @@ function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }:
   )
 }
 
-/** Detalle de una ubicación: sus productos y agregar más buscando o escaneando seguido. */
+/** Detalle de una ubicación: sus productos y (si se puede editar: `onEdit`) agregar más buscando o escaneando seguido. */
 function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
-  location: Location; products: InventoryProduct[]; allProducts: InventoryProduct[]; onEdit: () => void; onClose: () => void
+  location: Location; products: InventoryProduct[]; allProducts: InventoryProduct[]; onEdit?: () => void; onClose: () => void
 }) {
   const mut = useProductLocation()
   const [query, setQuery] = useState('')
@@ -212,15 +216,15 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
               {location.description ?? 'Sin descripción'}{!location.active && <span className="ml-1 rounded bg-stone-200 px-1">inactiva</span>}
             </p>
           </div>
-          <button onClick={onEdit} className="min-h-11 rounded-lg border px-3 text-sm">Editar</button>
+          {onEdit && <button onClick={onEdit} className="min-h-11 rounded-lg border px-3 text-sm">Editar</button>}
         </div>
 
-        <div className="flex gap-2">
+        {onEdit && <div className="flex gap-2">
           <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Agregar producto: buscar…" aria-label="Buscar producto para agregar"
                  className="min-h-11 min-w-0 flex-1 rounded-lg border px-3 text-base" />
           <button onClick={() => setScanning(true)} className="min-h-11 shrink-0 rounded-lg bg-amber-700 px-3 text-sm text-white"><ScanBarcode className="mr-1 inline size-5 align-[-0.25em]" />Escanear</button>
-        </div>
-        {matches.length > 0 && (
+        </div>}
+        {onEdit && matches.length > 0 && (
           <ul className="divide-y rounded-lg border">
             {matches.map(p => (
               <li key={p.id}>
@@ -256,12 +260,14 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
                     </div>
                     <span className="shrink-0 text-sm tabular-nums">{p.price != null ? money(p.price) : <span className="text-xs text-amber-700">sin precio</span>}</span>
                   </button>
-                  <button onClick={() => mut.mutate({ op: 'remove', productId: p.id, locationId: location.id })}
-                          aria-label={`Quitar ${p.name} de ${location.code}`} className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+                  {onEdit && (
+                    <button onClick={() => mut.mutate({ op: 'remove', productId: p.id, locationId: location.id })}
+                            aria-label={`Quitar ${p.name} de ${location.code}`} className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+                  )}
                 </li>
               )
             })}
-            {!products.length && <li className="p-4 text-center text-sm text-stone-500">Vacía. Escanea o busca productos para agregarlos.</li>}
+            {!products.length && <li className="p-4 text-center text-sm text-stone-500">Vacía.{onEdit && ' Escanea o busca productos para agregarlos.'}</li>}
           </ul>
         </div>
       </Sheet>

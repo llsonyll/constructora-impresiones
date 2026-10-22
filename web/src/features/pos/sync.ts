@@ -38,9 +38,11 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
   try {
     const pending = await localDb.outbox.orderBy('sold_at').toArray()
     for (const sale of pending) {
-      const { total: _t, status: _s, error: _e, attempts: _a, ...payload } = sale
+      const { total: _t, status: _s, error: _e, attempts: _a, quote_id, ...payload } = sale
       const { error } = await supabase.rpc('create_sale', { p_sale: payload })
       if (!error) {
+        // Venta de una cotización: queda marcada como vendida. Si falla, la venta ya está; solo no se enlaza.
+        if (quote_id) await supabase.rpc('link_quote_sale', { p_quote: quote_id, p_sale: sale.id })
         await localDb.outbox.delete(sale.id)
         sent++
       } else {
