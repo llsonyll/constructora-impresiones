@@ -28,6 +28,7 @@ export interface DaySale {
   status: 'completada' | 'anulada'
   sold_at: string
   customer_name: string | null
+  customer_doc?: string | null
   note: string | null
   items: SaleLine[]
   pending?: boolean              // guardada en el equipo, aún sin sincronizar
@@ -60,7 +61,7 @@ export const salesKeys = {
   range: (from: string, to: string) => ['sales', 'range', from, to] as const,
 }
 
-const SALE_COLS = 'id, number, cashier_id, caja, shift, payment_method, total, status, sold_at, customer_name, note, ' +
+const SALE_COLS = 'id, number, cashier_id, caja, shift, payment_method, total, status, sold_at, customer_name, customer_doc, note, ' +
   'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(categories(name)))'
 const PAGE = 1000   // tope de filas por consulta de PostgREST en Supabase
 

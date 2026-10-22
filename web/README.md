@@ -120,6 +120,27 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
   se pueden ver con *Ver anuladas*.
 
+## Documentos (`/documentos`, admin y cajero)
+
+Documentos internos, sin SUNAT, numerados por serie en el servidor (`COT-000001`, `NV-000001`; bloqueo por serie, sin
+saltos ni repetidos aunque dos cajas emitan a la vez). Tabla `documents` (los ítems van en `payload`), escritura solo
+por RPC.
+- **Cotización** (`save_quote`): cliente opcional (nombre, DNI/RUC, celular), productos del catálogo local con precio
+  editable, ítems libres, vigencia (3/7/15/30 días) y nota. Se crea desde *+ Cotización* o con **Cotizar este ticket**
+  en Ventas (el ticket se vacía al guardar). Estados: vigente, vencida, vendida, anulada. Se edita mientras no se venda.
+- **Pasar a venta**: carga la cotización en el ticket de cada caja con los precios cotizados (avisa si venció o si el
+  ticket ya tenía productos). Al cobrar, la venta lleva el cliente y `quote_id`; al sincronizar, `link_quote_sale` la
+  marca como vendida (también si se cobró sin internet). La ✕ del aviso en el ticket cobra sin enlazar.
+- **Nota de venta** (`create_sale_note`): desde *Hoy*, en el detalle de una venta ya sincronizada. Ítems y total salen
+  de la venta; una sola nota vigente por venta (pedirla otra vez abre la misma y actualiza los datos del cliente).
+  El cajero emite notas de sus ventas.
+- Cada documento se ve como hoja A4: **Imprimir / PDF** (`window.print`; al imprimir se ocultan barras y botones) y
+  **WhatsApp** (texto con el detalle, al celular del cliente si tiene 9 dígitos). **Anular** (`void_document`):
+  cotizaciones admin y cajero; notas de venta solo admin.
+- Encabezado y pie: tabla `business_info` (nombre, RUC, dirección, teléfono, pie), editable por el admin con el botón
+  del edificio en *Documentos*.
+- Pendiente: boletas y facturas electrónicas (SUNAT, vía OSE/PSE); `documents` ya tiene `sunat_status` y `external_id`.
+
 ## Cierre de caja (`/caja`)
 
 - Por **caja** (Ferretería / Copias) y **turno** (mañana / tarde) de un día. Sin monto de apertura:

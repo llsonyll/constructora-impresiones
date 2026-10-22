@@ -9,7 +9,7 @@ import { flushOutbox } from './sync'
  * ni vuelve a descontar stock (create_sale en el servidor también es idempotente por id).
  */
 export async function checkout(lines: CartLine[], caja: Caja, payment_method: PaymentMethod,
-                               extra: Pick<PendingSale, 'customer_name' | 'customer_doc' | 'note'> = {},
+                               extra: Pick<PendingSale, 'customer_name' | 'customer_doc' | 'note' | 'quote_id'> = {},
                                id: string = crypto.randomUUID()) {
   const sale: PendingSale = {
     id,

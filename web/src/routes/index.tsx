@@ -13,10 +13,11 @@ import PricingPage from '@/features/inventory/PricingPage'
 import LocationsPage from '@/features/locations/LocationsPage'
 import ProvidersPage from '@/features/providers/ProvidersPage'
 import PurchaseOrderPage from '@/features/providers/PurchaseOrderPage'
+import DocumentsPage from '@/features/documents/DocumentsPage'
+import DocumentPage from '@/features/documents/DocumentPage'
+import QuoteEditorPage from '@/features/documents/QuoteEditorPage'
 import type { Role } from '@/types/domain'
 import type { ReactNode } from 'react'
-
-const Soon = ({ name }: { name: string }) => <p className="p-6 text-stone-500">{name}: pendiente</p>
 
 /** Oculta pantallas a roles sin permiso (la protección real de datos es RLS). */
 function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
@@ -47,7 +48,10 @@ export default function AppRoutes() {
           <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><LocationsPage /></RequireRole>} />
           <Route path="proveedores" element={<RequireRole roles={['admin', 'almacen']}><ProvidersPage /></RequireRole>} />
           <Route path="proveedores/ordenes/:id" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPage /></RequireRole>} />
-          <Route path="documentos" element={<Soon name="Documentos" />} />
+          <Route path="documentos" element={<RequireRole roles={['admin', 'cajero']}><DocumentsPage /></RequireRole>} />
+          <Route path="documentos/cotizacion/nueva" element={<RequireRole roles={['admin', 'cajero']}><QuoteEditorPage /></RequireRole>} />
+          <Route path="documentos/:id" element={<RequireRole roles={['admin', 'cajero']}><DocumentPage /></RequireRole>} />
+          <Route path="documentos/:id/editar" element={<RequireRole roles={['admin', 'cajero']}><QuoteEditorPage /></RequireRole>} />
         </Route>
       </Routes>
     </HashRouter>

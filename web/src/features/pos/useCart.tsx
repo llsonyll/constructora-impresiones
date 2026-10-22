@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useReducer, useState, type ReactNode } from 'react'
 import type { Caja, CartLine, Product } from '@/types/domain'
 import { round2 } from '@/lib/format'
 
@@ -45,11 +45,27 @@ function reducer(state: CartLine[], a: Action): CartLine[] {
 }
 
 export type CartAction = Action
-export interface Cart { lines: CartLine[]; total: number; dispatch: (a: Action) => void }
+
+/** Cotización que se está cobrando en un ticket: al cobrar, la venta queda enlazada a ella (y lleva sus datos de cliente). */
+export interface TicketQuote { id: string; label: string; customer_name: string | null; customer_doc: string | null }
+
+export interface Cart {
+  lines: CartLine[]; total: number; dispatch: (a: Action) => void
+  quote: TicketQuote | null; setQuote: (q: TicketQuote | null) => void
+}
 
 type Tickets = Record<Caja, CartLine[]>
 const KEY = 'pos.tickets'
+const QUOTES_KEY = 'pos.quotes'
 const EMPTY: Tickets = { ferreteria: [], copias: [] }
+type Quotes = Record<Caja, TicketQuote | null>
+
+function loadQuotes(): Quotes {
+  try {
+    const q = JSON.parse(localStorage.getItem(QUOTES_KEY) ?? 'null') as Partial<Quotes> | null
+    return { ferreteria: q?.ferreteria ?? null, copias: q?.copias ?? null }
+  } catch { return { ferreteria: null, copias: null } }
+}
 
 function loadTickets(): Tickets {
   try {
@@ -70,15 +86,24 @@ const CartsCtx = createContext<Record<Caja, Cart> | null>(null)
  */
 export function CartsProvider({ children }: { children: ReactNode }) {
   const [tickets, dispatch] = useReducer(ticketsReducer, undefined, loadTickets)
+  const [quotes, setQuotes] = useState<Quotes>(loadQuotes)
   useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(tickets)) } catch { /* sin almacenamiento */ } }, [tickets])
+  useEffect(() => { try { localStorage.setItem(QUOTES_KEY, JSON.stringify(quotes)) } catch { /* sin almacenamiento */ } }, [quotes])
+  // Ticket vaciado (cobrado o borrado): ya no corresponde a la cotización.
+  useEffect(() => {
+    if ((quotes.ferreteria && !tickets.ferreteria.length) || (quotes.copias && !tickets.copias.length))
+      setQuotes(q => ({ ferreteria: tickets.ferreteria.length ? q.ferreteria : null, copias: tickets.copias.length ? q.copias : null }))
+  }, [tickets, quotes])
   const carts = useMemo(() => {
     const cart = (caja: Caja): Cart => ({
       lines: tickets[caja],
       total: round2(tickets[caja].reduce((s, l) => s + round2(l.qty * l.unit_price), 0)),
       dispatch: action => dispatch({ caja, action }),
+      quote: quotes[caja],
+      setQuote: q => setQuotes(s => ({ ...s, [caja]: q })),
     })
     return { ferreteria: cart('ferreteria'), copias: cart('copias') }
-  }, [tickets])
+  }, [tickets, quotes])
   return <CartsCtx.Provider value={carts}>{children}</CartsCtx.Provider>
 }
 

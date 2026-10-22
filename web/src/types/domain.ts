@@ -65,6 +65,7 @@ export interface PendingSale {
   customer_name?: string
   customer_doc?: string
   note?: string
+  quote_id?: string       // cotización que se cobra: se enlaza a la venta al sincronizar (link_quote_sale)
   items: Omit<CartLine, 'key'>[]
   total: number
   status: 'pending' | 'error'
