@@ -8,7 +8,7 @@ import PhotoInput from '@/components/PhotoInput'
 import { imageUrl, uploadProductImage } from '@/lib/images'
 import { money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
-import type { JobSource } from '@/types/domain'
+import type { JobSource, Presentation } from '@/types/domain'
 import {
   friendlyError, inventoryKeys, type InventoryProduct, type ProductInput,
   useAdjustStock, useCategories, useCostHistory, useMovements, useProviders, useSaveProduct,
@@ -27,6 +27,28 @@ export const suggestPrice = (cost: number, markup: number) => {
 }
 
 const num = (s: string) => (s.trim() === '' ? null : Number(s.replace(',', '.')))
+
+/** Presentaciones en el formulario (texto mientras se escribe). */
+type PresRow = { name: string; qty: string; price: string }
+const PRESET_PRES: { name: string; qty: number }[] = [
+  { name: 'Media docena', qty: 6 }, { name: 'Docena', qty: 12 }, { name: 'Ciento', qty: 100 },
+  { name: 'Bolsa', qty: 0 }, { name: 'Caja', qty: 0 }, { name: 'Paquete', qty: 0 },
+]
+
+/** Filas válidas → presentaciones; error si alguna está a medias o repetida. Filas vacías se ignoran. */
+function parsePresentations(rows: PresRow[]): { list: Presentation[]; error: string } {
+  const list: Presentation[] = []
+  for (const r of rows) {
+    if (!r.name.trim() && !r.qty.trim() && !r.price.trim()) continue
+    const qty = num(r.qty), price = num(r.price)
+    if (!r.name.trim() || qty == null || !(qty > 0) || price == null || !(price > 0))
+      return { list, error: `Presentación «${r.name.trim() || 'sin nombre'}»: completa nombre, cantidad y precio (mayores a 0).` }
+    if (qty === 1) return { list, error: `Presentación «${r.name.trim()}»: la cantidad 1 ya es la unidad; usa el precio de venta.` }
+    if (list.some(p => p.name.toLowerCase() === r.name.trim().toLowerCase())) return { list, error: `La presentación «${r.name.trim()}» está repetida.` }
+    list.push({ name: r.name.trim(), qty, price: Math.round(price * 100) / 100 })
+  }
+  return { list, error: '' }
+}
 
 function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return <label className={`block text-sm ${className}`}><span className="mb-1 block text-xs text-stone-500">{label}</span>{children}</label>
@@ -57,6 +79,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
     track_stock: product?.track_stock ?? true, job_sources: product?.job_sources ?? [],
     job_color: product?.job_color == null ? 'any' : product.job_color ? 'color' : 'bn',
     job_duplex: product?.job_duplex ?? false, job_keywords: (product?.job_keywords ?? []).join(', '),
+    presentations: (product?.presentations ?? []).map(p => ({ name: p.name, qty: String(p.qty), price: p.price.toFixed(2) })) as PresRow[],
   }))
   const [f, setF] = useState(initial)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
@@ -85,8 +108,11 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
     })
   }
 
+  const pres = parsePresentations(f.presentations)
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (pres.error) return
     const payload: ProductInput = {
       id: product?.id, sku: f.sku.trim(), name: f.name.trim(), brand: f.brand.trim() || null,
       barcode: f.barcode.trim() || null, category_id: f.category_id ? Number(f.category_id) : null,
@@ -96,6 +122,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
       track_stock: f.track_stock, job_sources: f.job_sources, job_duplex: f.job_duplex,
       job_color: f.job_color === 'any' ? null : f.job_color === 'color',
       job_keywords: f.job_keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean),
+      presentations: pres.list,
     }
     try {
       const id = await save.mutateAsync(payload)
@@ -142,6 +169,9 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
           <p className={`col-span-2 text-sm ${m != null && m < 0.15 ? 'text-red-600' : 'text-stone-600'}`}>
             Margen: {m != null ? `${Math.round(m * 100)}% (${money(price! - cost!)} por ${f.unit})` : '—'}
           </p>
+
+          <PresentationFields rows={f.presentations} unit={f.unit} basePrice={hasPrice ? price : null} error={pres.error}
+                              onChange={rows => set('presentations', rows)} />
 
           <Field label="SKU">
             <input className={input} value={f.sku} onChange={e => set('sku', e.target.value)}
@@ -200,7 +230,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
           {/* Fija al pie de la hoja: guardar sin bajar hasta el final del formulario. */}
           <div className="sticky bottom-0 z-10 col-span-2 -mx-3 flex justify-end gap-2 border-t bg-white px-3 py-3 sm:-mx-5 sm:px-5">
             <button type="button" onClick={requestClose} className="min-h-12 rounded-lg border px-4 max-sm:flex-1">Cancelar</button>
-            <button disabled={save.isPending} className="min-h-12 rounded-lg bg-amber-700 px-6 font-medium text-white disabled:opacity-50 max-sm:flex-[2]">
+            <button disabled={save.isPending || !!pres.error} className="min-h-12 rounded-lg bg-amber-700 px-6 font-medium text-white disabled:opacity-50 max-sm:flex-[2]">
               {save.isPending ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
@@ -213,6 +243,57 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
         {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { set('barcode', c); setScanning(false) }} />}
       </div>
     </div>
+  )
+}
+
+/**
+ * Venta por docena, ciento, bolsa…: cada presentación lleva `qty` unidades base y su precio. En Ventas, al tocar
+ * el producto se elige la presentación; el stock baja en unidades base (1 docena = 12).
+ */
+function PresentationFields({ rows, unit, basePrice, error, onChange }: {
+  rows: PresRow[]; unit: string; basePrice: number | null; error: string; onChange: (rows: PresRow[]) => void
+}) {
+  const setRow = (i: number, patch: Partial<PresRow>) => onChange(rows.map((r, n) => n === i ? { ...r, ...patch } : r))
+  const used = new Set(rows.map(r => r.name.trim().toLowerCase()))
+  return (
+    <details className="col-span-2 rounded border p-3 text-sm" open={rows.length > 0}>
+      <summary className="min-h-11 cursor-pointer content-center font-medium">
+        Presentaciones (docena, ciento, bolsa…){rows.length > 0 && <span className="ml-1 font-normal text-stone-500">· {rows.length}</span>}
+      </summary>
+      <p className="mb-2 text-xs text-stone-500">
+        Se vende por <b>{unit}</b> al precio de venta y, además, por estas presentaciones. La cantidad va en {unit}: el stock baja eso al venderla.
+      </p>
+      <ul className="space-y-2">
+        {rows.map((r, i) => {
+          const qty = num(r.qty), price = num(r.price)
+          const per = qty && qty > 0 && price && price > 0 ? price / qty : null
+          return (
+            <li key={i} className="grid grid-cols-[1fr_5.5rem_6rem_auto] items-end gap-1.5">
+              <Field label="Nombre"><input className={input} value={r.name} onChange={e => setRow(i, { name: e.target.value })} placeholder="Docena" aria-label={`Nombre de la presentación ${i + 1}`} /></Field>
+              <Field label={`Cant. (${unit})`}><input className={input} inputMode="decimal" value={r.qty} onChange={e => setRow(i, { qty: e.target.value })} aria-label={`Cantidad de ${r.name || 'la presentación'}`} /></Field>
+              <Field label="Precio"><input className={input} inputMode="decimal" value={r.price} onChange={e => setRow(i, { price: e.target.value })} aria-label={`Precio de ${r.name || 'la presentación'}`} /></Field>
+              <button type="button" onClick={() => onChange(rows.filter((_, n) => n !== i))} aria-label={`Quitar ${r.name || 'presentación'}`}
+                      className="grid size-11 place-items-center text-stone-500">✕</button>
+              {per != null && (
+                <p className="col-span-4 -mt-1 text-xs text-stone-500">
+                  = {money(per)} por {unit}
+                  {basePrice != null && basePrice > 0 && per < basePrice && ` (${Math.round((1 - per / basePrice) * 100)}% menos que suelto)`}
+                  {basePrice != null && per > basePrice && <span className="text-amber-700"> · más caro que suelto</span>}
+                </p>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {PRESET_PRES.filter(p => !used.has(p.name.toLowerCase())).map(p => (
+          <button type="button" key={p.name} onClick={() => onChange([...rows, { name: p.name, qty: p.qty ? String(p.qty) : '', price: '' }])}
+                  className="min-h-11 rounded-full border px-3 text-sm">+ {p.name}{p.qty ? ` (${p.qty})` : ''}</button>
+        ))}
+        <button type="button" onClick={() => onChange([...rows, { name: '', qty: '', price: '' }])} className="min-h-11 rounded-full border border-dashed px-3 text-sm">+ Otra</button>
+      </div>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </details>
   )
 }
 

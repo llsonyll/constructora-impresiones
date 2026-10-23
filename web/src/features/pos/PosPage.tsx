@@ -21,6 +21,7 @@ import type { Caja, Category, PaymentMethod, Product } from '@/types/domain'
 import { useCarts } from './useCart'
 import { checkout } from './checkout'
 import QtyPad from './QtyPad'
+import PresentationPicker, { type PickedLine } from './PresentationPicker'
 import type { QuoteFromTicket } from '@/features/documents/QuoteEditorPage'
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
@@ -51,6 +52,7 @@ export default function PosPage() {
   const [modulo, setModulo] = useState<'servicios' | 'libreria'>('servicios')
   const [newService, setNewService] = useState<{ prefill: ServicePrefill; fromPanel: boolean } | null>(null)
   const [padFor, setPadFor] = useState<Product | null>(null)
+  const [presFor, setPresFor] = useState<Product | null>(null)
   const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
   const payingRef = useRef(false)
@@ -127,8 +129,19 @@ export default function PosPage() {
     else toast(`+${qty} ${p.name}`, { id: 'pos', action: undo })
   }
 
-  /** Tocar una tarjeta: los servicios (copias, impresiones) piden cantidad; el resto suma 1. */
-  const tap = (p: Product) => (p.track_stock === false ? setPadFor(p) : add(p))
+  /** Unidad y/o presentaciones elegidas (docena, ciento, bolsa…): una línea por cada una. */
+  function addPicked(p: Product, picked: PickedLine[]) {
+    const target = cajaOf(p, catMap)
+    for (const l of picked) carts[target].dispatch({ type: 'addLine', product_id: p.id, description: l.description, qty: l.qty, unit_price: l.unit_price, factor: l.factor })
+    used(p.id)
+    const undo = { label: 'Deshacer', onClick: () => { for (const l of picked) carts[target].dispatch({ type: 'undoAdd', product_id: p.id, unit_price: l.unit_price, qty: l.qty, factor: l.factor }) } }
+    const text = picked.map(l => `+${l.qty} ${l.label}`).join(', ')
+    if (target !== caja) { setCaja(target); toast.warning(`${p.name} es de ${CAJA_LABEL[target]}: cambiaste a esa caja`, { id: 'pos', action: undo }) }
+    else toast(`${text} · ${p.name}`, { id: 'pos', action: undo })
+  }
+
+  /** Tocar una tarjeta: con presentaciones se elige cuál; los servicios (copias, impresiones) piden cantidad; el resto suma 1. */
+  const tap = (p: Product) => (p.presentations?.length ? setPresFor(p) : p.track_stock === false ? setPadFor(p) : add(p))
 
   /** Código escaneado o tecleado por un lector USB: agrega si existe; si no, ofrece crearlo. */
   function handleCode(code: string) {
@@ -244,6 +257,9 @@ export default function PosPage() {
                       ? <span className="text-stone-500">por {p.unit}</span>
                       : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
                   </div>
+                  {!!p.presentations?.length && (
+                    <div className="mt-0.5 truncate text-xs text-stone-500">{p.presentations.map(pr => `${pr.name} ${money(pr.price)}`).join(' · ')}</div>
+                  )}
                   {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500"><MapPin className="inline size-3.5 align-[-0.15em]" /> {p.locations[0]}</div>}
                 </div>
               </button>
@@ -349,7 +365,8 @@ export default function PosPage() {
         </button>
         {lines.length > 0 && !quote && online && (
           <button onClick={() => navigate('/documentos/cotizacion/nueva', { state: { fromTicket: {
-                    caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
+                    // Línea por presentación: sin unidad aparte (la descripción ya dice "· Docena").
+                    caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.factor ?? 1) !== 1 ? '' : (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
                   } satisfies QuoteFromTicket } })}
                   className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700">
             <FileText className="size-4" />Cotizar este ticket
@@ -382,6 +399,11 @@ export default function PosPage() {
       {padFor && (
         <QtyPad product={padFor} accent={CAJA_THEME[cajaOf(padFor, catMap)].solid} onClose={() => setPadFor(null)}
                 onAdd={qty => { add(padFor, qty); setPadFor(null) }} />
+      )}
+
+      {presFor && (
+        <PresentationPicker product={presFor} accent={CAJA_THEME[cajaOf(presFor, catMap)].solid} onClose={() => setPresFor(null)}
+                            onAdd={picked => { addPicked(presFor, picked); setPresFor(null) }} />
       )}
 
       {newService && (

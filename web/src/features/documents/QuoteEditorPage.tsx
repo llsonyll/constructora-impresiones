@@ -6,7 +6,8 @@ import PageHeader from '@/components/PageHeader'
 import { localDb } from '@/db/local'
 import { useCarts } from '@/features/pos/useCart'
 import { igvBreakdown, money, round2 } from '@/lib/format'
-import type { Caja, CartLine, Product } from '@/types/domain'
+import type { Caja, CartLine, Presentation, Product } from '@/types/domain'
+import { presentationLabel } from '@/features/pos/PresentationPicker'
 import { docNumber, friendlyDocError, lineTotal, useDocument, useSaveQuote, type DocItem } from './api'
 
 type Line = DocItem & { key: string }
@@ -60,11 +61,14 @@ export default function QuoteEditorPage() {
   }, [products, query])
 
   const edit = (fn: (ls: Line[]) => Line[]) => { setLines(fn); setDirty(true) }
-  function addProduct(p: Product) {
+  /** Por unidad o por una presentación (docena, ciento…: la línea lleva su factor y va sin unidad aparte). */
+  function addProduct(p: Product, pr?: Presentation) {
+    const line = pr
+      ? { product_id: p.id, description: presentationLabel(p, pr), unit: '', unit_price: pr.price, factor: pr.qty }
+      : { product_id: p.id, description: p.name, unit: p.unit, unit_price: p.price, factor: 1 }
     edit(ls => {
-      const same = ls.find(l => l.product_id === p.id && l.unit_price === p.price)
-      return same ? ls.map(l => l === same ? { ...l, qty: l.qty + 1 } : l)
-                  : [...ls, { key: crypto.randomUUID(), product_id: p.id, description: p.name, unit: p.unit, qty: 1, unit_price: p.price }]
+      const same = ls.find(l => l.product_id === p.id && l.unit_price === line.unit_price && (l.factor ?? 1) === line.factor)
+      return same ? ls.map(l => l === same ? { ...l, qty: l.qty + 1 } : l) : [...ls, { key: crypto.randomUUID(), qty: 1, ...line }]
     })
     setQuery('')
   }
@@ -132,6 +136,15 @@ export default function QuoteEditorPage() {
                   <span className="shrink-0 tabular-nums">{money(p.price)}</span>
                   <span className="shrink-0 text-amber-800">+</span>
                 </button>
+                {!!p.presentations?.length && (
+                  <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+                    {p.presentations.map(pr => (
+                      <button key={pr.name} onClick={() => addProduct(p, pr)} className="min-h-11 rounded-full border px-3 text-sm active:bg-amber-50">
+                        + {pr.name} <span className="text-xs text-stone-500">({pr.qty} {p.unit})</span> <span className="tabular-nums">{money(pr.price)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

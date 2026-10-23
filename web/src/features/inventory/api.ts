@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { JobSource } from '@/types/domain'
+import type { JobSource, Presentation } from '@/types/domain'
 
 export interface InventoryProduct {
   id: string
@@ -25,6 +25,7 @@ export interface InventoryProduct {
   job_color: boolean | null
   job_duplex: boolean
   job_keywords: string[]
+  presentations: Presentation[] // venta por docena, ciento, bolsa… (qty en la unidad base)
   locations: ProductLocation[] // la principal primero
 }
 
@@ -44,7 +45,7 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, product_costs(cost), product_locations(location_id, is_primary, qty, created_at, locations(code))'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, product_costs(cost), product_locations(location_id, is_primary, qty, created_at, locations(code))'
 
 type Row = Omit<InventoryProduct, 'cost' | 'locations'> & {
   product_costs: { cost: number } | null
@@ -190,7 +191,7 @@ export interface QuickProduct { name: string; price: number | null; barcode: str
 export async function quickCreateProduct(p: QuickProduct) {
   const { data, error } = await supabase.from('products')
     .insert({ ...p, active: p.price != null, needs_review: true })
-    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords')
+    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations')
     .single()
   if (error) throw error
   return data

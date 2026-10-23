@@ -29,7 +29,7 @@ export async function checkout(lines: CartLine[], caja: Caja, payment_method: Pa
     if (await localDb.outbox.get(id)) return false
     await localDb.outbox.add(sale)
     for (const l of lines) if (l.product_id) await localDb.products.where('id').equals(l.product_id)
-      .modify(p => { if (p.track_stock !== false) p.stock -= l.qty })
+      .modify(p => { if (p.track_stock !== false) p.stock -= l.qty * (l.factor ?? 1) })
     return true
   })
   if (added) void flushOutbox()
