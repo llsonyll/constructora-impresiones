@@ -27,7 +27,11 @@ export interface Product {
   job_duplex: boolean
   job_keywords: string[]
   locations?: string[]   // códigos de ubicación física, la principal primero (sin datos en cachés viejas)
+  presentations?: Presentation[]  // venta por docena, ciento, bolsa… (sin datos en cachés viejas)
 }
+
+/** Presentación de venta: `qty` unidades base (products.unit) a `price`. Ej. Docena: 12 und a S/3.00. */
+export interface Presentation { name: string; qty: number; price: number }
 
 export type FurnitureType = 'estante' | 'vitrina' | 'mostrador'
 
@@ -53,6 +57,7 @@ export interface CartLine {
   description: string
   qty: number
   unit_price: number
+  factor?: number             // unidades base por cada unidad de la línea (presentación: docena = 12); sin dato = 1
 }
 
 /** Venta pendiente de sincronizar. `id` se genera en el cliente => create_sale es idempotente. */

@@ -5,26 +5,30 @@ import { round2 } from '@/lib/format'
 type Action =
   | { type: 'addProduct'; product: Product }
   | { type: 'addCustom'; description: string; qty: number; unit_price: number }
-  | { type: 'addLine'; product_id: string; description: string; qty: number; unit_price: number }
+  | { type: 'addLine'; product_id: string; description: string; qty: number; unit_price: number; factor?: number }
   | { type: 'setQty'; key: string; qty: number }
-  | { type: 'undoAdd'; product_id: string; unit_price: number; qty: number }
+  | { type: 'undoAdd'; product_id: string; unit_price: number; qty: number; factor?: number }
   | { type: 'remove'; key: string }
   | { type: 'clear' }
+
+/** Misma línea: mismo producto, precio y presentación (factor; sin dato = unidad base). */
+const sameLine = (l: CartLine, product_id: string, unit_price: number, factor = 1) =>
+  l.product_id === product_id && l.unit_price === unit_price && (l.factor ?? 1) === factor
 
 function reducer(state: CartLine[], a: Action): CartLine[] {
   switch (a.type) {
     case 'addProduct': {
-      const existing = state.find(l => l.product_id === a.product.id && l.unit_price === a.product.price)
+      const existing = state.find(l => sameLine(l, a.product.id, a.product.price))
       if (existing) return state.map(l => l === existing ? { ...l, qty: l.qty + 1 } : l)
       return [...state, { key: crypto.randomUUID(), product_id: a.product.id,
         description: a.product.name, qty: 1, unit_price: a.product.price }]
     }
-    // Producto con cantidad y precio dados (impresiones del agente): se suma a la línea con el mismo precio.
+    // Producto con cantidad y precio dados (impresiones del agente, presentaciones): se suma a la línea igual.
     case 'addLine': {
-      const existing = state.find(l => l.product_id === a.product_id && l.unit_price === a.unit_price)
+      const existing = state.find(l => sameLine(l, a.product_id, a.unit_price, a.factor))
       if (existing) return state.map(l => l === existing ? { ...l, qty: l.qty + a.qty } : l)
-      return [...state, { key: crypto.randomUUID(), product_id: a.product_id,
-        description: a.description, qty: a.qty, unit_price: a.unit_price }]
+      return [...state, { key: crypto.randomUUID(), product_id: a.product_id, description: a.description, qty: a.qty,
+        unit_price: a.unit_price, ...(a.factor != null && a.factor !== 1 ? { factor: a.factor } : {}) }]
     }
     case 'addCustom':
       return [...state, { key: crypto.randomUUID(), product_id: null,
@@ -34,7 +38,7 @@ function reducer(state: CartLine[], a: Action): CartLine[] {
                         : state.map(l => l.key === a.key ? { ...l, qty: a.qty } : l)
     // "Deshacer" del aviso: resta lo que se acaba de sumar (y quita la línea si queda en 0).
     case 'undoAdd': {
-      const line = state.find(l => l.product_id === a.product_id && l.unit_price === a.unit_price)
+      const line = state.find(l => sameLine(l, a.product_id, a.unit_price, a.factor))
       if (!line) return state
       return line.qty - a.qty <= 0 ? state.filter(l => l !== line)
                                    : state.map(l => l === line ? { ...l, qty: round2(l.qty - a.qty) } : l)

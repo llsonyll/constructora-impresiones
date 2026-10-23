@@ -6,7 +6,7 @@ import type { Category, PendingSale, Product } from '@/types/domain'
 export async function refreshCatalog(): Promise<number> {
   const [prods, cats] = await Promise.all([
     supabase.from('products')
-      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, product_locations(is_primary, locations(code))')
+      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, product_locations(is_primary, locations(code))')
       .eq('active', true),
     supabase.from('categories').select('id, name, caja'),
   ])

@@ -47,7 +47,7 @@ export default function DocumentPage() {
     if (busy.length && !confirm(`El ticket de ${busy.map(c => CAJA_LABEL[c]).join(' y ')} ya tiene productos. ¿Agregar la cotización a lo que hay?`)) return
     for (const [caja, items] of groups) {
       for (const i of items) {
-        if (i.product_id) carts[caja].dispatch({ type: 'addLine', product_id: i.product_id, description: i.description, qty: i.qty, unit_price: i.unit_price })
+        if (i.product_id) carts[caja].dispatch({ type: 'addLine', product_id: i.product_id, description: i.description, qty: i.qty, unit_price: i.unit_price, factor: i.factor })
         else carts[caja].dispatch({ type: 'addCustom', description: i.description, qty: i.qty, unit_price: i.unit_price })
       }
       carts[caja].setQuote({ id: d.id, label: docNumber(d), customer_name: d.customer_name, customer_doc: d.customer_doc })

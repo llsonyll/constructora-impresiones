@@ -6,7 +6,8 @@ import type { Caja, PaymentMethod } from '@/types/domain'
 
 export type DocType = 'cotizacion' | 'nota_venta'
 
-export interface DocItem { product_id: string | null; description: string; unit: string; qty: number; unit_price: number }
+/** `factor`: unidades base por unidad de la línea (presentación: docena = 12); sin dato = 1. */
+export interface DocItem { product_id: string | null; description: string; unit: string; qty: number; unit_price: number; factor?: number }
 
 export interface Doc {
   id: string
@@ -62,7 +63,7 @@ export function shareText(d: Doc, biz?: BusinessInfo | null) {
     `${DOC_LABEL[d.type].toUpperCase()} ${docNumber(d)} · ${dateLabel(d.created_at)}`,
     d.customer_name && `Cliente: ${d.customer_name}${d.customer_doc ? ` (${d.customer_doc})` : ''}`,
     '',
-    ...d.payload.items.map(i => `• ${i.qty} ${i.unit} ${i.description} × ${money(i.unit_price)} = ${money(lineTotal(i))}`),
+    ...d.payload.items.map(i => `• ${[i.qty, i.unit, i.description].filter(Boolean).join(' ')} × ${money(i.unit_price)} = ${money(lineTotal(i))}`),
     '',
     `*Total: ${money(d.total)}*`,
     d.type === 'cotizacion' && d.valid_until && `Válida hasta el ${dateLabel(d.valid_until)}. Precios incluyen IGV.`,

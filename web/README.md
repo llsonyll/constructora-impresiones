@@ -48,6 +48,23 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
 
+## Presentaciones: venta por docena, ciento, bolsa…
+
+- Un producto se vende en su unidad base (`products.unit`, la del stock) al precio de venta y, además, en las
+  presentaciones de `products.presentations` (`[{ name, qty, price }]`, `qty` en la unidad base). Ej. TIRAFON 8x1:
+  und S/0.30, Docena (12) S/3.00, Ciento (100) S/20.00; CLAVO por kg: Bolsa (5 kg).
+- Se cargan en la ficha del producto (*Presentaciones*, atajos Docena, Ciento, Bolsa…); muestra el precio por unidad
+  base y cuánto más barato sale que suelto.
+- En Ventas, tocar un producto con presentaciones abre el selector (`features/pos/PresentationPicker.tsx`): suelto,
+  docena, ciento… con cantidades; "1 docena y 3 sueltos" = dos líneas en el ticket. La línea de una presentación se
+  describe "TIRAFON DE 8x1 PULGADA · Docena" y lleva `factor` (unidades base por unidad vendida).
+- `create_sale` guarda `sale_items.factor`, descuenta `qty × factor` del stock y el costo como `costo base × factor`
+  (el margen de Reportes sigue siendo `subtotal − unit_cost × qty`). Anular repone lo mismo. Ventas sin `factor`
+  (equipos sin actualizar) cuentan como 1.
+- Cotizaciones: al buscar un producto se ofrecen también sus presentaciones; *Pasar a venta* conserva el `factor`.
+  En cotizaciones y notas de venta la línea de una presentación va sin unidad aparte (la descripción ya la nombra).
+- El stock, los conteos y las compras siguen en la unidad base.
+
 ## Ubicaciones físicas (`/inventario/ubicaciones`)
 
 - Código `MUEBLE[-CUERPO]-NIVEL[-SECCIÓN]` (p. ej. `E2-N5`, `E4-N3-B`, `E0-B-N2-F`): nivel contado de **arriba hacia abajo**
