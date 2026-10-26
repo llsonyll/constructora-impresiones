@@ -1,17 +1,19 @@
 import { localDb } from '@/db/local'
 import { supabase } from '@/lib/supabase'
-import type { Category, PendingSale, Product } from '@/types/domain'
+import type { Category, PendingSale, Product, SynonymRow } from '@/types/domain'
 
-/** Descarga el catálogo activo y las categorías (con su caja) y los guarda para uso offline. */
+/** Descarga el catálogo activo, las categorías (con su caja) y los sinónimos de búsqueda, y los guarda para uso offline. */
 export async function refreshCatalog(): Promise<number> {
-  const [prods, cats] = await Promise.all([
+  const [prods, cats, syns] = await Promise.all([
     supabase.from('products')
-      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, product_locations(is_primary, locations(code))')
+      .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, aliases, product_locations(is_primary, locations(code))')
       .eq('active', true),
     supabase.from('categories').select('id, name, caja'),
+    supabase.from('search_synonyms').select('id, terms'),
   ])
   if (prods.error) throw prods.error
   if (cats.error) throw cats.error
+  if (syns.error) throw syns.error
   type Row = Product & { product_locations: { is_primary: boolean; locations: { code: string } | null }[] }
   // Ubicaciones como lista de códigos, la principal primero (solo informativo en el POS).
   const data = (prods.data as unknown as Row[]).map(({ product_locations, ...p }) => ({
@@ -19,11 +21,13 @@ export async function refreshCatalog(): Promise<number> {
     locations: [...product_locations].sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
       .map(l => l.locations?.code).filter((c): c is string => !!c),
   }))
-  await localDb.transaction('rw', localDb.products, localDb.categories, async () => {
+  await localDb.transaction('rw', localDb.products, localDb.categories, localDb.synonyms, async () => {
     await localDb.products.clear()
     await localDb.products.bulkPut(data as Product[])
     await localDb.categories.clear()
     await localDb.categories.bulkPut(cats.data as Category[])
+    await localDb.synonyms.clear()
+    await localDb.synonyms.bulkPut(syns.data as SynonymRow[])
   })
   return data.length
 }

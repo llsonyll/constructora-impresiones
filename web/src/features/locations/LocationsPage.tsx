@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { rankBy, withCode } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { MapPin, Package, ScanBarcode } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
@@ -180,12 +182,11 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(null), 3000); return () => clearTimeout(t) }, [flash])
 
   const here = new Set(products.map(p => p.id))
+  const textScore = useProductMatcher(query)
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (q.length < 2) return []
-    return allProducts.filter(p => !here.has(p.id) && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-      || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q)).slice(0, 8)
-  }, [allProducts, query, here])
+    if (query.trim().length < 2) return []
+    return rankBy(allProducts.filter(p => !here.has(p.id)), withCode(query, textScore)).slice(0, 8)
+  }, [allProducts, query, here, textScore])
 
   async function add(p: Pick<InventoryProduct, 'id' | 'name'>) {
     try {

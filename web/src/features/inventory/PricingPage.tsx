@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { rankBy, withCode } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { ScanBarcode, Search } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import PageHeader from '@/components/PageHeader'
@@ -37,12 +39,11 @@ export default function PricingPage() {
   const idx = current ? list.findIndex(p => p.id === current.id) : -1
   const nextId = (idx >= 0 ? list[idx + 1] : list.find(p => p.id !== current?.id))?.id ?? null
 
+  const textScore = useProductMatcher(query)
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (q.length < 2) return []
-    return products.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-      || (p.brand?.toLowerCase().includes(q) ?? false) || p.barcode === q).slice(0, 20)
-  }, [products, query])
+    if (query.trim().length < 2) return []
+    return rankBy(products, withCode(query, textScore)).slice(0, 20)
+  }, [products, query, textScore])
 
   useEffect(() => { if (!flash) return; const t = setTimeout(() => setFlash(''), 2500); return () => clearTimeout(t) }, [flash])
 

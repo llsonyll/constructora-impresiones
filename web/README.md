@@ -48,6 +48,26 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
 
+## Búsqueda de productos: sinónimos y otros nombres
+
+Un mismo producto se pide de varias formas ("amarra", "cintillo", "precinto"). Una sola búsqueda (`src/lib/search.ts`,
+hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, Órdenes de compra y Cotizaciones:
+- Sin mayúsculas ni tildes ("tuberia" = TUBERÍA), palabras en cualquier orden ("amarra negra") y por la raíz de cada
+  palabra ("amarra", "amarre" y "amarras"; "cintillo" y "cintillos"). Lo escrito se busca en cualquier parte del nombre,
+  la marca o el SKU, como antes ("flex" encuentra SIKAFLEX). El código de barras o SKU exacto sale primero.
+- **Otros nombres** del producto (`products.aliases`): campo *También se conoce como* en la ficha (separados por coma).
+  Para nombres que solo aplican a ese artículo.
+- **Sinónimos** compartidos (`search_synonyms`, un grupo por fila): buscar una palabra o frase del grupo encuentra las
+  demás ("cintillo" → AMARRA PLÁSTICA; "cinta métrica" → WINCHA, HUINCHA, FLEXÓMETRO; "sacapuntas" → TARJADOR). Un sinónimo
+  cuenta como palabra entera ("toma" no trae TOMATIERRA) y los grupos no se encadenan. Las palabras *de, para, con…* no
+  cuentan ("cinta de aislar" = "cinta aislar"). Lista inicial de 38 grupos armada con los nombres del catálogo.
+- Orden: lo escrito en el nombre, luego en otros nombres, luego por sinónimo; a igual coincidencia, el orden de
+  siempre (en Ventas, lo más usado en el equipo).
+- **Inventario → Sinónimos** (`/inventario/sinonimos`, admin y almacén): ver, buscar, crear, editar y eliminar grupos
+  (al menos dos términos; avisa si una palabra ya está en otro grupo) y *Probar la búsqueda*. RLS: todos leen,
+  escriben admin y almacén. Los sinónimos se descargan con el catálogo (Dexie `synonyms`), así la búsqueda funciona sin
+  internet; al abrir la pantalla de Sinónimos el equipo los actualiza en el momento.
+
 ## Presentaciones: venta por docena, ciento, bolsa…
 
 - Un producto se vende en su unidad base (`products.unit`, la del stock) al precio de venta y, además, en las

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { rankBy, withCode } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { MapPin } from 'lucide-react'
@@ -53,12 +55,11 @@ export default function QuoteEditorPage() {
   }, [existing.data, ready])
 
   const total = round2(lines.reduce((s, l) => s + lineTotal(l), 0))
+  const textScore = useProductMatcher(query)
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (q.length < 2) return []
-    return products.filter(p => p.active && (p.name.toLowerCase().includes(q) || p.sku.toLowerCase() === q || p.barcode === q
-      || (p.brand?.toLowerCase().includes(q) ?? false))).slice(0, 8)
-  }, [products, query])
+    if (query.trim().length < 2) return []
+    return rankBy(products.filter(p => p.active), withCode(query, textScore)).slice(0, 8)
+  }, [products, query, textScore])
 
   const edit = (fn: (ls: Line[]) => Line[]) => { setLines(fn); setDirty(true) }
   /** Por unidad o por una presentación (docena, ciento…: la línea lleva su factor y va sin unidad aparte). */

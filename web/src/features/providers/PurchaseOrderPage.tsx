@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { rankBy, withCode } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -99,12 +101,13 @@ export default function PurchaseOrderPage() {
   }, [history, routeId])
   const provider = providers.find(p => p.id === form?.provider_id)
 
+  const textScore = useProductMatcher(query)
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q.length < 2) return []
-    return purchasable.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-      || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false)).slice(0, 8)
-  }, [purchasable, query])
+    const byCode = withCode(query, textScore)
+    return rankBy(purchasable, p => byCode(p) || (p.barcode?.includes(q) ? 1 : 0)).slice(0, 8)
+  }, [purchasable, query, textScore])
 
   if (!isNew && isLoading) return <p className="p-6 text-stone-500">Cargando…</p>
   if (loadError) return <p className="p-6 text-red-600">Error: {friendlyPoError(loadError)}</p>

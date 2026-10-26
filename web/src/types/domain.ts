@@ -28,7 +28,11 @@ export interface Product {
   job_keywords: string[]
   locations?: string[]   // códigos de ubicación física, la principal primero (sin datos en cachés viejas)
   presentations?: Presentation[]  // venta por docena, ciento, bolsa… (sin datos en cachés viejas)
+  aliases?: string[]     // "También se conoce como": otros nombres con que se busca (sin datos en cachés viejas)
 }
+
+/** Grupo de sinónimos de búsqueda ("amarra", "cintillo", "precinto"): buscar uno encuentra los demás. */
+export interface SynonymRow { id: number; terms: string[] }
 
 /** Presentación de venta: `qty` unidades base (products.unit) a `price`. Ej. Docena: 12 und a S/3.00. */
 export interface Presentation { name: string; qty: number; price: number }
