@@ -150,13 +150,25 @@ por RPC.
   marca como vendida (también si se cobró sin internet). La ✕ del aviso en el ticket cobra sin enlazar.
 - **Nota de venta** (`create_sale_note`): desde *Hoy*, en el detalle de una venta ya sincronizada. Ítems y total salen
   de la venta; una sola nota vigente por venta (pedirla otra vez abre la misma y actualiza los datos del cliente).
-  El cajero emite notas de sus ventas.
+  El cajero emite notas de sus ventas. Es un documento **interno, no un comprobante de pago**: la hoja no desglosa IGV
+  (solo el total) y lleva al pie, también en el WhatsApp, *No válido como comprobante de pago. Solicite su boleta o factura.*
+- **Boleta o factura de SOL** (`register_sol_receipt`): mientras no haya emisión electrónica, la boleta o factura se emite
+  a mano en el portal SOL de SUNAT y se **anota en su venta** desde *Hoy* (detalle → *Boleta / factura SOL*). La hoja
+  muestra los datos de la venta para SOL (precio con IGV, valor unitario sin IGV, op. gravada, IGV, total) con
+  *Copiar datos para SOL*, y pide serie y número (por defecto `EB01` boleta, `E001` factura; la última serie usada queda
+  en el equipo y se sugiere el siguiente número). Factura: razón social y RUC válido (dígito verificador, `ruc_valido`);
+  boleta desde S/ 700: aviso de que debe llevar DNI. Una boleta o factura vigente por venta y cada serie-número en una
+  sola venta. Se guarda en `documents` (`payload.source = 'sol'`, `sunat_status = 'aceptado'`); la app **no la imprime**
+  (el comprobante válido es el PDF de SOL). El cajero registra en sus ventas; **Quitar registro** solo admin
+  (`void_document`; no la anula en SUNAT). En *Hoy* cada venta muestra su comprobante (p. ej. *Boleta EB01-15*), hay
+  filtro *Con / Sin boleta ni factura* y, al anular una venta con comprobante, se avisa que hay que anularlo también en SOL.
 - Cada documento se ve como hoja A4: **Imprimir / PDF** (`window.print`; al imprimir se ocultan barras y botones) y
   **WhatsApp** (texto con el detalle, al celular del cliente si tiene 9 dígitos). **Anular** (`void_document`):
   cotizaciones admin y cajero; notas de venta solo admin.
 - Encabezado y pie: tabla `business_info` (nombre, RUC, dirección, teléfono, pie), editable por el admin con el botón
   del edificio en *Documentos*.
-- Pendiente: boletas y facturas electrónicas (SUNAT, vía OSE/PSE); `documents` ya tiene `sunat_status` y `external_id`.
+- Pendiente (en pausa): emisión electrónica de boletas y facturas desde la app vía OSE/PSE; `documents` ya tiene
+  `sunat_status` y `external_id`.
 
 ## Cierre de caja (`/caja`)
 

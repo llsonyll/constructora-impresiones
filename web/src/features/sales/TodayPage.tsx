@@ -15,8 +15,11 @@ import {
 } from './api'
 import { Breakdown, CajaByShift, CajaCard, byCategory, cajaShiftMatrix } from './summary'
 import SaleNoteSheet from '@/features/documents/SaleNoteSheet'
+import SolReceiptSheet from '@/features/documents/SolReceiptSheet'
+import { RECEIPT_LABEL, receiptNumber } from '@/features/documents/api'
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+const RECEIPT_FILTER = { con: 'Con boleta o factura', sin: 'Sin boleta ni factura' } as const
 const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 
 /** Ventas del día: totales por caja, medio de pago, turno y categoría; detalle de cada venta y anulación (admin). */
@@ -30,7 +33,9 @@ export default function TodayPage() {
   const [cashier, setCashier] = useState('')
   const [showVoided, setShowVoided] = useState(false)
   const [open, setOpen] = useState<string | null>(null)
+  const [receiptFilter, setReceiptFilter] = useState<'' | 'con' | 'sin'>('')
   const [noteFor, setNoteFor] = useState<DaySale | null>(null)
+  const [receiptFor, setReceiptFor] = useState<DaySale | null>(null)
 
   const qc = useQueryClient()
   const { data: synced = [], isLoading, error } = useDaySales(day)
@@ -64,7 +69,7 @@ export default function TodayPage() {
   }, [synced, outbox, products, categories, day, profile?.id])
 
   const filtered = sales.filter(s => (!caja || s.caja === caja) && (!shift || s.shift === shift) && (!method || s.payment_method === method)
-    && (!cashier || s.cashier_id === cashier))
+    && (!cashier || s.cashier_id === cashier) && (!receiptFilter || (receiptFilter === 'con') === !!s.receipt))
   const valid = filtered.filter(s => s.status === 'completada')
   const voided = filtered.filter(s => s.status === 'anulada')
   const listed = showVoided ? filtered : valid
@@ -76,7 +81,9 @@ export default function TodayPage() {
   const isToday = day === todayLocal()
 
   async function onVoid(s: DaySale) {
-    if (!confirm(`¿Anular la venta #${s.number} por ${money(s.total)}? Se repone el stock de los productos.`)) return
+    const sol = s.receipt && `\n\nTiene la ${RECEIPT_LABEL[s.receipt.type].toLowerCase()} ${receiptNumber(s.receipt)} emitida en SOL: ` +
+      'anúlala también en SOL (comunicación de baja o nota de crédito).'
+    if (!confirm(`¿Anular la venta #${s.number} por ${money(s.total)}? Se repone el stock de los productos.${sol || ''}`)) return
     try { await voidSale.mutateAsync(s.id) } catch { /* se muestra abajo */ }
   }
 
@@ -106,8 +113,9 @@ export default function TodayPage() {
 
       {/* Filtros de la lista de ventas (los totales de arriba solo dependen de la caja). */}
       <FilterBar summary={[shift && SHIFT_LABEL[shift], method && PAYMENT_LABEL[method],
-                           cashier && (names[cashier] ?? 'Cajero'), showVoided && 'con anuladas'].filter(Boolean).join(' · ')}
-                 onReset={() => { setShift(''); setMethod(''); setCashier(''); setShowVoided(false) }}>
+                           cashier && (names[cashier] ?? 'Cajero'), receiptFilter && RECEIPT_FILTER[receiptFilter],
+                           showVoided && 'con anuladas'].filter(Boolean).join(' · ')}
+                 onReset={() => { setShift(''); setMethod(''); setCashier(''); setReceiptFilter(''); setShowVoided(false) }}>
         <div className="flex flex-wrap gap-2">
           {(['', 'manana', 'tarde'] as const).map(s => (
             <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
@@ -116,6 +124,11 @@ export default function TodayPage() {
                   className="min-h-11 rounded-full border bg-white px-3 text-sm">
             <option value="">Todo medio de pago</option>
             {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select value={receiptFilter} onChange={e => setReceiptFilter(e.target.value as '' | 'con' | 'sin')} aria-label="Comprobante"
+                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+            <option value="">Con y sin comprobante</option>
+            {Object.entries(RECEIPT_FILTER).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           {isAdmin && cashiers.length > 1 && (
             <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
@@ -152,6 +165,7 @@ export default function TodayPage() {
                     {s.number != null ? `#${s.number}` : <span className="text-amber-700">⏳ por sincronizar</span>}
                     {' · '}<CajaIcon caja={s.caja} /> {PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
                     {isAdmin && s.cashier_id && ` · ${names[s.cashier_id] ?? 'Cajero'}`}
+                    {s.receipt && <span className="ml-1 whitespace-nowrap rounded bg-sky-100 px-1 text-sky-800">{RECEIPT_LABEL[s.receipt.type]} {receiptNumber(s.receipt)}</span>}
                     {anulada && <span className="ml-1 rounded bg-stone-200 px-1 text-stone-600">anulada</span>}
                   </div>
                 </div>
@@ -172,10 +186,15 @@ export default function TodayPage() {
                   </table>
                   {(s.customer_name || s.note) && <p className="text-stone-500">{[s.customer_name, s.note].filter(Boolean).join(' · ')}</p>}
                   {!anulada && (s.pending
-                    ? <p className="text-xs text-stone-500">La nota de venta se puede emitir cuando la venta se sincronice.</p>
+                    ? <p className="text-xs text-stone-500">La nota de venta y la boleta o factura se pueden registrar cuando la venta se sincronice.</p>
                     : (
                       <div className="flex flex-wrap justify-end gap-2">
-                        <button onClick={() => setNoteFor(s)} className="mr-auto min-h-11 rounded border bg-white px-3">Nota de venta</button>
+                        <div className="mr-auto flex flex-wrap gap-2">
+                          <button onClick={() => setNoteFor(s)} className="min-h-11 rounded border bg-white px-3">Nota de venta</button>
+                          <button onClick={() => setReceiptFor(s)} className="min-h-11 rounded border bg-white px-3">
+                            {s.receipt ? `${RECEIPT_LABEL[s.receipt.type]} ${receiptNumber(s.receipt)}` : 'Boleta / factura SOL'}
+                          </button>
+                        </div>
                         {isAdmin && (
                           <button onClick={() => onVoid(s)} disabled={voidSale.isPending}
                                   className="min-h-11 rounded border border-red-300 px-3 text-red-700 disabled:opacity-50">Anular venta</button>
@@ -190,6 +209,7 @@ export default function TodayPage() {
         {!isLoading && !listed.length && <li className="p-6 text-center text-stone-500">No hay ventas {isToday ? 'hoy' : 'ese día'}.</li>}
       </ul>
       {noteFor && <SaleNoteSheet sale={noteFor} onClose={() => setNoteFor(null)} />}
+      {receiptFor && <SolReceiptSheet sale={receiptFor} onClose={() => setReceiptFor(null)} />}
     </div>
   )
 }
