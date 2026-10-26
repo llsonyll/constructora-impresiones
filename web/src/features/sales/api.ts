@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { SaleReceipt } from '@/features/documents/api'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 
 /** Categoría para los totales de líneas sin producto o sin categoría. */
@@ -32,6 +33,7 @@ export interface DaySale {
   note: string | null
   items: SaleLine[]
   pending?: boolean              // guardada en el equipo, aún sin sincronizar
+  receipt?: SaleReceipt | null   // boleta o factura emitida en SOL y anotada en la venta
 }
 
 export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
@@ -51,9 +53,10 @@ export function todayLocal(d = new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-type Row = Omit<DaySale, 'items' | 'pending'> & {
+type Row = Omit<DaySale, 'items' | 'pending' | 'receipt'> & {
   sale_items: { description: string; qty: number; unit_price: number; subtotal: number; product_id: string | null;
                 unit_cost: number | null; products: { categories: { name: string } | null } | null }[]
+  documents: (SaleReceipt & { type: string; voided_at: string | null })[]
 }
 
 export const salesKeys = {
@@ -62,7 +65,8 @@ export const salesKeys = {
 }
 
 const SALE_COLS = 'id, number, cashier_id, caja, shift, payment_method, total, status, sold_at, customer_name, customer_doc, note, ' +
-  'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(categories(name)))'
+  'sale_items(description, qty, unit_price, subtotal, product_id, unit_cost, products(categories(name))), ' +
+  'documents(id, type, series, number, voided_at)'
 const PAGE = 1000   // tope de filas por consulta de PostgREST en Supabase
 
 /** Ventas con `sold_at` en [from, to), más recientes primero, paginando de a 1000. */
@@ -77,9 +81,11 @@ export async function fetchSales(from: string, to: string): Promise<DaySale[]> {
     rows.push(...(data as unknown as Row[]))
     if (data.length < PAGE) break
   }
-  return rows.map(({ sale_items, ...s }) => ({
+  return rows.map(({ sale_items, documents, ...s }) => ({
     ...s,
     total: Number(s.total),
+    receipt: documents.filter(d => (d.type === 'boleta' || d.type === 'factura') && !d.voided_at)
+      .map(({ voided_at: _v, ...d }) => ({ ...d, number: Number(d.number) }))[0] ?? null,
     items: sale_items.map(i => ({
       description: i.description, qty: Number(i.qty), unit_price: Number(i.unit_price), subtotal: Number(i.subtotal),
       product_id: i.product_id, unit_cost: i.unit_cost == null ? null : Number(i.unit_cost),

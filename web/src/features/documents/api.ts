@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import { money } from '@/lib/format'
+import { IGV_RATE, igvBreakdown, money } from '@/lib/format'
 import { todayLocal } from '@/features/sales/api'
 import type { Caja, PaymentMethod } from '@/types/domain'
 
@@ -26,8 +26,19 @@ export interface Doc {
     items: DocItem[]
     phone?: string | null; note?: string | null; valid_days?: number        // cotización
     address?: string; payment_method?: PaymentMethod; caja?: Caja; sale_number?: number; sold_at?: string  // nota de venta
+    source?: 'sol'                  // boleta/factura emitida en el portal SOL (solo el registro)
   }
 }
+
+/** Boleta o factura emitida en el portal SOL y anotada en su venta (no se imprime desde aquí: el PDF es el de SOL). */
+export type ReceiptType = 'boleta' | 'factura'
+export const RECEIPT_LABEL: Record<ReceiptType, string> = { boleta: 'Boleta', factura: 'Factura' }
+export interface SaleReceipt { id: string; type: ReceiptType; series: string; number: number }
+/** EB01-15 (sin ceros a la izquierda, como lo muestra SOL). */
+export const receiptNumber = (r: Pick<SaleReceipt, 'series' | 'number'>) => `${r.series}-${r.number}`
+
+/** Leyenda de la nota de venta: es un documento interno, no un comprobante de pago. */
+export const NOTE_DISCLAIMER = 'No válido como comprobante de pago. Solicite su boleta o factura.'
 
 export interface BusinessInfo { name: string; ruc: string | null; address: string | null; phone: string | null; footer: string | null }
 
@@ -68,6 +79,7 @@ export function shareText(d: Doc, biz?: BusinessInfo | null) {
     `*Total: ${money(d.total)}*`,
     d.type === 'cotizacion' && d.valid_until && `Válida hasta el ${dateLabel(d.valid_until)}. Precios incluyen IGV.`,
     d.payload.note,
+    d.type === 'nota_venta' && `_${NOTE_DISCLAIMER}_`,
   ]
   return lines.filter(l => l !== false && l != null).join('\n')
 }
@@ -193,6 +205,65 @@ export function useVoidDocument() {
       if (error) throw error
       return toDoc(data as Doc)
     },
-    onSuccess: d => { qc.setQueryData(docKeys.one(d.id), d); void qc.invalidateQueries({ queryKey: ['documents', 'list'] }) },
+    onSuccess: d => {
+      qc.setQueryData(docKeys.one(d.id), d)
+      void qc.invalidateQueries({ queryKey: ['documents', 'list'] })
+      if (d.sale_id) void qc.invalidateQueries({ queryKey: ['sales'] })   // registro de boleta SOL quitado
+    },
+  })
+}
+
+/** RUC: 11 dígitos, prefijo de contribuyente y dígito verificador (módulo 11). Igual que `ruc_valido` en la BD. */
+export function rucValido(ruc: string) {
+  if (!/^(10|15|16|17|20)\d{9}$/.test(ruc)) return false
+  const sum = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2].reduce((s, w, i) => s + w * Number(ruc[i]), 0)
+  return (11 - (sum % 11)) % 10 === Number(ruc[10])
+}
+
+/** 32.5 → "32.50"; el valor sin IGV va con 6 decimales (sin ceros sobrantes) para que el total cuadre en SOL. */
+const plain = (n: number, max = 2) => n.toFixed(max).replace(/(\.\d{2}\d*?)0+$/, '$1')
+
+/** Datos de una venta listos para llenar la boleta o factura en el portal SOL. */
+export function solText(sale: { number: number | null; total: number; items: { description: string; qty: number; unit_price: number; subtotal: number }[] },
+                        customer: { name: string; doc: string }) {
+  const { base, igv, total } = igvBreakdown(sale.total)
+  return [
+    `Venta #${sale.number}`,
+    customer.name || customer.doc ? `Cliente: ${[customer.name, customer.doc].filter(Boolean).join(' · ')}` : null,
+    '',
+    ...sale.items.map((i, n) => `${n + 1}. ${i.qty} × ${i.description}\n   Precio con IGV ${plain(i.unit_price)} · ` +
+      `Valor unit. sin IGV ${plain(i.unit_price / (1 + IGV_RATE), 6)} · Importe ${plain(i.subtotal)}`),
+    '',
+    `Op. gravada ${plain(base)} · IGV ${plain(igv)} · Total ${plain(total)}`,
+  ].filter(l => l != null).join('\n')
+}
+
+/** Último número registrado de una serie de SOL (para sugerir el siguiente). */
+export function useLastReceiptNumber(type: ReceiptType, series: string) {
+  return useQuery({
+    queryKey: ['documents', 'last', type, series],
+    enabled: series.length === 4,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('documents').select('number')
+        .eq('type', type).eq('series', series).order('number', { ascending: false }).limit(1)
+      if (error) throw error
+      return (data[0]?.number as number | undefined) ?? null
+    },
+  })
+}
+
+/** Anota en la venta la boleta o factura emitida en SOL (RPC `register_sol_receipt`). */
+export function useRegisterSolReceipt() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { sale_id: string; type: ReceiptType; series: string; number: string; customer_name: string; customer_doc: string }) => {
+      const { data, error } = await supabase.rpc('register_sol_receipt', { p })
+      if (error) throw error
+      return toDoc(data as Doc)
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['sales'] })
+      void qc.invalidateQueries({ queryKey: ['documents'] })
+    },
   })
 }

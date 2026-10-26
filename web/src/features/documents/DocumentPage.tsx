@@ -10,7 +10,7 @@ import { CAJA_LABEL, cajaOf, saveCajaPref } from '@/lib/caja'
 import { igvBreakdown, money } from '@/lib/format'
 import type { Caja } from '@/types/domain'
 import {
-  DOC_LABEL, STATUS_STYLE, dateLabel, docNumber, docStatus, friendlyDocError, lineTotal, shareText, useBusinessInfo,
+  DOC_LABEL, NOTE_DISCLAIMER, STATUS_STYLE, dateLabel, docNumber, docStatus, friendlyDocError, lineTotal, shareText, useBusinessInfo,
   useDocument, useVoidDocument, whatsappUrl, type BusinessInfo, type Doc,
 } from './api'
 
@@ -26,6 +26,10 @@ export default function DocumentPage() {
 
   if (isLoading) return <p className="p-6 text-stone-500">Cargando…</p>
   if (error || !doc) return <p className="p-6 text-red-600">No se pudo abrir el documento{error ? `: ${friendlyDocError(error)}` : ''}.</p>
+  // Boleta/factura de SOL: aquí solo está el registro; el comprobante (PDF) está en SOL.
+  if (doc.payload.source === 'sol') return (
+    <p className="p-6 text-stone-600">Comprobante {doc.series}-{doc.number} emitido en el portal SOL de SUNAT: se ve e imprime desde SOL.</p>
+  )
 
   const status = docStatus(doc)
   const isQuote = doc.type === 'cotizacion'
@@ -145,16 +149,19 @@ function DocSheet({ doc, biz }: { doc: Doc; biz?: BusinessInfo }) {
         </tbody>
       </table>
 
+      {/* La nota de venta no desglosa IGV: no es comprobante de pago y no debe parecerlo. */}
       <dl className="ml-auto w-full max-w-64 space-y-0.5">
-        <div className="flex justify-between text-stone-600"><dt>Op. gravada</dt><dd className="tabular-nums">{money(base)}</dd></div>
-        <div className="flex justify-between text-stone-600"><dt>IGV (18%)</dt><dd className="tabular-nums">{money(igv)}</dd></div>
-        <div className="flex justify-between border-t pt-1 text-base font-semibold"><dt>Total</dt><dd className="tabular-nums">{money(doc.total)}</dd></div>
+        {isQuote && <>
+          <div className="flex justify-between text-stone-600"><dt>Op. gravada</dt><dd className="tabular-nums">{money(base)}</dd></div>
+          <div className="flex justify-between text-stone-600"><dt>IGV (18%)</dt><dd className="tabular-nums">{money(igv)}</dd></div>
+        </>}
+        <div className={`flex justify-between text-base font-semibold ${isQuote ? 'border-t pt-1' : ''}`}><dt>Total</dt><dd className="tabular-nums">{money(doc.total)}</dd></div>
       </dl>
 
       <footer className="space-y-1 border-t pt-3 text-xs text-stone-600">
         {isQuote && <p>Precios en soles, incluyen IGV.{doc.valid_until && ` Cotización válida hasta el ${dateLabel(doc.valid_until)}`}; sujeta a stock disponible.</p>}
         {doc.payload.note && <p>{doc.payload.note}</p>}
-        {!isQuote && <p>Documento interno de venta.</p>}
+        {!isQuote && <p className="font-medium text-stone-800">{NOTE_DISCLAIMER}</p>}
         {biz?.footer && <p className="whitespace-pre-line">{biz.footer}</p>}
         {voided && doc.voided_at && <p className="font-medium text-red-700">Anulado el {dateLabel(doc.voided_at)}.</p>}
       </footer>
