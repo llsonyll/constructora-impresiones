@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { rankBy, withCode } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { Search } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import CategoryOptions from './CategoryOptions'
@@ -26,12 +28,12 @@ export default function StockCountPage() {
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(counts)) } catch { /* modo privado */ }
   }, [counts])
 
+  const textScore = useProductMatcher(query)
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return products.filter(p => p.track_stock && (category === '' || p.category_id === category)
-      && (!onlyPending || !(p.id in counts))
-      && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || p.barcode === q))
-  }, [products, category, query, onlyPending, counts])
+    const list = products.filter(p => p.track_stock && (category === '' || p.category_id === category)
+      && (!onlyPending || !(p.id in counts)))
+    return query.trim() ? rankBy(list, withCode(query, textScore)) : list
+  }, [products, category, query, onlyPending, counts, textScore])
 
   const entered = useMemo(() => Object.entries(counts)
     .map(([id, v]) => ({ id, v: Number(v.replace(',', '.')) }))

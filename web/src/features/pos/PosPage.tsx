@@ -17,6 +17,7 @@ import { normalizeCode } from '@/features/locations/api'
 import { imageUrl } from '@/lib/images'
 import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import type { Caja, Category, PaymentMethod, Product } from '@/types/domain'
 import { useCarts } from './useCart'
 import { checkout } from './checkout'
@@ -90,30 +91,33 @@ export default function PosPage() {
   const enCopias = caja === 'copias'
   const countLibreria = enCopias ? inCaja.filter(p => p.category_id === libreriaId).length : 0
 
-  const matches = (p: Product, q: string) => p.sku.toLowerCase() === q || p.barcode === q ||
-    p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q) || (p.brand?.toLowerCase().includes(q) ?? false) ||
-    // "E2-N5" / "e2n5": lo que hay en esa ubicación
-    (/^[a-z]\d/.test(q) && (p.locations?.some(c => { const n = normalizeCode(q); return c === n || c.startsWith(`${n}-`) }) ?? false))
+  // Nombre, marca, SKU, otros nombres y sinónimos ("cintillo" encuentra "AMARRA…"): ver lib/search.ts.
+  const textScore = useProductMatcher(query)
+  /** Puntaje de búsqueda (0 = no coincide): código exacto primero, luego el texto; "E2-N5" / "e2n5" lista esa ubicación. */
+  const scoreOf = (p: Product, q: string) => p.sku.toLowerCase() === q || p.barcode === q ? 100
+    : (textScore?.(p) ?? 0)
+      || ((/^[a-z]\d/.test(q) && (p.locations?.some(c => { const n = normalizeCode(q); return c === n || c.startsWith(`${n}-`) }) ?? false)) ? 1 : 0)
 
   // Sin búsqueda: lo más usado en este equipo primero (servicios antes que productos en copias).
+  // Al buscar: primero lo que mejor coincide (en el nombre antes que por sinónimo) y, a igual coincidencia, lo más usado.
   const results = useMemo(() => {
     const q = query.trim().toLowerCase()
     // En Copias la sección elige qué se ve; al buscar se busca en toda la caja.
     const pool = enCopias
       ? (q ? inCaja : inCaja.filter(p => (p.category_id === libreriaId) === (modulo === 'libreria')))
       : category == null ? inCaja : inCaja.filter(p => p.category_id === category)
-    const found = q ? pool.filter(p => matches(p, q)) : pool
-    const sorted = [...found].sort((a, b) => (usage[b.id] ?? 0) - (usage[a.id] ?? 0)
-      || Number(a.track_stock) - Number(b.track_stock) || a.name.localeCompare(b.name))
+    const found = pool.map(p => ({ p, s: q ? scoreOf(p, q) : 0 })).filter(x => !q || x.s > 0)
+    const sorted = found.sort((a, b) => b.s - a.s || (usage[b.p.id] ?? 0) - (usage[a.p.id] ?? 0)
+      || Number(a.p.track_stock) - Number(b.p.track_stock) || a.p.name.localeCompare(b.p.name)).map(x => x.p)
     return sorted.slice(0, q || category != null ? 60 : 36)
-  }, [inCaja, query, category, usage, enCopias, modulo, libreriaId])
+  }, [inCaja, query, category, usage, enCopias, modulo, libreriaId, textScore])
 
   // Coincidencias en la otra caja: se ofrecen para cambiar de caja sin perder la búsqueda.
   const otherCaja: Caja = caja === 'ferreteria' ? 'copias' : 'ferreteria'
   const otherMatches = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q.length >= 2 ? products.filter(p => cajaOf(p, catMap) === otherCaja && matches(p, q)).length : 0
-  }, [products, catMap, otherCaja, query])
+    return q.length >= 2 ? products.filter(p => cajaOf(p, catMap) === otherCaja && scoreOf(p, q) > 0).length : 0
+  }, [products, catMap, otherCaja, query, textScore])
 
   const used = (id: string) => { bumpUsage(id); setUsage(readUsage()) }
 

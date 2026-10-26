@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Hash, MapPin, ScanBarcode, Search, Tag } from 'lucide-react'
+import { Hash, MapPin, Replace, ScanBarcode, Search, Tag } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { normalizeCode } from '@/features/locations/api'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
+import { rankBy } from '@/lib/search'
+import { useProductMatcher } from '@/hooks/use-product-search'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import CategoryOptions from './CategoryOptions'
 import ProductEditor from './ProductEditor'
@@ -70,20 +72,25 @@ export default function InventoryPage() {
     () => Object.fromEntries(FILTERS.map(f => [f.id, products.filter(f.test).length])) as Record<Filter, number>,
     [products])
 
+  // Nombre, marca, SKU, otros nombres y sinónimos ("cintillo" encuentra "AMARRA…"): ver lib/search.ts.
+  const textScore = useProductMatcher(query)
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     const test = FILTERS.find(f => f.id === filter)!.test
     // "E2-N5", "e2n5" o "E4": también lista lo que está en esa ubicación (o mueble).
     const loc = /^[a-z]\d/i.test(q) ? normalizeCode(q) : null
-    const matches = (p: InventoryProduct) => (category === '' || p.category_id === category)
-      && (!q || p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q)
-          || (p.brand?.toLowerCase().includes(q) ?? false) || (p.barcode?.includes(q) ?? false)
-          || (loc != null && p.locations.some(l => l.code === loc || l.code.startsWith(`${loc}-`))))
-    const pinned = savedIds.map(id => products.find(p => p.id === id)).filter((p): p is InventoryProduct => !!p && matches(p))
-    const rest = products.filter(p => !savedIds.includes(p.id) && test(p) && matches(p))
+    /** 0 = no coincide; más alto = mejor (código exacto, luego el texto). */
+    const score = (p: InventoryProduct) => !q ? 1
+      : p.barcode === q || p.sku.toLowerCase() === q ? 100
+      : (textScore?.(p) ?? 0) || ((p.barcode?.includes(q) ?? false)
+          || (loc != null && p.locations.some(l => l.code === loc || l.code.startsWith(`${loc}-`))) ? 1 : 0)
+    const inCategory = (p: InventoryProduct) => category === '' || p.category_id === category
+    const pinned = savedIds.map(id => products.find(p => p.id === id)).filter((p): p is InventoryProduct => !!p && inCategory(p) && score(p) > 0)
+    let rest = products.filter(p => !savedIds.includes(p.id) && test(p) && inCategory(p))
     if (filter === 'recientes') rest.sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+    rest = rankBy(rest, score)   // al buscar, lo que mejor coincide primero (a igual puntaje, el orden de arriba)
     return [...pinned, ...rest]
-  }, [products, filter, category, query, savedIds])
+  }, [products, filter, category, query, savedIds, textScore])
 
   function onSaved(id: string, name: string) {
     setSavedIds(ids => [id, ...ids.filter(x => x !== id)])
@@ -104,10 +111,11 @@ export default function InventoryPage() {
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
-        <div className="grid grid-cols-3 gap-2 max-md:w-full md:flex">
+        <div className="grid grid-cols-4 gap-2 max-md:w-full md:flex">
           <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Tag aria-hidden className="size-5 text-stone-500" />Precios</Link>
           <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><MapPin aria-hidden className="size-5 text-stone-500" />Ubicaciones</Link>
           <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Hash aria-hidden className="size-5 text-stone-500" />Conteo</Link>
+          <Link to="/inventario/sinonimos" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Replace aria-hidden className="size-5 text-stone-500" />Sinónimos</Link>
         </div>
         <button onClick={newProduct} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white max-md:hidden">+ Nuevo producto</button>
       </div>

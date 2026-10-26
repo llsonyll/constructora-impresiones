@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { JobSource, Presentation } from '@/types/domain'
+import { localDb } from '@/db/local'
+import type { JobSource, Presentation, SynonymRow } from '@/types/domain'
 
 export interface InventoryProduct {
   id: string
@@ -26,6 +27,7 @@ export interface InventoryProduct {
   job_duplex: boolean
   job_keywords: string[]
   presentations: Presentation[] // venta por docena, ciento, bolsa… (qty en la unidad base)
+  aliases: string[]            // "También se conoce como": otros nombres con que se busca
   locations: ProductLocation[] // la principal primero
 }
 
@@ -45,7 +47,7 @@ export interface StockMovement {
 }
 
 const PRODUCT_COLS =
-  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, product_costs(cost), product_locations(location_id, is_primary, qty, created_at, locations(code))'
+  'id, sku, barcode, name, brand, category_id, provider_id, unit, price, stock, min_stock, active, needs_review, notes, image_path, updated_at, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, aliases, product_costs(cost), product_locations(location_id, is_primary, qty, created_at, locations(code))'
 
 type Row = Omit<InventoryProduct, 'cost' | 'locations'> & {
   product_costs: { cost: number } | null
@@ -191,7 +193,7 @@ export interface QuickProduct { name: string; price: number | null; barcode: str
 export async function quickCreateProduct(p: QuickProduct) {
   const { data, error } = await supabase.from('products')
     .insert({ ...p, active: p.price != null, needs_review: true })
-    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations')
+    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, aliases')
     .single()
   if (error) throw error
   return data
@@ -231,4 +233,46 @@ export function friendlyError(e: unknown): string {
   if (msg.includes('products_barcode_key')) return 'Ese código de barras ya está asignado a otro producto.'
   if (msg.includes('products_active_needs_price')) return 'Un producto activo necesita precio.'
   return msg
+}
+
+/** Sinónimos de búsqueda (search_synonyms). Al leerlos se guardan también en el equipo, para que la búsqueda los use ya. */
+export function useSynonyms() {
+  return useQuery({
+    queryKey: ['search_synonyms'],
+    queryFn: async (): Promise<SynonymRow[]> => {
+      const { data, error } = await supabase.from('search_synonyms').select('id, terms').order('id')
+      if (error) throw error
+      await localDb.transaction('rw', localDb.synonyms, async () => {
+        await localDb.synonyms.clear()
+        await localDb.synonyms.bulkPut(data as SynonymRow[])
+      })
+      return data as SynonymRow[]
+    },
+  })
+}
+
+/** Crea o edita un grupo (escritura directa con RLS: admin y almacén, igual que los productos). */
+export function useSaveSynonym() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, terms }: { id?: number; terms: string[] }) => {
+      const row = { terms, updated_at: new Date().toISOString() }
+      const { error } = id
+        ? await supabase.from('search_synonyms').update(row).eq('id', id)
+        : await supabase.from('search_synonyms').insert(row)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['search_synonyms'] }),
+  })
+}
+
+export function useDeleteSynonym() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from('search_synonyms').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['search_synonyms'] }),
+  })
 }

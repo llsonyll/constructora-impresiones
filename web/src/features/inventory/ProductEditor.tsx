@@ -80,6 +80,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
     job_color: product?.job_color == null ? 'any' : product.job_color ? 'color' : 'bn',
     job_duplex: product?.job_duplex ?? false, job_keywords: (product?.job_keywords ?? []).join(', '),
     presentations: (product?.presentations ?? []).map(p => ({ name: p.name, qty: String(p.qty), price: p.price.toFixed(2) })) as PresRow[],
+    aliases: (product?.aliases ?? []).join(', '),
   }))
   const [f, setF] = useState(initial)
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
@@ -123,6 +124,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
       job_color: f.job_color === 'any' ? null : f.job_color === 'color',
       job_keywords: f.job_keywords.split(',').map(k => k.trim().toLowerCase()).filter(Boolean),
       presentations: pres.list,
+      aliases: [...new Set(f.aliases.split(',').map(a => a.trim().toLowerCase()).filter(Boolean))],
     }
     try {
       const id = await save.mutateAsync(payload)
@@ -146,6 +148,9 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
         <form onSubmit={onSubmit} className="grid grid-cols-2 gap-3">
           <Field label="Nombre" className="col-span-2">
             <input className={input} value={f.name} onChange={e => set('name', e.target.value)} required />
+          </Field>
+          <Field label="También se conoce como (separados por coma)" className="col-span-2">
+            <input className={input} value={f.aliases} onChange={e => set('aliases', e.target.value)} placeholder="cintillo, precinto" />
           </Field>
           <Field label="Precio de venta (con IGV)">
             <input className={`${input} font-semibold`} inputMode="decimal" value={f.price} onChange={e => setPrice(e.target.value)} placeholder="Sin precio" />
