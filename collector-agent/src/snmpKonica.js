@@ -45,7 +45,9 @@ function createPoller(cfg, { onCapture, log }) {
     lastPrints: null,
   });
 
-  async function tick() {
+  // forzar: el cajero pidió revisar ya (botón del POS), así que se da por
+  // terminada la copia sin esperar los stabilizeMs de contadores quietos.
+  async function revisar({ forzar = false } = {}) {
     let current;
     try {
       current = await getCounters(cfg.konica);
@@ -77,8 +79,8 @@ function createPoller(cfg, { onCapture, log }) {
     const grewColor = current.copiesColor - state.baseline.copiesColor;
     const stableFor = state.lastChangeAt ? Date.now() - state.lastChangeAt : Infinity;
 
-    if ((grewBW > 0 || grewColor > 0) && stableFor >= cfg.konica.stabilizeMs) {
-      const ts = toLocalString(new Date(state.lastChangeAt));
+    if ((grewBW > 0 || grewColor > 0) && (forzar || stableFor >= cfg.konica.stabilizeMs)) {
+      const ts = toLocalString(state.lastChangeAt ? new Date(state.lastChangeAt) : new Date());
       if (grewBW > 0) {
         await onCapture({
           fuente: 'konica-copia',
@@ -116,6 +118,15 @@ function createPoller(cfg, { onCapture, log }) {
     state.lastPrints = { printsBW: current.printsBW, printsColor: current.printsColor };
 
     saveState(stateFile, state);
+  }
+
+  // Una revisión a la vez: la lectura SNMP es asíncrona y dos revisiones
+  // cruzadas (intervalo + botón) contarían dos veces el mismo aumento.
+  let enCurso = Promise.resolve();
+  function tick(opciones) {
+    const corrida = enCurso.then(() => revisar(opciones));
+    enCurso = corrida.catch(() => {});
+    return corrida;
   }
 
   return { tick };

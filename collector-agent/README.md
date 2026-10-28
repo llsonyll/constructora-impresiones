@@ -67,12 +67,14 @@ Para quitarlo más adelante: `npm run uninstall-service` (también como administ
 ## Endpoints que expone el agente
 
 - `GET /health` → `{ ok: true, agente, hora }` — solo para confirmar que está vivo.
+- `POST /scan` → revisa PaperCut y el Konica en el momento, sin esperar el próximo intervalo, y responde `{ ok, nuevos }`. Lo usa el botón *Actualizar* del panel 🖨️ del POS. En el Konica da la copia por terminada aunque el contador no lleve 60 s quieto (si se pulsa a mitad de una copia, lo que falte sale como otro trabajo).
 - `GET /jobs` → arreglo con los últimos trabajos detectados (hasta `localServer.bufferSize`, 300 por defecto). Cada uno: `{ seq, id, fuente, impresora, timestamp, hojas, color, ... }`. No hay forma de "marcar como leído" desde el agente — eso lo maneja la app web con su propio localStorage.
 
 ## Cómo funciona la detección (resumen)
 
 - **Konica (SNMP)**: cada 30s lee los contadores de copias B/N y color. Cuando detecta que subieron y luego dejan de moverse por 60s seguidos, registra la(s) captura(s) con la cantidad de hojas que subió cada contador. Los contadores de *impresión* del Konica solo se usan como referencia en el log (cross-check), nunca generan un trabajo — las impresiones PC vienen únicamente de PaperCut.
 - **PaperCut (CSV)**: cada 90s busca el CSV más reciente, lo relee completo, y usa una clave (hora+impresora+documento+páginas+copias) para no reportar dos veces la misma fila — sobrevive a reinicios sin duplicar ni perder trabajos.
+- **Revisión manual** (`POST /scan`, botón *Actualizar* del POS): corre las dos revisiones al instante; las del Konica van en fila, así un intervalo y el botón al mismo tiempo no cuentan dos veces las mismas hojas.
 - Ambos loops guardan su estado de deduplicación en `state/*.json`, así que un reinicio del PC o del servicio no genera duplicados. El buffer de `/jobs` en cambio es solo en memoria: si reinicias el agente, se vacía (pero no se pierden trabajos "de verdad", porque nunca llegaron a asignarse a una venta).
 
 ## ⚠️ Cosas a verificar en tu entorno real (no pude probarlas desde aquí)

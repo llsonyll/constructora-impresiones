@@ -24,7 +24,11 @@ function createJobBuffer(maxSize) {
     return items.slice();
   }
 
-  return { push, getAll };
+  function lastSeq() {
+    return seq;
+  }
+
+  return { push, getAll, lastSeq };
 }
 
 module.exports = { createJobBuffer };
