@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CalendarDays, ChartColumn, Ellipsis, FileText, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { CalendarDays, ChartColumn, Ellipsis, FileText, History, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { Toaster } from 'sonner'
 import Sheet from '@/components/Sheet'
 import { supabase } from '@/lib/supabase'
@@ -19,6 +19,7 @@ const SECTIONS: Section[] = [
   { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'cajero', 'almacen'] },
   { to: '/proveedores', label: 'Proveedores', icon: Truck, roles: ['admin', 'almacen'] },
   { to: '/documentos', label: 'Documentos', icon: FileText, roles: ['admin', 'cajero'] },
+  { to: '/actividad', label: 'Actividad', icon: History, roles: ['admin'] },
 ]
 
 /** Pestañas inferiores del celular: lo de todos los días de cada rol. El resto va en "Más". */

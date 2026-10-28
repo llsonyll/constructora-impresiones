@@ -60,6 +60,8 @@ where p.name ~* '(esmalte|crons)' order by p.name;
 ```sql
 insert into products (sku, name, brand, category_id, unit, price, active, needs_review, notes) …
 ```
+- Cada llamada que escribe empieza con los dos `set_config` del paso 5 (claims del admin y `app.origen`): así
+  el alta queda en *Actividad* a nombre del admin y marcada «vía Claude».
 - **SKU**: prefijo de la categoría + siguiente número libre (`select max(sku) from products where sku like 'PIN-%'`):
   `PIN` Pinturas (4), `FER` Ferretería general (5), `HER` Herramientas (1), `ELE` Electricidad (2),
   `GAS` Gasfitería (3), `CON` Construcción (6). Entre paréntesis, el `category_id`.
@@ -77,7 +79,8 @@ El stock se carga como **conteo** con la RPC, que exige rol admin/almacén. Desd
 admin fijando los claims en la misma llamada (el admin principal es `sony_s07@hotmail.es`; su id se
 obtiene con `select id from auth.users where email = …`):
 ```sql
-select set_config('request.jwt.claims', '{"sub":"<uuid admin>","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"<uuid admin>","role":"authenticated"}', true),
+       set_config('app.origen', 'claude', true);
 select public.bulk_adjust_stock(
   (select jsonb_agg(jsonb_build_object('product_id', p.id, 'counted', v.qty))
      from (values ('PIN-0034', 9), ('PIN-0035', 6)) v(sku, qty) join products p on p.sku = v.sku),

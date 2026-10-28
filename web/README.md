@@ -212,6 +212,22 @@ por RPC.
 - **Exportar CSV**: una fila por línea de venta (incluye anuladas con su estado), UTF-8 con BOM para Excel.
 - Las consultas paginan de a 1000 ventas (límite de PostgREST), así que sirven para rangos largos.
 
+## Actividad (`/actividad`, solo admin)
+
+Bitácora de quién hizo qué y cuándo (`activity_log`, migración `20261028000000_activity_log`). La llenan **triggers**
+de la base, así queda todo lo que cambia, venga del POS, del celular o de SQL directo:
+
+- **Ventas**: registrada (al confirmar la transacción, con el total final; las ventas offline, al sincronizar) y anulada.
+- **Productos**: creado, editado (solo los campos que cambiaron, antes → después; categoría y proveedor por nombre),
+  foto subida o quitada, costo cambiado a mano y eliminado. Los cambios de `stock` no cuentan: los mueven las ventas,
+  compras y ajustes, que tienen su propia línea.
+- **Compras**: orden creada, enviada, recibida (entró al stock), cancelada y eliminada.
+- **Stock**: ajuste de un producto o conteo físico (una línea por conteo, con la diferencia y el stock final de cada producto).
+
+Cada línea guarda el usuario (`auth.uid()`, o el cajero de la venta) y su nombre al momento; sin usuario se muestra
+*Sistema*. Las cargas de Claude (`/facturas`, `/stock`) fijan `app.origen = 'claude'` y salen marcadas «vía Claude».
+Solo el admin la lee (RLS) y nadie la escribe desde la API: solo los triggers. Filtros por fecha, tipo, usuario y texto.
+
 ## Historial de Firebase (app de impresiones)
 
 Las 184 ventas de `/index.html` (25/09 – 07/10/2026) están importadas en `sales` con `legacy_ref` = id de Firebase
