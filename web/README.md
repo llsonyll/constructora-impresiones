@@ -91,8 +91,10 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   (N1 = repisa más alta), sección de izquierda a derecha. En `locations` las partes van por separado (`furniture`,
   `body`, `level`, `slot`) y `code` se calcula de ellas (para un plano interactivo más adelante). Cargados E0–E5 (106).
 - `product_locations`: un producto puede estar en varias ubicaciones; una es la **principal** (la primera que se asigna;
-  los triggers mantienen una sola y, al quitarla, pasa a otra). `qty` es solo **referencial**: el stock real es
-  `products.stock` (movimientos) y no se descuenta por ubicación.
+  los triggers mantienen una sola y, al quitarla, pasa a otra). `qty` es **referencial**: el stock real es
+  `products.stock` (movimientos). Cada venta la descuenta (trigger `stock_movements_locations`): primero de la
+  principal y el resto de las otras, sin bajar de 0; una anulación la repone en la primera con cantidad. Las
+  ubicaciones sin cantidad (`null`) no se tocan, y compras y ajustes tampoco las mueven.
 - Pantalla *Ubicaciones*: mueble → cuadrícula por nivel/sección con cuántos productos hay; tocar un casillero muestra
   sus productos y permite agregar buscando o **escaneando seguido** (código desconocido → alta rápida). *Ir a…* acepta
   `e2n5`. *+ Ubicación* crea una o un mueble entero (niveles desde/hasta × secciones). Con productos no se elimina:
