@@ -36,7 +36,20 @@ async function onCapture(data) {
 
 const konicaPoller = createPoller(config, { onCapture, log });
 const papercutWatcher = createWatcher(config, { onCapture, log });
-createLocalServer(config, { log, jobBuffer });
+// Revisión inmediata pedida desde el POS (botón "Actualizar" del panel 🖨️),
+// sin esperar el próximo intervalo. Devuelve cuántos trabajos nuevos salieron.
+async function revisarAhora() {
+  const antes = jobBuffer.lastSeq();
+  await Promise.all([
+    konicaPoller.tick({ forzar: true }).catch((e) => log(`[konica] error inesperado: ${e.message}`)),
+    papercutWatcher.tick().catch((e) => log(`[papercut] error inesperado: ${e.message}`)),
+  ]);
+  const nuevos = jobBuffer.lastSeq() - antes;
+  log(`revisión manual desde el POS: ${nuevos} trabajo(s) nuevo(s)`);
+  return nuevos;
+}
+
+createLocalServer(config, { log, jobBuffer, revisarAhora });
 
 log('Agente de captura iniciado (modo local).');
 

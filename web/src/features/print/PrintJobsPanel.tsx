@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 import Sheet from '@/components/Sheet'
 import { money } from '@/lib/format'
 import type { Product } from '@/types/domain'
@@ -55,6 +56,12 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose, onNewS
     agent.quitar(j.id)
   }
 
+  async function actualizar() {
+    setAviso('')
+    const nuevos = await agent.revisar()
+    if (nuevos === 0) setAviso('No hay trabajos nuevos.')
+  }
+
   const pendientes = agent.pendientes.slice().reverse()
 
   return (
@@ -62,7 +69,13 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose, onNewS
       <div className="flex items-center gap-2">
         <h2 className="flex-1 font-semibold">Impresiones y copias</h2>
         <span className="text-xs text-stone-500">{ESTADO[agent.estado]}</span>
-        {agent.estado !== 'conectado' && (
+        {agent.estado === 'conectado' ? (
+          <button onClick={actualizar} disabled={agent.revisando} title="Revisar ya las impresoras, sin esperar"
+                  className="inline-flex min-h-11 items-center gap-1 rounded border px-3 text-sm disabled:opacity-60">
+            <RefreshCw className={`size-4 ${agent.revisando ? 'animate-spin' : ''}`} aria-hidden />
+            {agent.revisando ? 'Revisando…' : 'Actualizar'}
+          </button>
+        ) : (
           <button onClick={agent.conectar} className="min-h-11 rounded border px-3 text-sm">Conectar</button>
         )}
       </div>

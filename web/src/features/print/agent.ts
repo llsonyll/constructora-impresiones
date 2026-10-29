@@ -37,6 +37,7 @@ export function createAgentClient({ url = AGENT_URL, intervalMs = 6000, onCambio
   }
   function setEstado(e: EstadoAgente) { estado = e; onEstado?.(e) }
 
+  /** Devuelve cuántos trabajos nuevos llegaron. */
   async function traerJobs() {
     const res = await fetch(url + '/jobs')
     if (!res.ok) throw new Error('bad status')
@@ -44,6 +45,7 @@ export function createAgentClient({ url = AGENT_URL, intervalMs = 6000, onCambio
     const nuevos = jobs.filter(j => !vistos.has(j.id))
     nuevos.forEach(j => { vistos.add(j.id); pendientes.push(j) })
     if (nuevos.length) { guardar(); onNuevos?.(nuevos) }
+    return nuevos.length
   }
 
   function detener() { if (timer) clearInterval(timer); timer = null }
@@ -53,17 +55,29 @@ export function createAgentClient({ url = AGENT_URL, intervalMs = 6000, onCambio
   }
 
   /** Un intento (al cargar o con el botón "Conectar"); si responde, queda consultando cada `intervalMs`. */
-  async function conectar() {
+  async function conectar(): Promise<number | null> {
     const antes = estado
     if (antes !== 'conectado') setEstado('conectando')
     try {
-      await traerJobs()
+      const nuevos = await traerJobs()
       if (estado !== 'conectado') setEstado('conectado')
       if (!timer) timer = setInterval(poll, intervalMs)
+      return nuevos
     } catch {
       detener()
       setEstado(antes === 'conectado' || antes === 'perdido' ? 'perdido' : 'nunca')
+      return null
     }
+  }
+
+  /**
+   * Botón "Actualizar": pide al agente revisar PaperCut y el Konica ya (sin esperar su intervalo ni que la
+   * copiadora quede quieta) y trae lo nuevo. Devuelve cuántos trabajos nuevos llegaron, o null si no respondió.
+   */
+  async function revisar() {
+    // Un agente sin /scan (versión anterior) responde 404: igual se leen los trabajos que ya tenga.
+    try { await fetch(url + '/scan', { method: 'POST' }) } catch { /* conectar() reporta el estado */ }
+    return conectar()
   }
 
   const alVolver = () => { if (document.visibilityState === 'visible' && estado === 'conectado') void poll() }
@@ -73,6 +87,7 @@ export function createAgentClient({ url = AGENT_URL, intervalMs = 6000, onCambio
     get pendientes() { return pendientes },
     get estado() { return estado },
     conectar,
+    revisar,
     /** Quita un trabajo (asignado completo o ignorado). */
     quitar(id: string) { pendientes = pendientes.filter(j => j.id !== id); guardar() },
     /** Deja pendientes solo las hojas que faltan asignar. */

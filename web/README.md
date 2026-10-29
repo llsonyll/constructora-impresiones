@@ -255,6 +255,7 @@ hiciera falta reimportar desde el respaldo final de Firebase (13/10/2026, guarda
 - Botón 🖨️ en Ventas: trabajos que detecta el agente local (`http://localhost:4000`). Se reparten las hojas entre los
   productos (columnas `job_sources`, `job_color`, `job_duplex`, `job_keywords`; se editan en la sección
   *Trabajos detectados* del producto), con precio editable solo para esa venta; las hojas sin asignar quedan pendientes.
+  El botón *Actualizar* del panel pide al agente revisar las impresoras ya (`POST /scan`), sin esperar su intervalo.
 - Lógica en `features/print/`: `core.ts` (qué productos ofrecer por trabajo, reparto de hojas), `agent.ts` (cliente
   del agente, pendientes en localStorage) y `adapter.ts` (traduce `products` a la forma de `core.ts`).
 - El agente debe permitir el dominio de Vercel en `localServer.allowedOrigin` (ver `collector-agent/README.md`).

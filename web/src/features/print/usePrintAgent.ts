@@ -10,6 +10,7 @@ export function usePrintAgent() {
   const [pendientes, setPendientes] = useState<Job[]>([])
   const [estado, setEstado] = useState<EstadoAgente>('nunca')
   const [ultimoNuevo, setUltimoNuevo] = useState<Job | null>(null)
+  const [revisando, setRevisando] = useState(false)
   const ref = useRef<ReturnType<typeof createAgentClient> | null>(null)
 
   useEffect(() => {
@@ -24,8 +25,14 @@ export function usePrintAgent() {
     return () => { client.destruir(); ref.current = null }
   }, [])
 
+  async function revisar() {
+    if (!ref.current) return null
+    setRevisando(true)
+    try { return await ref.current.revisar() } finally { setRevisando(false) }
+  }
+
   return {
-    pendientes, estado, ultimoNuevo,
+    pendientes, estado, ultimoNuevo, revisando, revisar,
     descartarAviso: () => setUltimoNuevo(null),
     conectar: () => ref.current?.conectar(),
     quitar: (id: string) => ref.current?.quitar(id),
