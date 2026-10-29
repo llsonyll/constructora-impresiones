@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, FileText, MapPin, Plus, Printer, ScanBarcode } from 'lucide-react'
+import { BookOpen, FileText, MapPin, Maximize2, Plus, Printer, ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -23,6 +23,7 @@ import { useCarts } from './useCart'
 import { checkout } from './checkout'
 import QtyPad from './QtyPad'
 import PresentationPicker, { type PickedLine } from './PresentationPicker'
+import ProductDetailSheet from './ProductDetailSheet'
 import type { QuoteFromTicket } from '@/features/documents/QuoteEditorPage'
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
@@ -54,6 +55,7 @@ export default function PosPage() {
   const [newService, setNewService] = useState<{ prefill: ServicePrefill; fromPanel: boolean } | null>(null)
   const [padFor, setPadFor] = useState<Product | null>(null)
   const [presFor, setPresFor] = useState<Product | null>(null)
+  const [detailFor, setDetailFor] = useState<Product | null>(null)
   const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
   const payingRef = useRef(false)
@@ -249,24 +251,31 @@ export default function PosPage() {
           {results.map(p => {
             const img = imageUrl(p.image_path)
             const service = p.track_stock === false
+            // Tocar la tarjeta agrega (como siempre); el botón de la esquina abre el detalle sin agregar.
             return (
-              <button key={p.id} onClick={() => tap(p)}
-                      className={`overflow-hidden rounded-lg border bg-white text-left active:bg-stone-50 ${service ? `border-l-4 ${theme.border}` : ''}`}>
-                {img && <img src={img} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />}
-                <div className={service ? 'p-3' : 'p-2.5'}>
-                  <div className={`line-clamp-2 font-medium ${service ? 'text-base' : 'text-sm'}`}>{p.name}</div>
-                  <div className="mt-1 flex justify-between text-sm">
-                    <span className="font-semibold">{money(p.price)}</span>
-                    {p.track_stock === false
-                      ? <span className="text-stone-500">por {p.unit}</span>
-                      : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
+              <div key={p.id} className="relative">
+                <button onClick={() => tap(p)}
+                        className={`size-full overflow-hidden rounded-lg border bg-white text-left active:bg-stone-50 ${service ? `border-l-4 ${theme.border}` : ''}`}>
+                  {img && <img src={img} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />}
+                  <div className={service ? 'p-3' : 'p-2.5'}>
+                    <div className={`line-clamp-2 font-medium ${service ? 'text-base' : 'text-sm'} ${img ? '' : 'pr-8'}`}>{p.name}</div>
+                    <div className="mt-1 flex justify-between text-sm">
+                      <span className="font-semibold">{money(p.price)}</span>
+                      {p.track_stock === false
+                        ? <span className="text-stone-500">por {p.unit}</span>
+                        : <span className={p.stock <= p.min_stock ? 'text-red-600' : 'text-stone-500'}>{p.stock} {p.unit}</span>}
+                    </div>
+                    {!!p.presentations?.length && (
+                      <div className="mt-0.5 truncate text-xs text-stone-500">{p.presentations.map(pr => `${pr.name} ${money(pr.price)}`).join(' · ')}</div>
+                    )}
+                    {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500"><MapPin className="inline size-3.5 align-[-0.15em]" /> {p.locations[0]}</div>}
                   </div>
-                  {!!p.presentations?.length && (
-                    <div className="mt-0.5 truncate text-xs text-stone-500">{p.presentations.map(pr => `${pr.name} ${money(pr.price)}`).join(' · ')}</div>
-                  )}
-                  {p.locations?.[0] && <div className="mt-0.5 font-mono text-xs text-stone-500"><MapPin className="inline size-3.5 align-[-0.15em]" /> {p.locations[0]}</div>}
-                </div>
-              </button>
+                </button>
+                <button onClick={() => setDetailFor(p)} aria-label={`Ver detalle de ${p.name}`} title="Ver detalle"
+                        className="absolute top-0 right-0 grid size-11 place-items-center">
+                  <span className="grid size-8 place-items-center rounded-full border bg-white/90 text-stone-700 shadow-sm"><Maximize2 className="size-4" /></span>
+                </button>
+              </div>
             )
           })}
           {query.trim().length >= 2 && canCreate && online && !results.some(p => p.name.toLowerCase() === query.trim().toLowerCase()) && (
@@ -408,6 +417,13 @@ export default function PosPage() {
       {presFor && (
         <PresentationPicker product={presFor} accent={CAJA_THEME[cajaOf(presFor, catMap)].solid} onClose={() => setPresFor(null)}
                             onAdd={picked => { addPicked(presFor, picked); setPresFor(null) }} />
+      )}
+
+      {detailFor && (
+        <ProductDetailSheet product={detailFor} category={detailFor.category_id != null ? catMap.get(detailFor.category_id)?.name : undefined}
+                            accent={CAJA_THEME[cajaOf(detailFor, catMap)].solid} onClose={() => setDetailFor(null)}
+                            inTicket={carts[cajaOf(detailFor, catMap)].lines.filter(l => l.product_id === detailFor.id).reduce((s, l) => s + l.qty * (l.factor ?? 1), 0)}
+                            onAdd={picked => { addPicked(detailFor, picked); setDetailFor(null) }} />
       )}
 
       {newService && (
