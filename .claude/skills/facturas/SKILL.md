@@ -59,6 +59,8 @@ where p.name ~* '(codo|tee|pvc)' or pr.name ilike 'valcosa%' order by p.name;
 ```sql
 insert into products (sku, name, brand, category_id, provider_id, unit, price, active, needs_review, notes) …
 ```
+- Cada llamada que escribe empieza con los dos `set_config` del paso 5 (claims del admin y `app.origen`): así
+  el alta queda en *Actividad* a nombre del admin y marcada «vía Claude».
 - **SKU**: prefijo de la categoría + siguiente número libre (`select max(sku) from products where sku like 'GAS-%'`):
   `GAS` Gasfitería, `HER` Herramientas, `ELE` Electricidad, `CON` Construcción, `FER` Ferretería general,
   `PIN` Pinturas. Categorías de la caja *Copias y librería* (Librería, Fotocopias, Impresiones): sin prefijo
@@ -76,7 +78,8 @@ insert into products (sku, name, brand, category_id, provider_id, unit, price, a
 Las RPC exigen rol admin/almacén; desde el MCP de Supabase actúa como un admin fijando los claims en la
 misma llamada (el admin principal es `sony_s07@hotmail.es`, ver `select id from auth.users where email = …`):
 ```sql
-select set_config('request.jwt.claims', '{"sub":"<uuid admin>","role":"authenticated"}', true);
+select set_config('request.jwt.claims', '{"sub":"<uuid admin>","role":"authenticated"}', true),
+       set_config('app.origen', 'claude', true);
 select public.save_purchase_order(jsonb_build_object(
   'provider_id', (select id from providers where name = 'VALCOSA INGS. S.R.L.'),
   'invoice_ref', 'FE01-00052724', 'costs_include_igv', true,
