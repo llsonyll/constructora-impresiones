@@ -120,7 +120,10 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   *Pedir por WhatsApp* arma el mensaje con la lista y marca la orden como enviada.
 - **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
   OC y la factura), cada costo queda en el historial y el producto sin proveedor queda asignado.
-  Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo.
+  Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo. Cada renglón muestra
+  foto, ubicaciones y si tiene nota; tocarlo abre su detalle: **ubicación** (la primera que se agrega, o
+  *+N aquí* en una que ya tenía, suma lo recibido a su cantidad referencial, una sola vez), **descripción /
+  notas** (`products.notes`), **foto** y *Ficha completa* (el editor del inventario).
 - **Historial de costos** (`product_cost_history`): cada compra (proveedor, OC, cantidad), cada cambio
   manual y los costos iniciales del catálogo. `product_costs.cost` es solo la referencia nominal (el
   último). Se ve en el editor del producto y, en la orden, la última compra con proveedor y fecha.

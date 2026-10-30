@@ -342,7 +342,7 @@ function JobFields<F extends JobForm>({ f, set }: { f: F; set: <K extends keyof 
 }
 
 /** La foto se sube al elegirla (no depende de "Guardar"), igual que en "Poner precios". */
-function PhotoSection({ product }: { product: InventoryProduct }) {
+export function PhotoSection({ product, className = 'mt-6 border-t pt-4' }: { product: InventoryProduct; className?: string }) {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -355,7 +355,7 @@ function PhotoSection({ product }: { product: InventoryProduct }) {
     } catch (e) { setError(friendlyError(e)) } finally { setBusy(false) }
   }
   return (
-    <section className="mt-6 border-t pt-4">
+    <section className={className}>
       <h3 className="mb-2 font-semibold">Foto</h3>
       <div className={busy ? 'opacity-50' : ''}><PhotoInput file={null} currentUrl={imageUrl(product.image_path)} onChange={onPhoto} /></div>
       {busy && <p className="mt-1 text-xs text-stone-500">Subiendo…</p>}
