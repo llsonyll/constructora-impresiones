@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FurnitureType, Location } from '@/types/domain'
 
-export const FURNITURE_LABEL: Record<FurnitureType, string> = { estante: 'Estante', vitrina: 'Vitrina', mostrador: 'Mostrador' }
+export const FURNITURE_LABEL: Record<FurnitureType, string> = {
+  estante: 'Estante', vitrina: 'Vitrina', mostrador: 'Mostrador', techo: 'Techo', panel: 'Panel', colgador: 'Colgador aéreo',
+}
 export const LOCATION_RE = /^[A-Z]\d+(-[A-Z])?-N\d+(-[A-Z])?$/
 
 /** Orden físico: mueble (E0, E1… E10), cuerpo, nivel de arriba hacia abajo, sección de izquierda a derecha. */
