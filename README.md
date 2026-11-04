@@ -28,7 +28,7 @@ automática de los trabajos de impresión y copia desde un agente local.
 | `supabase/` | Migraciones SQL (fuente de verdad del modelo y de las reglas RLS). |
 | `collector-agent/` | Agente local de captura de impresiones y copias. Ver su [README](collector-agent/README.md). |
 | `scripts/` | Utilidades de carga de datos (catálogo desde Excel). |
-| `.claude/skills/` | Procedimientos para Claude (p. ej. `facturas`: cargar facturas escaneadas como órdenes de compra). |
+| `.claude/skills/` | Procedimientos para Claude: `facturas` (facturas escaneadas → órdenes de compra), `stock` (hojas de conteo manuscritas → stock) y `pedidos` (lista de pedido manuscrita → PDF de solicitud al proveedor + cotejo con el catálogo). |
 | `index.html` | Aviso de mudanza: redirige al POS a quien abra la antigua dirección de GitHub Pages. |
 
 ## Historia
