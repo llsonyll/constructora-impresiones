@@ -52,10 +52,11 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
   con cuántos productos tiene y cuántos hay por reponer), y se filtra por categoría, presentación, búsqueda (“azul”),
   *Solo agotados o bajos* e *Incluir inactivos*; los filtros quedan en la dirección. Casilla roja = agotado, ámbar = en
   o bajo el mínimo, `·` = ese color no existe en ese tamaño, `×2` = producto repetido; fila *Total* por tamaño.
-  Tocar casillas (o *+ Agotados al pedido* por línea) arma el pedido, que se guarda en el equipo; *Armar pedido* abre
-  una orden de compra nueva con esos productos (cantidad hasta el mínimo, o 1; costo = último costo; proveedor ya
-  elegido si todos son del mismo) y el botón de copiar deja la lista para pegarla en un mensaje. Mantener presionada
-  una casilla abre la ficha del producto.
+  **Tocar** una casilla suma 1 a la cantidad a pedir y **mantenerla presionada** (o clic derecho) quita 1; la casilla
+  muestra `+cantidad` y lo que hay. *+ Agotados al pedido* agrega de una vez los agotados o bajos de la línea (hasta el
+  mínimo, o 1). El pedido se guarda en el equipo; *Armar pedido* abre una orden de compra nueva con esos productos y
+  cantidades, **sin costos** (por cotizar) y con el proveedor ya elegido si todos son del mismo; el botón de copiar
+  deja la lista para pegarla en un mensaje.
   - **Casilla vacía (`·`)**: ese color no existe en ese tamaño. Tocarla abre el alta rápida con el producto armado
     como los de su línea (otro color del mismo tamaño con el color cambiado: «ESMALTE CRONS 1/4 GL BLANCO» →
     «… AMARILLO LIMON»; si no, el mismo color en otro tamaño) y marca, categoría, unidad y proveedor de la línea.
@@ -150,6 +151,11 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   último). Se ve en el editor del producto y, en la orden, la última compra con proveedor y fecha.
 - Reglas en la BD (`po_guard`): una orden recibida no se edita ni se borra (solo el N° de factura) y
   solo se recibe por el RPC.
+- **Costos por cotizar** (`20261104000000_oc_costos_por_cotizar`): el costo de una línea puede quedar vacío
+  (`purchase_order_items.unit_cost` null) mientras la orden es borrador o enviada, para guardar y enviar la lista de
+  lo que se quiere pedir y escribir los costos cuando llega la cotización. La orden avisa cuántos faltan, ofrece
+  *Usar último costo* y el total cuenta solo los que tienen. Para **recibir** hacen falta todos: la pantalla marca en
+  rojo los vacíos y la BD lo exige (trigger `purchase_orders_require_costs`).
 
 ## Celular: escaneo, fotos y alta rápida
 

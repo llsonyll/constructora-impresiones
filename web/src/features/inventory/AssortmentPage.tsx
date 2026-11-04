@@ -8,7 +8,6 @@ import { useProductMatcher } from '@/hooks/use-product-search'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import { brandSet, buildLines, cellKey, isLow, type Line, NO_SIZE, suggestName } from './assortment'
 import CategoryOptions from './CategoryOptions'
-import ProductEditor from './ProductEditor'
 import QuickCreateSheet from './QuickCreateSheet'
 
 const ORDER_KEY = 'surtido-pedido'
@@ -69,8 +68,6 @@ export default function AssortmentPage() {
   useEffect(() => {
     try { localStorage.setItem(ORDER_KEY, JSON.stringify(order)) } catch { /* modo privado */ }
   }, [order])
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const editing = products.find(p => p.id === editingId) ?? null
   const [creating, setCreating] = useState<Missing | null>(null)
 
   const brands = useMemo(() => brandSet(products.map(p => p.brand)), [products])
@@ -120,11 +117,14 @@ export default function AssortmentPage() {
   const byId = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
   const selected = Object.keys(order).filter(id => byId.has(id))
 
-  function toggle(ps: InventoryProduct[]) {
+  /** +1 o −1 a la cantidad a pedir de una casilla (si está repetida, al primero; quita del último que tenga). */
+  function bump(ps: InventoryProduct[], delta: 1 | -1) {
     setOrder(o => {
       const next = { ...o }
-      const on = ps.every(p => p.id in o)
-      for (const p of ps) { if (on) delete next[p.id]; else next[p.id] = suggestQty(p) }
+      if (delta > 0) { next[ps[0].id] = (next[ps[0].id] ?? 0) + 1; return next }
+      const p = [...ps].reverse().find(x => (next[x.id] ?? 0) > 0)
+      if (!p) return o
+      if (next[p.id] > 1) next[p.id] -= 1; else delete next[p.id]
       return next
     })
   }
@@ -167,7 +167,7 @@ export default function AssortmentPage() {
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(9rem+env(safe-area-inset-bottom))] md:p-4">
       <PageHeader title="Surtido" back="/inventario" backLabel="Inventario" />
       <p className="text-sm text-stone-600">
-        Stock por color y presentación de cada línea. Toca una casilla para sumarla al pedido.
+        Stock por color y presentación. <b>Toca</b> una casilla para pedir 1 más y <b>mantén presionado</b> para quitar 1.
       </p>
 
       <div className="sticky top-below-header z-[5] -mx-3 space-y-2 bg-stone-100 px-3 py-2 md:mx-0 md:px-0">
@@ -237,7 +237,7 @@ export default function AssortmentPage() {
           </p>
           {!lines.length && !isLoading && <p className="rounded-lg bg-white p-6 text-center text-sm text-stone-500 shadow">Sin productos con estos filtros.</p>}
           {lines.map(l => (
-            <LineTable key={l.key} line={l} order={order} onToggle={toggle} onMarkLow={() => markLow(l)} onOpen={setEditingId}
+            <LineTable key={l.key} line={l} order={order} onBump={bump} onMarkLow={() => markLow(l)}
                        onCreate={(color, size) => setCreating({ line: l, color, size })} />
           ))}
           <Legend />
@@ -247,7 +247,10 @@ export default function AssortmentPage() {
       {selected.length > 0 && (
         <div className="fixed inset-x-0 bottom-safe-4 z-20 mx-auto flex max-w-5xl items-center gap-2 px-3 md:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-stone-900 p-2 pl-4 text-white shadow-lg">
-            <span className="mr-auto min-w-0 text-sm leading-tight"><b className="text-base">{selected.length}</b> para pedir</span>
+            <span className="mr-auto min-w-0 text-sm leading-tight">
+              <b className="text-base">{selected.length}</b> producto{selected.length !== 1 && 's'}
+              <span className="block text-xs text-stone-300">{fmt(selected.reduce((n, id) => n + order[id], 0))} unidades</span>
+            </span>
             <button onClick={() => { if (confirm('¿Quitar todos los productos del pedido?')) setOrder({}) }}
                     className="grid min-h-11 w-11 place-items-center rounded-lg text-stone-300" aria-label="Quitar todo"><X className="size-5" /></button>
             <button onClick={copyOrder} className="grid min-h-11 w-11 place-items-center rounded-lg bg-stone-700" aria-label="Copiar lista"><Copy className="size-5" /></button>
@@ -265,8 +268,7 @@ export default function AssortmentPage() {
                                     toast.success(`Creado y en el pedido: ${name}`)
                                   }} />}
 
-      {editing && <ProductEditor product={editing} key={editing.id} onClose={() => setEditingId(null)}
-                                 onSaved={(_, name) => { toast.success(`Guardado: ${name}`); setEditingId(null) }} />}
+
     </div>
   )
 }
@@ -309,12 +311,11 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
-function LineTable({ line, order, onToggle, onMarkLow, onOpen, onCreate }: {
+function LineTable({ line, order, onBump, onMarkLow, onCreate }: {
   line: Line<InventoryProduct>
   order: Order
-  onToggle: (ps: InventoryProduct[]) => void
+  onBump: (ps: InventoryProduct[], delta: 1 | -1) => void
   onMarkLow: () => void
-  onOpen: (id: string) => void
   onCreate: (color: string, size: string) => void
 }) {
   const visible = line.colors.flatMap(c => line.sizes.flatMap(s => line.cells.get(cellKey(c, s.label)) ?? []))
@@ -349,7 +350,7 @@ function LineTable({ line, order, onToggle, onMarkLow, onOpen, onCreate }: {
                   const ps = line.cells.get(cellKey(c, s.label))
                   return (
                     <td key={s.label} className="p-0.5 text-center">
-                      {ps ? <Cell ps={ps} order={order} onToggle={onToggle} onOpen={onOpen} />
+                      {ps ? <Cell ps={ps} order={order} onBump={onBump} />
                         : <button onClick={() => onCreate(c, s.label)} aria-label={`No existe ${c || 'sin color'} en ${s.label}: crear y pedir`}
                                   className="group h-11 w-full min-w-[3.25rem] rounded-md text-stone-300 active:bg-amber-50 md:hover:bg-amber-50">
                             <span className="group-active:hidden md:group-hover:hidden">·</span>
@@ -375,36 +376,41 @@ function LineTable({ line, order, onToggle, onMarkLow, onOpen, onCreate }: {
   )
 }
 
-function Cell({ ps, order, onToggle, onOpen }: {
+function Cell({ ps, order, onBump }: {
   ps: InventoryProduct[]
   order: Order
-  onToggle: (ps: InventoryProduct[]) => void
-  onOpen: (id: string) => void
+  onBump: (ps: InventoryProduct[], delta: 1 | -1) => void
 }) {
   const stock = ps.reduce((n, p) => n + p.stock, 0)
-  const on = ps.every(p => p.id in order)
+  const qty = ps.reduce((n, p) => n + (order[p.id] ?? 0), 0)
+  const on = qty > 0
   const out = ps.every(p => p.stock <= 0)
   const low = ps.some(isLow)
   const inactive = ps.every(p => !p.active)
-  const tone = on ? 'bg-amber-600 text-white font-semibold'
+  const tone = on ? 'bg-amber-600 text-white'
     : out ? 'bg-red-50 text-red-700 font-semibold'
     : low ? 'bg-amber-50 text-amber-800 font-medium'
     : 'text-stone-900'
   const title = ps.map(p => `${p.name}: ${fmt(p.stock)} ${p.unit}${p.min_stock > 0 ? ` (mín. ${fmt(p.min_stock)})` : ''}`).join('\n')
-  // Toque: al pedido; mantener presionado (o clic derecho): abrir la ficha.
+  // Toque: +1. Mantener presionado (o clic derecho): −1.
   const timer = useRef<ReturnType<typeof setTimeout>>()
-  const opened = useRef(false)
+  const held = useRef(false)
   const cancel = () => clearTimeout(timer.current)
+  const remove = () => { navigator.vibrate?.(15); onBump(ps, -1) }
   return (
-    <button onClick={() => { if (!opened.current) onToggle(ps); opened.current = false }} title={title} aria-pressed={on}
-            aria-label={`${title}${on ? ', en el pedido' : ''}`}
-            onContextMenu={e => { e.preventDefault(); cancel(); opened.current = false; onOpen(ps[0].id) }}
-            onPointerDown={() => { opened.current = false; cancel(); timer.current = setTimeout(() => { opened.current = true; onOpen(ps[0].id) }, 550) }}
+    <button onClick={() => { if (!held.current) onBump(ps, 1); held.current = false }} title={title}
+            aria-label={`${title}${on ? `. Pedir ${fmt(qty)}` : ''}. Toca para sumar 1, mantén presionado para quitar 1`}
+            onContextMenu={e => { e.preventDefault(); cancel(); held.current = false; if (on) onBump(ps, -1) }}
+            onPointerDown={() => { held.current = false; cancel(); timer.current = setTimeout(() => { held.current = true; if (on) remove() }, 500) }}
             onPointerUp={cancel} onPointerLeave={cancel} onPointerCancel={cancel}
-            className={`relative h-11 w-full min-w-[3.25rem] rounded-md tabular-nums select-none [-webkit-touch-callout:none] ${tone} ${inactive && !on ? 'italic opacity-60' : ''}`}>
-      {fmt(stock)}
+            className={`relative h-12 w-full min-w-[3.25rem] touch-manipulation rounded-md tabular-nums select-none [-webkit-touch-callout:none] ${tone} ${inactive && !on ? 'italic opacity-60' : ''}`}>
+      {on ? (
+        <span className="flex flex-col items-center leading-none">
+          <span className="text-base font-bold">+{fmt(qty)}</span>
+          <span className="mt-0.5 text-[10px] opacity-90">hay {fmt(stock)}</span>
+        </span>
+      ) : fmt(stock)}
       {ps.length > 1 && <span className="absolute top-0.5 right-1 text-[10px] leading-none opacity-70" title="Producto repetido">×{ps.length}</span>}
-      {on && <span className="absolute bottom-0.5 left-0 right-0 text-[10px] leading-none font-normal">pedir</span>}
     </button>
   )
 }
@@ -414,10 +420,9 @@ function Legend() {
     <div className="flex flex-wrap gap-x-4 gap-y-1 px-1 text-xs text-stone-500">
       <span><span className="inline-block size-3 rounded-sm bg-red-100 align-[-0.1em]" /> agotado</span>
       <span><span className="inline-block size-3 rounded-sm bg-amber-100 align-[-0.1em]" /> en o bajo el mínimo</span>
-      <span><span className="inline-block size-3 rounded-sm bg-amber-600 align-[-0.1em]" /> en el pedido</span>
+      <span><span className="inline-block size-3 rounded-sm bg-amber-600 align-[-0.1em]" /> en el pedido: +cantidad a pedir y lo que hay</span>
       <span>· no existe en ese tamaño (tócalo para crearlo y pedirlo)</span>
       <span>×2 producto repetido</span>
-      <span>Mantén presionada una casilla para abrir su ficha.</span>
     </div>
   )
 }

@@ -18,12 +18,16 @@ import ReceiptSummary from './ReceiptSummary'
 // Arriba: abajo está la barra de acciones de la orden.
 const flashMsg = (text: string) => toast(text, { id: 'orden', position: 'top-center' })
 
-/** auto: el costo es el propuesto (último costo), no uno escrito; se convierte si se cambia "incluyen IGV". */
+/**
+ * auto: el costo es el propuesto (último costo), no uno escrito; se convierte si se cambia "incluyen IGV".
+ * unit_cost vacío = por cotizar: la orden se guarda y se envía así (lista de pedido); para recibir hace falta.
+ */
 interface Line { key: string; product_id: string; qty: string; unit_cost: string; auto?: boolean }
 interface Form { provider_id: string; invoice_ref: string; note: string; costs_include_igv: boolean; lines: Line[] }
 
 const num = (s: string) => Number(s.replace(',', '.'))
 const valid = (s: string) => s.trim() !== '' && !Number.isNaN(num(s))
+const blank = (s: string) => s.trim() === ''
 const fmtQty = (n: number) => String(Number(n.toFixed(3)))
 const LOW_MARGIN = 0.15
 let keySeq = 0
@@ -61,6 +65,8 @@ export default function PurchaseOrderPage() {
   const [receipt, setReceipt] = useState<ReceiptLine[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
+  // Tras intentar recibir con costos vacíos, se marcan en rojo.
+  const [priceCheck, setPriceCheck] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
   // Carga inicial del formulario (una sola vez por orden; los refetch no pisan lo que se está editando).
@@ -70,16 +76,16 @@ export default function PurchaseOrderPage() {
     if (!key || loadedFor.current === key) return
     if (isNew && prefill?.length && !products.length) return   // espera el catálogo para proponer los costos
     loadedFor.current = key
-    const costOf = (id: string) => { const p = products.find(x => x.id === id); return p ? defaultCost(p, true) : '' }
     const f: Form = isNew
       ? {
           provider_id: params.get('proveedor') ?? '', invoice_ref: '', note: '', costs_include_igv: true,
-          lines: (prefill ?? []).map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: costOf(i.product_id), auto: true })),
+          // Desde Surtido llega la lista de lo que se quiere pedir: los costos se escriben cuando llega la cotización.
+          lines: (prefill ?? []).map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: '' })),
         }
       : {
           provider_id: order!.provider_id, invoice_ref: order!.invoice_ref ?? '', note: order!.note ?? '',
           costs_include_igv: order!.costs_include_igv,
-          lines: order!.items.map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: String(i.unit_cost) })),
+          lines: order!.items.map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: i.unit_cost == null ? '' : String(i.unit_cost) })),
         }
     setForm(f); setSavedSnapshot(isNew ? '' : JSON.stringify(strip(f)))
   }, [isNew, order, params, prefill, products])
@@ -173,13 +179,26 @@ export default function PurchaseOrderPage() {
   const lineSubtotal = (l: Line) => (valid(l.qty) && valid(l.unit_cost) ? round2(num(l.qty) * num(l.unit_cost)) : 0)
   const subtotal = round2(form.lines.reduce((s, l) => s + lineSubtotal(l), 0))
   const total = form.costs_include_igv ? subtotal : round2(subtotal * (1 + IGV_RATE))
-  const invalidLines = form.lines.filter(l => !valid(l.qty) || num(l.qty) <= 0 || !valid(l.unit_cost) || num(l.unit_cost) < 0)
+  const invalidLines = form.lines.filter(l => !valid(l.qty) || num(l.qty) <= 0 || (!blank(l.unit_cost) && (!valid(l.unit_cost) || num(l.unit_cost) < 0)))
+  const unpriced = form.lines.filter(l => blank(l.unit_cost))
+  // Con costo de referencia (último costo) para ofrecer "Usar último costo".
+  const withRef = unpriced.filter(l => byId.get(l.product_id)?.cost != null)
+
+  function applyLastCosts() {
+    setForm(f => f && {
+      ...f,
+      lines: f.lines.map(l => {
+        const p = byId.get(l.product_id)
+        return blank(l.unit_cost) && p?.cost != null ? { ...l, unit_cost: defaultCost(p, f.costs_include_igv), auto: true } : l
+      }),
+    })
+  }
 
   function toDraft(): PoDraft {
     return {
       id: isNew ? undefined : routeId, provider_id: form!.provider_id, invoice_ref: form!.invoice_ref, note: form!.note,
       costs_include_igv: form!.costs_include_igv,
-      items: form!.lines.map(l => ({ product_id: l.product_id, qty: num(l.qty), unit_cost: num(l.unit_cost) })),
+      items: form!.lines.map(l => ({ product_id: l.product_id, qty: num(l.qty), unit_cost: blank(l.unit_cost) ? null : num(l.unit_cost) })),
     }
   }
 
@@ -187,7 +206,7 @@ export default function PurchaseOrderPage() {
   async function persist(): Promise<string | null> {
     setActionError('')
     if (!form!.provider_id) { setActionError('Elige un proveedor.'); return null }
-    if (invalidLines.length) { setActionError('Revisa cantidades y costos: hay líneas incompletas.'); return null }
+    if (invalidLines.length) { setActionError('Revisa cantidades y costos: hay líneas con datos inválidos.'); return null }
     if (!isNew && !dirty) return routeId!
     try {
       const id = await save.mutateAsync(toDraft())
@@ -212,6 +231,10 @@ export default function PurchaseOrderPage() {
 
   const onReceive = () => run(async () => {
     if (!form.lines.length) return setActionError('Agrega al menos un producto.')
+    if (unpriced.length) {
+      setPriceCheck(true)
+      return setActionError(`Faltan los costos de ${unpriced.length} producto${unpriced.length > 1 ? 's' : ''} (en rojo): escríbelos de la cotización o la factura antes de recibir.`)
+    }
     const units = form.lines.reduce((s, l) => s + (valid(l.qty) ? num(l.qty) : 0), 0)
     if (!confirm(`¿Recibir la mercadería? Entrarán ${fmtQty(units)} unidades de ${form.lines.length} productos al stock y se actualizarán los costos. No se puede deshacer.`)) return
     const id = await persist(); if (!id) return
@@ -327,6 +350,7 @@ export default function PurchaseOrderPage() {
               const costWithIgv = valid(l.unit_cost) ? num(l.unit_cost) * (form.costs_include_igv ? 1 : 1 + IGV_RATE) : null
               const m = p?.price && costWithIgv != null ? (p.price - costWithIgv) / p.price : null
               const bad = invalidLines.includes(l)
+              const missing = priceCheck && blank(l.unit_cost)
               return (
                 <li key={l.key} className="space-y-2 p-3">
                   <div className="flex gap-2">
@@ -354,11 +378,11 @@ export default function PurchaseOrderPage() {
                              className={`mt-0.5 block min-h-11 w-24 rounded border px-2 text-right text-base tabular-nums ${bad && !(valid(l.qty) && num(l.qty) > 0) ? 'border-red-500' : ''}`} />
                     </label>
                     <label className="text-xs text-stone-500">Costo unit. {form.costs_include_igv ? '(con IGV)' : '(sin IGV)'}
-                      <input inputMode="decimal" value={l.unit_cost} disabled={!editable} placeholder="0.00"
+                      <input inputMode="decimal" value={l.unit_cost} disabled={!editable} placeholder="por cotizar"
                              onChange={e => updateLine(l.key, { unit_cost: e.target.value, auto: false })}
-                             className={`mt-0.5 block min-h-11 w-28 rounded border px-2 text-right text-base tabular-nums ${bad && !valid(l.unit_cost) ? 'border-red-500' : ''}`} />
+                             className={`mt-0.5 block min-h-11 w-28 rounded border px-2 text-right text-base tabular-nums placeholder:text-sm placeholder:text-amber-700 ${(bad && !blank(l.unit_cost)) || missing ? 'border-red-500' : ''}`} />
                     </label>
-                    <div className="ml-auto pb-2 text-right text-sm font-medium tabular-nums">{money(lineSubtotal(l))}</div>
+                    <div className="ml-auto pb-2 text-right text-sm font-medium tabular-nums">{blank(l.unit_cost) ? <span className="font-normal text-stone-400">—</span> : money(lineSubtotal(l))}</div>
                   </div>
                 </li>
               )
@@ -370,12 +394,26 @@ export default function PurchaseOrderPage() {
             )}
           </ul>
 
+          {editable && unpriced.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              <span className="mr-auto">
+                {unpriced.length} producto{unpriced.length > 1 ? 's' : ''} <b>por cotizar</b>: puedes guardar y enviar la lista así,
+                y escribir los costos cuando llegue la cotización. Para recibir hacen falta todos.
+              </span>
+              {withRef.length > 0 && (
+                <button onClick={applyLastCosts} className="min-h-10 rounded border border-amber-700 bg-white px-3 text-amber-800">
+                  Usar último costo ({withRef.length})
+                </button>
+              )}
+            </div>
+          )}
+
           <dl className="ml-auto max-w-xs space-y-0.5 text-sm">
             {!form.costs_include_igv && <>
               <div className="flex justify-between text-stone-500"><dt>Subtotal</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
               <div className="flex justify-between text-stone-500"><dt>IGV (18%)</dt><dd className="tabular-nums">{money(round2(total - subtotal))}</dd></div>
             </>}
-            <div className="flex justify-between text-base font-semibold"><dt>Total</dt><dd className="tabular-nums">{money(total)}</dd></div>
+            <div className="flex justify-between text-base font-semibold"><dt>Total{unpriced.length > 0 && <span className="text-xs font-normal text-stone-500"> (sin {unpriced.length} por cotizar)</span>}</dt><dd className="tabular-nums">{money(total)}</dd></div>
           </dl>
 
           {!isNew && order && (
@@ -393,7 +431,8 @@ export default function PurchaseOrderPage() {
         <div className="fixed inset-x-0 bottom-0 z-20 space-y-2 border-t bg-white px-safe-3 pt-3 pb-safe-3 shadow">
           {actionError && <p className="text-sm text-red-600">{actionError}</p>}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-auto text-sm">{form.lines.length} productos · <strong>{money(total)}</strong></span>
+            <span className="mr-auto text-sm">{form.lines.length} productos · <strong>{money(total)}</strong>
+              {unpriced.length > 0 && <span className="text-amber-700"> · {unpriced.length} por cotizar</span>}</span>
             {editable && <>
               {(dirty || isNew) && (
                 <button onClick={onSave} disabled={busy} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Guardar</button>
