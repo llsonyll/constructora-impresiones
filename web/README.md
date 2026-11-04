@@ -168,6 +168,14 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
     (estén o no enlazados) y se sueltan los enlazados cuyo producto se quitó; al **cancelarla** se sueltan.
   - RLS: admin y almacén. Cada alta y cambio de estado queda en *Actividad* (tipo *Faltantes*). La habilidad
     `/pedidos` registra aquí lo que un proveedor no atendió.
+- Pendiente (en pausa): **adjuntar el escaneo de la factura** (PDF o foto) a la orden de compra. Hoy solo queda el
+  N° (`invoice_ref`); la habilidad `/facturas` lee el escaneo en una carpeta temporal y no lo guarda. Idea: bucket
+  **privado** `compras` (admin/almacén, enlaces firmados; no como `product-images`, que es público) y tabla
+  `purchase_order_attachments` (orden, ruta, tipo factura/guía/cotización, nombre, tamaño, quién y cuándo), aparte de
+  `purchase_orders` para poder adjuntar aun con la orden recibida (`po_guard`). Sección *Comprobantes* en la orden
+  (subir PDF o foto comprimida, ver, descargar); enlace *ver factura* en el historial de costos del producto vía
+  `product_cost_history.po_id`; y que `/facturas` suba el PDF al crear el borrador. Cuidar el espacio (1 GB en el plan
+  gratuito, ~10 MB por PDF). No va en *Documentos*: esa sección es de lo que el negocio emite (ventas).
 
 ## Celular: escaneo, fotos y alta rápida
 
