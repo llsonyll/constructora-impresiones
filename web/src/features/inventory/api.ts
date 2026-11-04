@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { localDb } from '@/db/local'
+import { normalize } from '@/lib/search'
 import type { JobSource, Presentation, SynonymRow } from '@/types/domain'
 
 export interface InventoryProduct {
@@ -192,14 +193,31 @@ export interface QuickProduct {
   brand?: string | null; provider_id?: string | null
 }
 
+const QUICK_COLS = 'id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, aliases'
+
 /** Alta rápida: SKU automático y marcado "por revisar" para completar costo/categoría después. */
 export async function quickCreateProduct(p: QuickProduct) {
   const { data, error } = await supabase.from('products')
     .insert({ ...p, active: p.price != null, needs_review: true })
-    .select('id, sku, barcode, name, brand, category_id, unit, price, stock, min_stock, active, image_path, track_stock, job_sources, job_color, job_duplex, job_keywords, presentations, aliases')
+    .select(QUICK_COLS)
     .single()
   if (error) throw error
   return data
+}
+
+/**
+ * Productos que ya existen con el mismo nombre (sin importar mayúsculas, tildes, signos ni espacios de más),
+ * activos o no: para avisar antes de crear un duplicado. Se busca en el servidor porque el catálogo del equipo
+ * solo trae los activos (un producto sin precio está inactivo y no se ve en Ventas ni en Surtido).
+ */
+export async function findSameName(name: string): Promise<Awaited<ReturnType<typeof quickCreateProduct>>[]> {
+  const target = normalize(name)
+  if (target.length < 3) return []
+  // Patrón amplio (cada palabra, en orden) y luego comparación exacta del nombre normalizado.
+  const pattern = `%${target.split(' ').map(w => w.replace(/[\\%_]/g, c => `\\${c}`)).join('%')}%`
+  const { data, error } = await supabase.from('products').select(QUICK_COLS).ilike('name', pattern).limit(20)
+  if (error) throw error
+  return data.filter(p => normalize(p.name) === target)
 }
 
 export function useAdjustStock() {

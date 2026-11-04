@@ -179,6 +179,11 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   escanear para saltar al producto, asignar código, foto y precio → *Guardar y siguiente*.
 - **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,
   marcado *por revisar*) y se agrega. Sin internet o sin permiso → ítem libre.
+- **Aviso de duplicados en el alta rápida** (Ventas, Órdenes, Surtido, Ubicaciones, Precios, Faltantes): al escribir el
+  nombre se busca en el servidor (`findSameName`, activos e inactivos; sin importar mayúsculas, tildes, signos ni
+  espacios) y, si ya existe, se muestra con SKU, precio y estado y **Usar este** lo toma en lugar de crear otro (en
+  Ventas solo si está activo y con precio). El botón pasa a *Crear otro igual de todas formas*. Así no se repite un
+  producto sin precio que, por estar inactivo, no se veía.
 
 ## Dos cajas: Ferretería y Copias y librería
 

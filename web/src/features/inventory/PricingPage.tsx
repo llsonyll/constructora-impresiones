@@ -140,7 +140,7 @@ export default function PricingPage() {
 
       {creating && (
         <QuickCreateSheet initialBarcode={creating.barcode} initialName={creating.name} onClose={() => setCreating(null)}
-                          onCreated={p => { setCreating(null); setQuery(''); setCurrentId(p.id); setFlash(`Creado ${p.sku}: ${p.name}`) }} />
+                          onCreated={(p, existing) => { setCreating(null); setQuery(''); setCurrentId(p.id); setFlash(`${existing ? 'Ya existía' : 'Creado'} ${p.sku}: ${p.name}`) }} />
       )}
     </div>
   )
