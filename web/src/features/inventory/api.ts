@@ -187,7 +187,10 @@ export function usePatchProduct() {
   })
 }
 
-export interface QuickProduct { name: string; price: number | null; barcode: string | null; category_id: number | null; unit: string }
+export interface QuickProduct {
+  name: string; price: number | null; barcode: string | null; category_id: number | null; unit: string
+  brand?: string | null; provider_id?: string | null
+}
 
 /** Alta rápida: SKU automático y marcado "por revisar" para completar costo/categoría después. */
 export async function quickCreateProduct(p: QuickProduct) {
