@@ -30,7 +30,8 @@ export interface PurchaseOrderRow {
   received_at: string | null
 }
 
-export interface PoItem { product_id: string; qty: number; unit_cost: number }
+/** unit_cost null = por cotizar (se completa con la cotización o la factura; para recibir es obligatorio). */
+export interface PoItem { product_id: string; qty: number; unit_cost: number | null }
 
 export interface PurchaseOrder extends Omit<PurchaseOrderRow, 'provider_name' | 'item_count'> {
   note: string | null
@@ -124,7 +125,7 @@ export function usePurchaseOrder(id: string | undefined) {
         .eq('id', id!).order('id', { referencedTable: 'purchase_order_items' }).single()
       if (error) throw error
       const { purchase_order_items, ...o } = data as unknown as Omit<PurchaseOrder, 'items'> & { purchase_order_items: (PoItem & { id: number })[] }
-      return { ...o, items: purchase_order_items.map(({ product_id, qty, unit_cost }) => ({ product_id, qty: Number(qty), unit_cost: Number(unit_cost) })) }
+      return { ...o, items: purchase_order_items.map(({ product_id, qty, unit_cost }) => ({ product_id, qty: Number(qty), unit_cost: unit_cost == null ? null : Number(unit_cost) })) }
     },
   })
 }
