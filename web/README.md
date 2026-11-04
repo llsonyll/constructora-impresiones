@@ -229,6 +229,30 @@ por RPC.
 - Si después se anula una venta, el cierre no cambia y la pantalla avisa que las ventas cambiaron. **Reabrir**
   (solo admin) borra el cierre para volver a cerrar. Historial de los últimos 30 días abajo.
 
+## Agenda (`/agenda`, todos los roles)
+
+Calendario de fechas importantes del negocio (migración `20261104210000_agenda`). Tipos, cada uno con su color e icono:
+**Servicios** (luz, agua, internet, alquiler…), **Pedidos y materiales** (recepción), **Cuotas y facturas**,
+**Mantenimiento** (visitas técnicas de la fotocopiadora y la impresora, cambio de tóner) y **Otro**.
+
+- Un evento (`agenda_events`) es de una sola vez o **se repite** cada 1/2 semanas, 1/2/3/6 meses o cada año; termina
+  nunca, en una fecha o después de **N veces / cuotas** (la app calcula la última fecha). Mensual el 31 cae el último día
+  de los meses cortos. Las fechas se calculan en la app (`features/agenda/agenda.ts`), no se guardan una por una.
+- `agenda_occurrences` guarda lo que pasó en una fecha concreta: **hecho / pagado / recibido** (quién, cuándo, monto
+  real y nota) o **cambiada de día** (`moved_to`, solo esa vez). Deshacer la deja pendiente otra vez.
+- Pantalla: mes en cuadrícula (puntos de color en el celular, títulos desde tablet), **vencidos sin marcar** arriba,
+  el día elegido (con *+ Agregar el …*) y los **próximos 30 días**. El ✓ de cada renglón marca hecho con el monto
+  aproximado (con *Deshacer*); tocar el renglón abre el detalle para poner el monto real, una nota o cambiar la fecha.
+  Filtro por tipo (queda en el equipo). Debajo del mes, el total de servicios y cuotas de ese mes.
+- Vencido = pendiente con fecha pasada. Las fechas de una serie **anteriores a su creación** no cuentan como vencidas
+  (anotar hoy la luz desde enero no deja 10 meses en rojo), aunque se pueden marcar.
+- Aviso en el menú: número de vencidos + de hoy junto a *Agenda* (rojo si hay vencidos) y un punto en *Más* del celular.
+- Admin y almacén pueden enlazar un **proveedor** (WhatsApp desde el detalle) y, en pedidos, una **orden de compra**:
+  al recibir la OC, su recepción agendada (de una vez) queda hecha sola (trigger `agenda_po_received`, con el total
+  y «Recibida OC-0012»).
+- RLS: todos los roles ven y crean; editar o eliminar un evento, quien lo creó o el admin; marcar hecho, deshacer o
+  mover una fecha, cualquiera (el cajero recibe al técnico, el almacén los pedidos).
+
 ## Reportes (`/reportes`, solo admin)
 
 - Rango de fechas (desde/hasta, ambos inclusive, en hora local) con atajos: hoy, ayer, últimos 7 días, este mes, mes pasado.

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CalendarDays, ChartColumn, Ellipsis, FileText, History, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
+import { CalendarClock, CalendarDays, ChartColumn, Ellipsis, FileText, History, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { Toaster } from 'sonner'
 import Sheet from '@/components/Sheet'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useAgendaAlerts } from '@/features/agenda/api'
 import { cn } from '@/lib/utils'
 import type { Role } from '@/types/domain'
 
@@ -19,6 +20,7 @@ const SECTIONS: Section[] = [
   { to: '/inventario/ubicaciones', label: 'Ubicaciones', icon: MapPin, roles: ['admin', 'cajero', 'almacen'] },
   { to: '/proveedores', label: 'Proveedores', icon: Truck, roles: ['admin', 'almacen'] },
   { to: '/documentos', label: 'Documentos', icon: FileText, roles: ['admin', 'cajero'] },
+  { to: '/agenda', label: 'Agenda', icon: CalendarClock, roles: ['admin', 'cajero', 'almacen'] },
   { to: '/actividad', label: 'Actividad', icon: History, roles: ['admin'] },
 ]
 
@@ -55,6 +57,14 @@ export default function Layout() {
   const current = sectionOf(pathname, mine)
   const showTabs = !FOCUSED.some(r => r.test(pathname))
   const closeMore = () => { setMoreOpen(false); setConfirmOut(false) }
+  // Aviso de la agenda: vencidos y de hoy sin marcar.
+  const agenda = useAgendaAlerts(!!profile)
+  const agendaCount = agenda.overdue.length + agenda.today.length
+  const badge = (to: string) => to === '/agenda' && agendaCount > 0 && (
+    <span className={cn('ml-1 inline-grid min-w-5 place-items-center rounded-full px-1 text-[11px] font-semibold leading-5 text-white',
+                        agenda.overdue.length ? 'bg-red-600' : 'bg-amber-600')}
+          aria-label={`${agendaCount} pendientes`}>{agendaCount}</span>
+  )
 
   return (
     // --nav-h: alto de las pestañas inferiores; las barras flotantes (bottom-safe-*) se ponen encima.
@@ -68,7 +78,7 @@ export default function Layout() {
         <nav className="flex flex-1 gap-3 overflow-x-auto text-sm">
           {mine.map(n => (
             <NavLink key={n.to} to={n.to} end={n.to === '/inventario' && mine.some(s => s.to === '/inventario/ubicaciones')}
-                     className={({ isActive }) => `flex min-h-11 shrink-0 items-center px-1 ${isActive ? 'underline' : 'opacity-80'}`}>{n.label}</NavLink>
+                     className={({ isActive }) => `flex min-h-11 shrink-0 items-center px-1 ${isActive ? 'underline' : 'opacity-80'}`}>{n.label}{badge(n.to)}</NavLink>
           ))}
         </nav>
         <span className="text-xs">{profile?.full_name} · {profile?.role}</span>
@@ -93,7 +103,12 @@ export default function Layout() {
           <button onClick={() => setMoreOpen(true)} aria-haspopup="dialog"
                   className={cn('flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px]',
                                 current && more.includes(current) ? 'font-semibold text-amber-800' : 'text-stone-500')}>
-            <Ellipsis className="size-6" />Más
+            <span className="relative">
+              <Ellipsis className="size-6" />
+              {more.some(s => s.to === '/agenda') && agendaCount > 0 && (
+                <span aria-hidden className={cn('absolute -right-1 -top-0.5 size-2.5 rounded-full ring-2 ring-white', agenda.overdue.length ? 'bg-red-600' : 'bg-amber-600')} />
+              )}
+            </span>Más
           </button>
         </nav>
       )}
@@ -108,7 +123,7 @@ export default function Layout() {
             {more.map(s => (
               <li key={s.to}>
                 <Link to={s.to} replace onClick={closeMore} className="flex min-h-12 items-center gap-3 px-3">
-                  <s.icon className="size-5 text-stone-500" />{s.label}
+                  <s.icon className="size-5 text-stone-500" /><span className="flex-1">{s.label}</span>{badge(s.to)}
                 </Link>
               </li>
             ))}
