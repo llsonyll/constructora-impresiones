@@ -6,13 +6,15 @@ import {
   type PoStatus, type Provider, poLabel, STATUS_LABEL, STATUS_STYLE, usePurchaseOrders, useProviderList, whatsappUrl,
 } from './api'
 import ProviderSheet from './ProviderSheet'
+import NeedsTab from '@/features/needs/NeedsTab'
 
 const date = (s: string | null) => s ? new Date(s).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) : ''
 
-/** Proveedores y órdenes de compra. La pestaña va en la URL para que "atrás" desde una orden vuelva a la misma. */
+/** Proveedores, órdenes de compra y faltantes. La pestaña va en la URL para que "atrás" desde una orden vuelva a la misma. */
 export default function ProvidersPage() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'proveedores' ? 'proveedores' : 'ordenes'
+  const raw = params.get('tab')
+  const tab = raw === 'proveedores' || raw === 'faltantes' ? raw : 'ordenes'
   const setTab = (t: string) => setParams(t === 'ordenes' ? {} : { tab: t }, { replace: true })
 
   return (
@@ -21,14 +23,14 @@ export default function ProvidersPage() {
         <Link to="/proveedores/ordenes/nueva" className="flex min-h-11 items-center rounded-lg bg-amber-700 px-3 text-sm text-white">+ Nueva orden</Link>
       </PageHeader>
       <div className="flex gap-1 border-b">
-        {[['ordenes', 'Órdenes de compra'], ['proveedores', 'Proveedores']].map(([id, label]) => (
+        {[['ordenes', 'Órdenes'], ['faltantes', 'Faltantes'], ['proveedores', 'Proveedores']].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
                   className={`min-h-11 border-b-2 px-3 text-sm ${tab === id ? 'border-amber-700 font-medium text-amber-800' : 'border-transparent text-stone-500'}`}>
             {label}
           </button>
         ))}
       </div>
-      {tab === 'ordenes' ? <OrdersTab /> : <ProvidersTab />}
+      {tab === 'ordenes' ? <OrdersTab /> : tab === 'faltantes' ? <NeedsTab /> : <ProvidersTab />}
     </div>
   )
 }

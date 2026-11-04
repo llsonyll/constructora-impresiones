@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { dayRange } from '@/features/sales/api'
 
 /** Qué se registra en la bitácora (ver la migración activity_log: la llenan triggers de la base). */
-export type ActivityKind = 'venta' | 'producto' | 'compra' | 'stock'
+export type ActivityKind = 'venta' | 'producto' | 'compra' | 'stock' | 'faltante'
 
 export interface ActivityChange { antes: unknown; despues: unknown }
 export interface StockLine { product_id: string; sku: string; name: string; unit: string; qty: number; stock: number }
@@ -30,7 +30,7 @@ export interface ActivityRow {
 }
 
 export const KIND_LABEL: Record<ActivityKind, string> = {
-  venta: 'Ventas', producto: 'Productos', compra: 'Compras', stock: 'Stock',
+  venta: 'Ventas', producto: 'Productos', compra: 'Compras', stock: 'Stock', faltante: 'Faltantes',
 }
 
 export interface ActivityFilters {

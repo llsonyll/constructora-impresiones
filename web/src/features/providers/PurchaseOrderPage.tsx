@@ -3,6 +3,7 @@ import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
 import { ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -14,6 +15,7 @@ import {
   usePurchaseOrder, useProviderList, useReceivePurchaseOrder, useSavePurchaseOrder, useSetPoStatus, useUpdateInvoiceRef, whatsappUrl,
 } from './api'
 import ReceiptSummary from './ReceiptSummary'
+import { fetchNeedsByIds, linkNeedsToOrder, needKeys } from '@/features/needs/api'
 
 // Arriba: abajo está la barra de acciones de la orden.
 const flashMsg = (text: string) => toast(text, { id: 'orden', position: 'top-center' })
@@ -47,6 +49,10 @@ export default function PurchaseOrderPage() {
   const navigate = useNavigate()
   // Orden nueva armada desde otra pantalla (Surtido): productos y cantidades; el costo es el último de cada uno.
   const prefill = (useLocation().state as { prefill?: { product_id: string; qty: number }[] } | null)?.prefill
+  const qc = useQueryClient()
+  // Faltantes con los que se arma esta orden (?faltantes=1,2,3 desde Proveedores → Faltantes): al guardarla quedan enlazados.
+  const needIds = useMemo(() => (isNew ? (params.get('faltantes') ?? '').split(',').map(Number).filter(n => n > 0) : []),
+                          [isNew, params])
 
   const { data: order, isLoading, error: loadError } = usePurchaseOrder(isNew ? undefined : routeId)
   const { data: products = [] } = useInventory()
@@ -90,6 +96,30 @@ export default function PurchaseOrderPage() {
     setForm(f); setSavedSnapshot(isNew ? '' : JSON.stringify(strip(f)))
   }, [isNew, order, params, prefill, products])
 
+
+  // Renglones de los faltantes: su cantidad si está en la unidad del producto; si no (cajas, paquetes…), 1 para revisar.
+  const needsLoaded = useRef(false)
+  useEffect(() => {
+    if (!needIds.length || needsLoaded.current || !form || !products.length) return
+    needsLoaded.current = true
+    fetchNeedsByIds(needIds).then(needs => {
+      const pend = needs.filter(n => n.status === 'pendiente' && n.product_id)
+      let review = 0
+      setForm(f => {
+        if (!f) return f
+        const lines = [...f.lines]
+        for (const n of pend) {
+          const p = products.find(x => x.id === n.product_id)
+          if (!p || lines.some(l => l.product_id === p.id)) continue
+          const sameUnit = n.qty != null && (!n.unit || n.unit.trim().toLowerCase() === p.unit.toLowerCase())
+          if (n.qty != null && !sameUnit) review++
+          lines.push({ key: newKey(), product_id: p.id, qty: fmtQty(sameUnit ? n.qty! : 1), unit_cost: defaultCost(p, f.costs_include_igv), auto: true })
+        }
+        return { ...f, lines }
+      })
+      flashMsg(`Se agregaron ${pend.length} faltantes${review ? ` · revisa la cantidad de ${review} (venían en otra unidad)` : ''}`)
+    }).catch(e => setActionError(friendlyPoError(e)))
+  }, [needIds, form, products])
 
   const status = isNew ? 'borrador' : order?.status ?? 'borrador'
   const editable = status === 'borrador' || status === 'enviada'
@@ -211,6 +241,10 @@ export default function PurchaseOrderPage() {
     try {
       const id = await save.mutateAsync(toDraft())
       setSavedSnapshot(JSON.stringify(strip(form!)))
+      if (isNew && needIds.length) {
+        await linkNeedsToOrder(needIds, id)
+        qc.invalidateQueries({ queryKey: needKeys.all })
+      }
       if (isNew) { loadedFor.current = id; navigate(`/proveedores/ordenes/${id}`, { replace: true }) }
       return id
     } catch (e) { setActionError(friendlyPoError(e)); return null }
@@ -257,7 +291,7 @@ export default function PurchaseOrderPage() {
     navigate('/proveedores', { replace: true })
   })
 
-  const back = () => { if (!dirty || confirm('Tienes cambios sin guardar. ¿Salir igual?')) navigate('/proveedores') }
+  const back = () => { if (!dirty || confirm('Tienes cambios sin guardar. ¿Salir igual?')) navigate(needIds.length ? '/proveedores?tab=faltantes' : '/proveedores') }
 
   const waText = [
     `Hola${provider?.contact ? ` ${provider.contact}` : ''}, pedido de Ferretería La Constructora${!isNew && order ? ` (${poLabel(order.number)})` : ''}:`,
