@@ -47,6 +47,21 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Editor: poner precio activa el producto (aparece en el POS); sugerencias de precio por recargo sobre costo.
 - Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
   (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
+- **Surtido** (`/inventario/surtido`): el stock de una línea como tabla **color × presentación** para decidir qué
+  pedir (p. ej. ESMALTE · CRONS: filas por color, columnas 1/32 · 1/16 · 1/8 · 1/4 GL). Se elige una marca (tarjetas
+  con cuántos productos tiene y cuántos hay por reponer), y se filtra por categoría, presentación, búsqueda (“azul”),
+  *Solo agotados o bajos* e *Incluir inactivos*; los filtros quedan en la dirección. Casilla roja = agotado, ámbar = en
+  o bajo el mínimo, `·` = ese color no existe en ese tamaño, `×2` = producto repetido; fila *Total* por tamaño.
+  Tocar casillas (o *+ Agotados al pedido* por línea) arma el pedido, que se guarda en el equipo; *Armar pedido* abre
+  una orden de compra nueva con esos productos (cantidad hasta el mínimo, o 1; costo = último costo; proveedor ya
+  elegido si todos son del mismo) y el botón de copiar deja la lista para pegarla en un mensaje. Mantener presionada
+  una casilla abre la ficha del producto.
+  - Línea, presentación y color **se leen del nombre** (`features/inventory/assortment.ts`), no hay campos aparte:
+    tamaño = número + unidad (GL, LT, ML, KG, W, M, MM, pulgadas `"`; "GALON" solo = 1 GL; una fracción sin unidad
+    como "1/8" toma la de su línea), color = desde la primera palabra de color (BLANCO, AZUL, CAOBA, CATERPILLAR…)
+    hasta la marca, el tamaño o una coma, y línea = lo que queda + la marca escrita en el nombre (si no hay, la de la
+    ficha). Así ESMALTE CRONS con marca *CPP PINTOR* en la ficha cae igual en ESMALTE · CRONS. Si un producto sale en
+    otra línea, se corrige su **nombre** siguiendo el patrón de los demás (TIPO MARCA TAMAÑO COLOR).
 
 ## Búsqueda de productos: sinónimos y otros nombres
 

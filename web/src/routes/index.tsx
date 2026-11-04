@@ -11,6 +11,7 @@ import InventoryPage from '@/features/inventory/InventoryPage'
 import StockCountPage from '@/features/inventory/StockCountPage'
 import PricingPage from '@/features/inventory/PricingPage'
 import SynonymsPage from '@/features/inventory/SynonymsPage'
+import AssortmentPage from '@/features/inventory/AssortmentPage'
 import LocationsPage from '@/features/locations/LocationsPage'
 import ProvidersPage from '@/features/providers/ProvidersPage'
 import PurchaseOrderPage from '@/features/providers/PurchaseOrderPage'
@@ -48,6 +49,7 @@ export default function AppRoutes() {
           <Route path="inventario" element={<RequireRole roles={['admin', 'almacen']}><InventoryPage /></RequireRole>} />
           <Route path="inventario/conteo" element={<RequireRole roles={['admin', 'almacen']}><StockCountPage /></RequireRole>} />
           <Route path="inventario/precios" element={<RequireRole roles={['admin', 'almacen']}><PricingPage /></RequireRole>} />
+          <Route path="inventario/surtido" element={<RequireRole roles={['admin', 'almacen']}><AssortmentPage /></RequireRole>} />
           <Route path="inventario/sinonimos" element={<RequireRole roles={['admin', 'almacen']}><SynonymsPage /></RequireRole>} />
           <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><LocationsPage /></RequireRole>} />
           <Route path="proveedores" element={<RequireRole roles={['admin', 'almacen']}><ProvidersPage /></RequireRole>} />

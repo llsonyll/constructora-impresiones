@@ -3,7 +3,7 @@ import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
 import { ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import { IGV_RATE, money, round2 } from '@/lib/format'
@@ -41,6 +41,8 @@ export default function PurchaseOrderPage() {
   const isNew = routeId === 'nueva'
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  // Orden nueva armada desde otra pantalla (Surtido): productos y cantidades; el costo es el último de cada uno.
+  const prefill = (useLocation().state as { prefill?: { product_id: string; qty: number }[] } | null)?.prefill
 
   const { data: order, isLoading, error: loadError } = usePurchaseOrder(isNew ? undefined : routeId)
   const { data: products = [] } = useInventory()
@@ -66,16 +68,21 @@ export default function PurchaseOrderPage() {
   useEffect(() => {
     const key = isNew ? 'nueva' : order?.id
     if (!key || loadedFor.current === key) return
+    if (isNew && prefill?.length && !products.length) return   // espera el catálogo para proponer los costos
     loadedFor.current = key
+    const costOf = (id: string) => { const p = products.find(x => x.id === id); return p ? defaultCost(p, true) : '' }
     const f: Form = isNew
-      ? { provider_id: params.get('proveedor') ?? '', invoice_ref: '', note: '', costs_include_igv: true, lines: [] }
+      ? {
+          provider_id: params.get('proveedor') ?? '', invoice_ref: '', note: '', costs_include_igv: true,
+          lines: (prefill ?? []).map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: costOf(i.product_id), auto: true })),
+        }
       : {
           provider_id: order!.provider_id, invoice_ref: order!.invoice_ref ?? '', note: order!.note ?? '',
           costs_include_igv: order!.costs_include_igv,
           lines: order!.items.map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: String(i.unit_cost) })),
         }
     setForm(f); setSavedSnapshot(isNew ? '' : JSON.stringify(strip(f)))
-  }, [isNew, order, params])
+  }, [isNew, order, params, prefill, products])
 
 
   const status = isNew ? 'borrador' : order?.status ?? 'borrador'
