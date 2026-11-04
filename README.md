@@ -50,6 +50,19 @@ la app se retiró; Firebase ya no se usa. La lógica de reparto de hojas que nac
 - **Agente**: copiar los archivos cambiados a la PC de la tienda y reiniciar el servicio `FerreteriaCollector`.
 - GitHub Pages solo sirve el aviso de `index.html`.
 
+## Pendientes
+
+- **Catálogos de proveedores (PDF).** Los proveedores mandan catálogos completos, pero solo se les compran algunos
+  productos. Propuesta:
+  - Guardar el PDF con su fecha en un bucket **privado** de Supabase Storage, por proveedor. No en el repositorio,
+    que es público.
+  - Una tabla proveedor ↔ producto con solo las líneas que se compran: código y descripción del proveedor, precio
+    de lista y fecha del precio. El costo real sigue siendo el de `product_cost_history` (facturas recibidas); el
+    precio de lista es solo referencia.
+  - Skill `/catalogo`: a partir del PDF, extraer solo las líneas de los productos ya asociados a ese proveedor (más
+    los que se indiquen), sin cargar el catálogo entero.
+  - `/pedidos`: mostrar el código del proveedor en la solicitud cuando exista.
+
 ## Seguridad
 
 La clave publicable de Supabase viaja en el navegador por diseño; los datos se protegen con RLS y roles
