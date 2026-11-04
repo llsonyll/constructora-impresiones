@@ -140,6 +140,8 @@ export default function AssortmentPage() {
     toast.success(`${low.length} producto${low.length > 1 ? 's' : ''} al pedido`)
   }
 
+  const units = selected.reduce((n, id) => n + order[id], 0)
+
   function orderText() {
     return selected.map(id => byId.get(id)!).sort((a, b) => a.name.localeCompare(b.name))
       .map(p => `- ${fmt(order[p.id])} ${p.unit} ${p.name}`).join('\n')
@@ -249,7 +251,7 @@ export default function AssortmentPage() {
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-stone-900 p-2 pl-4 text-white shadow-lg">
             <span className="mr-auto min-w-0 text-sm leading-tight">
               <b className="text-base">{selected.length}</b> producto{selected.length !== 1 && 's'}
-              <span className="block text-xs text-stone-300">{fmt(selected.reduce((n, id) => n + order[id], 0))} unidades</span>
+              <span className="block text-xs text-stone-300">{units} unidad{units !== 1 && 'es'}</span>
             </span>
             <button onClick={() => { if (confirm('¿Quitar todos los productos del pedido?')) setOrder({}) }}
                     className="grid min-h-11 w-11 place-items-center rounded-lg text-stone-300" aria-label="Quitar todo"><X className="size-5" /></button>
@@ -262,10 +264,10 @@ export default function AssortmentPage() {
       )}
 
       {creating && <CreateMissing missing={creating} onClose={() => setCreating(null)}
-                                  onCreated={(id, name) => {
-                                    setOrder(o => ({ ...o, [id]: 1 }))
+                                  onCreated={(id, name, existing) => {
+                                    setOrder(o => ({ ...o, [id]: (o[id] ?? 0) + 1 }))
                                     setCreating(null)
-                                    toast.success(`Creado y en el pedido: ${name}`)
+                                    toast.success(`${existing ? 'Ya existía; agregado' : 'Creado y agregado'} al pedido: ${name}`)
                                   }} />}
 
 
@@ -277,7 +279,7 @@ export default function AssortmentPage() {
 function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
   missing: Missing
   onClose: () => void
-  onCreated: (id: string, name: string) => void
+  onCreated: (id: string, name: string, existing?: boolean) => void
 }) {
   const { name, template } = suggestName(line, color, size)
   const ps = line.products
@@ -297,7 +299,7 @@ function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
         </p>
       }
       onClose={onClose}
-      onCreated={p => onCreated(p.id, p.name)}
+      onCreated={(p, existing) => onCreated(p.id, p.name, existing)}
     />
   )
 }
