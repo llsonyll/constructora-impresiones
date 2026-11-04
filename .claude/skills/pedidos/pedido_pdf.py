@@ -47,6 +47,7 @@ S = {
     "b": ParagraphStyle("b", parent=ss["Normal"], fontSize=9.5, leading=12.5, textColor=INK),
     "cell": ParagraphStyle("cell", parent=ss["Normal"], fontSize=9, leading=11.5, textColor=INK),
     "cell_sm": ParagraphStyle("cell_sm", parent=ss["Normal"], fontSize=8.4, leading=10, textColor=INK),
+    "cell_xs": ParagraphStyle("cell_xs", parent=ss["Normal"], fontSize=7.9, leading=9.2, textColor=INK),
     "small": ParagraphStyle("small", parent=ss["Normal"], fontSize=7.8, leading=10, textColor=MUTED),
     "th": ParagraphStyle("th", parent=ss["Normal"], fontSize=8.5, leading=11, textColor=INK, fontName="Helvetica-Bold"),
     "h2": ParagraphStyle("h2", parent=ss["Heading2"], fontSize=12, leading=15, textColor=INK, spaceBefore=8, spaceAfter=4),
@@ -127,7 +128,8 @@ def solicitud(p, out):
     head = [Paragraph(h, S["th"]) for h in (["N.°", "Descripción", "Cantidad"] +
                                             (["P. unit. (S/)", "Total (S/)"] if precio else []))]
     rows = [head]
-    cs = S["cell_sm"] if len(p["items"]) > 26 else S["cell"]  # listas largas: que quepan en una hoja
+    n = len(p["items"])  # listas largas: letra y relleno menores para que quepan en una hoja
+    cs = S["cell_xs"] if n > 30 else S["cell_sm"] if n > 26 else S["cell"]
     for it in p["items"]:
         desc = esc(it["descripcion"])
         if it.get("detalle"):
@@ -135,7 +137,7 @@ def solicitud(p, out):
         r = [Paragraph(esc(it["n"]), cs), Paragraph(desc, cs), Paragraph(esc(it.get("cantidad") or "—"), cs)]
         rows.append(r + (["", ""] if precio else []))
     w = [11 * mm, 99 * mm, 28 * mm, 21 * mm, 21 * mm] if precio else [12 * mm, 128 * mm, 40 * mm]
-    el.append(tabla(rows, w, pad=1.8 if len(rows) > 27 else 3))
+    el.append(tabla(rows, w, pad=1.2 if n > 30 else 1.8 if n > 26 else 3))
     if p.get("notas_solicitud"):
         el.append(Spacer(1, 4 * mm))
         el.append(Paragraph("<b>Notas</b>", S["b"]))
@@ -203,13 +205,18 @@ def cotejo(p, out):
         for d in p["notas_cotejo"]:
             el.append(Paragraph(f"• {esc(d)}", S["b"]))
 
-    if p.get("anexo_imagen") and Path(p["anexo_imagen"]).exists():
+    # "anexo_imagen": una ruta, o una lista de rutas / {"ruta", "titulo"} (p. ej. la hoja original y la revisión).
+    anexos = p.get("anexo_imagen") or []
+    for a in anexos if isinstance(anexos, list) else [anexos]:
+        ruta, titulo = (a["ruta"], a.get("titulo")) if isinstance(a, dict) else (a, None)
+        if not Path(ruta).exists():
+            continue
         from PIL import Image as PILImage
-        iw, ih = PILImage.open(p["anexo_imagen"]).size
+        iw, ih = PILImage.open(ruta).size
         maxw, maxh = A4[0] - 24 * mm, A4[1] - 50 * mm
         k = min(maxw / iw, maxh / ih)
-        el += [PageBreak(), Paragraph("Anexo: hoja original escaneada", S["h2"]),
-               Image(p["anexo_imagen"], width=iw * k, height=ih * k)]
+        el += [PageBreak(), Paragraph(esc(titulo or "Anexo: hoja original escaneada"), S["h2"]),
+               Image(ruta, width=iw * k, height=ih * k)]
     doc.build(el, onFirstPage=pie(p["negocio"]), onLaterPages=pie(p["negocio"]))
 
 

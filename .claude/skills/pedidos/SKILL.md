@@ -44,6 +44,21 @@ No subas las hojas ni los PDF al repositorio (es público). Trabaja en el scratc
 - Sin cantidad en la hoja → cantidad vacía (sale "—"). No inventes cantidades.
 - El encabezado suele nombrar al proveedor ("Pedidos Sr. Diego Hnos."): búscalo en `providers` (paso 2).
 
+### Revisión de un pedido ya generado
+
+A veces el usuario imprime la **solicitud generada**, la anota a mano (cantidades al lado de los "—", correcciones
+encima, marcas, productos nuevos al margen, recordatorios al pie) y la vuelve a escanear. En ese caso no es un
+pedido nuevo: actualiza el `pedido.json` de ese proveedor (mismo scratchpad, si está en la sesión; si no,
+transcribe la solicitud impresa como base).
+- Asigna cada anotación a su renglón **por altura**, no por orden. Si cae entre dos renglones, elige el más
+  cercano y anótalo en `dudas`.
+- Lo que el usuario ya confirmó en el chat prevalece sobre lo impreso (la hoja puede ser una versión anterior).
+- Detalles de una cantidad ("Cromado 3 / dorado 5") van en `detalle`; los productos nuevos se agregan al final
+  con el número siguiente; un recordatorio ("ojo: preguntar por…") va a `notas_cotejo` y, si es para el
+  proveedor, a `notas_solicitud`.
+- Vuelve a cotejar solo las líneas nuevas o que cambiaron de descripción.
+- En `anexo_imagen` pasa una lista con las dos hojas: la original y la revisión (ver paso 4).
+
 ## 2. Cotejar con el catálogo
 
 Proyecto Supabase `fsrlcvuhcfbojbextoax`. Solo consultas `select`.
@@ -111,10 +126,12 @@ Formato del JSON (los campos opcionales pueden omitirse):
 }
 ```
 - `estado`: `registrado` | `confirmar` | `nuevo`. `duda: true` marca la línea con **(?)** en el cotejo.
+- `anexo_imagen` acepta una ruta o una lista (`["…/anexo.jpg", {"ruta": "…/revision.jpg", "titulo": "Anexo 2: revisión"}]`);
+  cada imagen va en su propia página al final del cotejo.
 - `negocio` (nombre, ruc, direccion, telefono) es opcional: por defecto usa los datos de `business_info`
   guardados en el script; si `business_info` cambió, pásalos en el JSON.
 - Revisa el resultado antes de entregarlo: `pdftoppm -r 80 -png <pdf> <scratchpad>/pedido/prev` y mira las
-  páginas. La solicitud debería caber en una hoja (el script achica la letra si hay más de 26 líneas).
+  páginas. La solicitud debería caber en una hoja (el script achica la letra con más de 26 líneas, y más aún con más de 30).
 
 ## 5. Informe al usuario
 
