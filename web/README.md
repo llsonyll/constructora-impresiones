@@ -150,6 +150,18 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   último). Se ve en el editor del producto y, en la orden, la última compra con proveedor y fecha.
 - Reglas en la BD (`po_guard`): una orden recibida no se edita ni se borra (solo el N° de factura) y
   solo se recibe por el RPC.
+- **Faltantes** (pestaña de Proveedores, `product_needs`, migración `20261104000000_faltantes`): lo que se necesita
+  y aún no se consiguió, para que no se pierda en papeles: líneas que un proveedor no atendió, lo que pidió un cliente
+  y no había, stock bajo o anotado a mano. Puede ser un producto del catálogo o solo una descripción ("Acople 7/8 a
+  1/2"); *Registrar* lo da de alta (alta rápida) y lo enlaza. Estados: **pendiente → atendido / descartado**
+  (*Ya llegó*, *Descartar*, *Reabrir*).
+  - Los pendientes se agrupan por proveedor; *Pedir N en una orden* abre una orden nueva con los que están en el
+    catálogo (`?faltantes=…`; la cantidad se copia si está en la unidad del producto, si no queda 1 para revisar) y,
+    al guardarla, quedan enlazados ("Pedido en OC-000N").
+  - Trigger `product_needs_on_po`: al **recibir** una orden se atienden los faltantes pendientes de sus productos
+    (estén o no enlazados) y se sueltan los enlazados cuyo producto se quitó; al **cancelarla** se sueltan.
+  - RLS: admin y almacén. Cada alta y cambio de estado queda en *Actividad* (tipo *Faltantes*). La habilidad
+    `/pedidos` registra aquí lo que un proveedor no atendió.
 
 ## Celular: escaneo, fotos y alta rápida
 

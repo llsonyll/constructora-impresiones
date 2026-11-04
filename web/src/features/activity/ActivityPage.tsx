@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Bot, Boxes, ChevronDown, Package, ShoppingCart, Truck, type LucideIcon } from 'lucide-react'
+import { Bot, Boxes, ChevronDown, ClipboardList, Package, ShoppingCart, Truck, type LucideIcon } from 'lucide-react'
 import FilterBar from '@/components/FilterBar'
 import PageHeader from '@/components/PageHeader'
 import { money } from '@/lib/format'
@@ -18,11 +18,11 @@ const dayLabel = (day: string) => {
 }
 const timeOf = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
-const KINDS: ActivityKind[] = ['venta', 'producto', 'compra', 'stock']
-const KIND_ICON: Record<ActivityKind, LucideIcon> = { venta: ShoppingCart, producto: Package, compra: Truck, stock: Boxes }
+const KINDS: ActivityKind[] = ['venta', 'producto', 'compra', 'stock', 'faltante']
+const KIND_ICON: Record<ActivityKind, LucideIcon> = { venta: ShoppingCart, producto: Package, compra: Truck, stock: Boxes, faltante: ClipboardList }
 const KIND_COLOR: Record<ActivityKind, string> = {
   venta: 'bg-amber-100 text-amber-800', producto: 'bg-sky-100 text-sky-800',
-  compra: 'bg-emerald-100 text-emerald-800', stock: 'bg-violet-100 text-violet-800',
+  compra: 'bg-emerald-100 text-emerald-800', stock: 'bg-violet-100 text-violet-800', faltante: 'bg-orange-100 text-orange-800',
 }
 
 /** Nombre de cada campo del producto en el detalle de una edición. */

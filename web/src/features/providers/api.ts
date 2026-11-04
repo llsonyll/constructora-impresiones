@@ -163,6 +163,7 @@ export function useSetPoStatus() {
     onSuccess: (_d, { id }) => {
       qc.invalidateQueries({ queryKey: providerKeys.orders })
       qc.invalidateQueries({ queryKey: providerKeys.order(id) })
+      qc.invalidateQueries({ queryKey: ['needs'] })   // cancelar suelta los faltantes enlazados (trigger)
     },
   })
 }
@@ -189,7 +190,10 @@ export function useDeletePurchaseOrder() {
       const { error } = await supabase.from('purchase_orders').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: providerKeys.orders }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: providerKeys.orders })
+      qc.invalidateQueries({ queryKey: ['needs'] })
+    },
   })
 }
 
@@ -205,6 +209,7 @@ export function useReceivePurchaseOrder() {
       qc.invalidateQueries({ queryKey: providerKeys.orders })
       qc.invalidateQueries({ queryKey: providerKeys.order(id) })
       qc.invalidateQueries({ queryKey: ['inventory'] })   // stock y costos cambiaron
+      qc.invalidateQueries({ queryKey: ['needs'] })       // los faltantes de esos productos quedan atendidos (trigger)
     },
   })
 }
