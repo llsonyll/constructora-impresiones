@@ -98,6 +98,8 @@ export interface Parsed {
   /** Marca de la línea: la que aparece en el nombre o, si no, la de la ficha. */
   brand: string
   size: Size | null
+  /** El tamaño tal como está escrito en el nombre ("1/4GL", "400ml"), para armar el nombre de otro tamaño. */
+  sizeText: string
   color: string    // '' = sin color
 }
 
@@ -154,7 +156,7 @@ export function parseName(rawName: string, rawBrand: string | null, brands: Set<
     && !(i >= colorFrom && i < colorTo) && !(brandAt && i >= brandAt[0] && i < brandAt[1]))
   const meaningful = lineWords.filter(w => !FILLER.has(w))
   const line = (meaningful.length ? meaningful : lineWords).join(' ') || color || name
-  return { key: `${line}|${brand}`, line, brand, size, color }
+  return { key: `${line}|${brand}`, line, brand, size, sizeText: size ? name.slice(size.start, size.end) : '', color }
 }
 
 // ---------- Tablas por línea ----------
@@ -176,6 +178,7 @@ export interface Line<P extends AssortmentProduct> {
   colors: string[]                  // filas ('' = sin color)
   cells: Map<string, P[]>           // `${color}\u0000${size.label}` → productos (más de uno = repetido)
   products: P[]
+  parsed: Map<string, Parsed>       // producto → lo leído de su nombre (con el tamaño ya unificado)
 }
 
 export const cellKey = (color: string, size: string) => `${color}\u0000${size}`
@@ -215,10 +218,44 @@ export function buildLines<P extends AssortmentProduct>(products: P[], brands: S
     const colors = [...new Set(items.map(it => it.parsed.color))]
       .sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)))
     const { line, brand } = items[0].parsed
-    lines.push({ key, line, brand, sizes, colors, cells, products: items.map(it => it.p) })
+    lines.push({ key, line, brand, sizes, colors, cells, products: items.map(it => it.p), parsed: new Map(items.map(it => [it.p.id, it.parsed])) })
   }
   return lines.sort((a, b) => a.line.localeCompare(b.line) || a.brand.localeCompare(b.brand))
 }
 
 /** Stock en o bajo el mínimo (sin stock cuenta siempre). */
 export const isLow = (p: AssortmentProduct) => p.track_stock && (p.stock <= 0 || p.stock <= p.min_stock)
+
+/** Reemplaza `find` por `put` en `text` solo si aparece una vez como palabra(s) completa(s). */
+function replaceOnce(text: string, find: string, put: string): string | null {
+  if (!find) return null
+  const esc = find.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  const re = new RegExp(`(^|\\s)${esc}(?=\\s|$)`, 'g')
+  const hits = [...text.matchAll(re)]
+  if (hits.length !== 1) return null
+  return text.replace(re, (_m, pre: string) => `${pre}${put}`).replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Nombre para un producto que falta en la tabla (ese color en ese tamaño), copiando cómo están escritos los de la
+ * línea: otro color del mismo tamaño con el color cambiado ("ESMALTE CRONS 1/4 GL BLANCO" → "… AMARILLO LIMON"), o el
+ * mismo color en otro tamaño con el tamaño cambiado. Si no hay de dónde copiar: TIPO MARCA TAMAÑO COLOR.
+ */
+export function suggestName<P extends AssortmentProduct>(line: Line<P>, color: string, sizeLabel: string): { name: string; template: P | null } {
+  const size = sizeLabel === NO_SIZE ? '' : sizeLabel
+  const entries = line.products.map(p => ({ p, x: line.parsed.get(p.id)!, name: plain(p.name).replace(/\s+/g, ' ').trim() }))
+  // Otro color, mismo tamaño.
+  for (const { p, x, name } of entries) {
+    if ((x.size?.label ?? NO_SIZE) !== sizeLabel || !x.color || !color) continue
+    const out = replaceOnce(name, x.color, color)
+    if (out) return { name: out, template: p }
+  }
+  // Mismo color, otro tamaño.
+  for (const { p, x, name } of entries) {
+    if (x.color !== color || !x.sizeText || !size) continue
+    const out = replaceOnce(name, x.sizeText, size)
+    if (out) return { name: out, template: p }
+  }
+  const brand = line.brand && !line.line.split(' ').includes(line.brand) ? line.brand : ''
+  return { name: [line.line, brand, size, color].filter(Boolean).join(' '), template: null }
+}
