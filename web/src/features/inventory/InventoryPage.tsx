@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Hash, MapPin, Replace, ScanBarcode, Search, Tag } from 'lucide-react'
+import { Hash, LayoutGrid, MapPin, Replace, ScanBarcode, Search, Tag } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { normalizeCode } from '@/features/locations/api'
@@ -111,11 +111,12 @@ export default function InventoryPage() {
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
-        <div className="grid grid-cols-4 gap-2 max-md:w-full md:flex">
-          <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Tag aria-hidden className="size-5 text-stone-500" />Precios</Link>
-          <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><MapPin aria-hidden className="size-5 text-stone-500" />Ubicaciones</Link>
-          <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Hash aria-hidden className="size-5 text-stone-500" />Conteo</Link>
-          <Link to="/inventario/sinonimos" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-3 text-xs leading-tight md:flex-row md:gap-1 md:text-sm"><Replace aria-hidden className="size-5 text-stone-500" />Sinónimos</Link>
+        <div className="grid grid-cols-5 gap-1.5 max-md:w-full md:flex md:gap-2">
+          <Link to="/inventario/surtido" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><LayoutGrid aria-hidden className="size-5 text-stone-500" />Surtido</Link>
+          <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Tag aria-hidden className="size-5 text-stone-500" />Precios</Link>
+          <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><MapPin aria-hidden className="size-5 text-stone-500" />Ubicaciones</Link>
+          <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Hash aria-hidden className="size-5 text-stone-500" />Conteo</Link>
+          <Link to="/inventario/sinonimos" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Replace aria-hidden className="size-5 text-stone-500" />Sinónimos</Link>
         </div>
         <button onClick={newProduct} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white max-md:hidden">+ Nuevo producto</button>
       </div>
