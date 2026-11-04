@@ -19,6 +19,7 @@ import DocumentsPage from '@/features/documents/DocumentsPage'
 import DocumentPage from '@/features/documents/DocumentPage'
 import QuoteEditorPage from '@/features/documents/QuoteEditorPage'
 import ActivityPage from '@/features/activity/ActivityPage'
+import AgendaPage from '@/features/agenda/AgendaPage'
 import type { Role } from '@/types/domain'
 import type { ReactNode } from 'react'
 
@@ -45,6 +46,7 @@ export default function AppRoutes() {
           <Route path="hoy" element={<RequireRole roles={['admin', 'cajero']}><TodayPage /></RequireRole>} />
           <Route path="caja" element={<RequireRole roles={['admin', 'cajero']}><CashPage /></RequireRole>} />
           <Route path="reportes" element={<RequireRole roles={['admin']}><ReportsPage /></RequireRole>} />
+          <Route path="agenda" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><AgendaPage /></RequireRole>} />
           <Route path="actividad" element={<RequireRole roles={['admin']}><ActivityPage /></RequireRole>} />
           <Route path="inventario" element={<RequireRole roles={['admin', 'almacen']}><InventoryPage /></RequireRole>} />
           <Route path="inventario/conteo" element={<RequireRole roles={['admin', 'almacen']}><StockCountPage /></RequireRole>} />
