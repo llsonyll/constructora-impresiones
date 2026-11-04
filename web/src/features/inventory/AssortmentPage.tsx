@@ -6,9 +6,10 @@ import PageHeader from '@/components/PageHeader'
 import { rankBy } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
 import { type InventoryProduct, useCategories, useInventory } from './api'
-import { brandSet, buildLines, cellKey, isLow, type Line } from './assortment'
+import { brandSet, buildLines, cellKey, isLow, type Line, NO_SIZE, suggestName } from './assortment'
 import CategoryOptions from './CategoryOptions'
 import ProductEditor from './ProductEditor'
+import QuickCreateSheet from './QuickCreateSheet'
 
 const ORDER_KEY = 'surtido-pedido'
 type Order = Record<string, number>   // producto → cantidad a pedir
@@ -22,6 +23,16 @@ const suggestQty = (p: InventoryProduct) => Math.max(Math.ceil(p.min_stock - Mat
 
 const fmt = (n: number) => String(Number(n.toFixed(3)))
 const brandLabel = (b: string) => b || 'Sin marca'
+
+/** El valor más repetido (sin contar vacíos); null si no hay ninguno. */
+function mostCommon<T>(values: (T | null | undefined)[]): T | null {
+  const count = new Map<T, number>()
+  for (const v of values) if (v != null && v !== '') count.set(v, (count.get(v) ?? 0) + 1)
+  return [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
+/** Casilla vacía que se va a crear: ese color en ese tamaño de la línea. */
+interface Missing { line: Line<InventoryProduct>; color: string; size: string }
 
 /**
  * Surtido: el stock de una línea (ESMALTE · CRONS, SPRAY · CA…) como tabla color × presentación, para ver de un
@@ -60,16 +71,18 @@ export default function AssortmentPage() {
   }, [order])
   const [editingId, setEditingId] = useState<string | null>(null)
   const editing = products.find(p => p.id === editingId) ?? null
+  const [creating, setCreating] = useState<Missing | null>(null)
 
   const brands = useMemo(() => brandSet(products.map(p => p.brand)), [products])
   const textScore = useProductMatcher(query)
 
   // Productos con stock (no servicios) de la categoría elegida, y la búsqueda.
   const pool = useMemo(() => {
-    const list = products.filter(p => p.track_stock && (withInactive || p.active)
+    // Los inactivos que están en el pedido se ven igual (p. ej. el recién creado sin precio desde una casilla vacía).
+    const list = products.filter(p => p.track_stock && (withInactive || p.active || p.id in order)
       && (category === '' || (category === 'sin' ? p.category_id == null : p.category_id === Number(category))))
     return textScore ? rankBy(list, textScore) : list
-  }, [products, category, withInactive, textScore])
+  }, [products, category, withInactive, textScore, order])
 
   const allLines = useMemo(() => buildLines(pool, brands), [pool, brands])
 
@@ -224,7 +237,8 @@ export default function AssortmentPage() {
           </p>
           {!lines.length && !isLoading && <p className="rounded-lg bg-white p-6 text-center text-sm text-stone-500 shadow">Sin productos con estos filtros.</p>}
           {lines.map(l => (
-            <LineTable key={l.key} line={l} order={order} onToggle={toggle} onMarkLow={() => markLow(l)} onOpen={setEditingId} />
+            <LineTable key={l.key} line={l} order={order} onToggle={toggle} onMarkLow={() => markLow(l)} onOpen={setEditingId}
+                       onCreate={(color, size) => setCreating({ line: l, color, size })} />
           ))}
           <Legend />
         </>
@@ -244,9 +258,45 @@ export default function AssortmentPage() {
         </div>
       )}
 
+      {creating && <CreateMissing missing={creating} onClose={() => setCreating(null)}
+                                  onCreated={(id, name) => {
+                                    setOrder(o => ({ ...o, [id]: 1 }))
+                                    setCreating(null)
+                                    toast.success(`Creado y en el pedido: ${name}`)
+                                  }} />}
+
       {editing && <ProductEditor product={editing} key={editing.id} onClose={() => setEditingId(null)}
                                  onSaved={(_, name) => { toast.success(`Guardado: ${name}`); setEditingId(null) }} />}
     </div>
+  )
+}
+
+/** Alta rápida del producto que falta, con nombre, marca, categoría, unidad y proveedor tomados de su línea. */
+function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
+  missing: Missing
+  onClose: () => void
+  onCreated: (id: string, name: string) => void
+}) {
+  const { name, template } = suggestName(line, color, size)
+  const ps = line.products
+  const sizeText = size === NO_SIZE ? '' : ` en ${size}`
+  return (
+    <QuickCreateSheet
+      initialName={name}
+      initialBrand={template?.brand ?? mostCommon(ps.map(p => p.brand)) ?? line.brand}
+      initialCategory={template?.category_id ?? mostCommon(ps.map(p => p.category_id))}
+      initialUnit={template?.unit ?? mostCommon(ps.map(p => p.unit)) ?? 'und'}
+      providerId={template?.provider_id ?? mostCommon(ps.map(p => p.provider_id))}
+      submitLabel="Crear y agregar al pedido"
+      intro={
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          No tienes <b>{color || 'este producto'}</b>{sizeText} en {line.line} · {brandLabel(line.brand)}. Revisa el nombre:
+          se crea <b>por revisar</b> (sin precio no sale en Ventas) y entra al pedido. El costo lo pones en la orden y el precio, al recibir la compra.
+        </p>
+      }
+      onClose={onClose}
+      onCreated={p => onCreated(p.id, p.name)}
+    />
   )
 }
 
@@ -259,12 +309,13 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
-function LineTable({ line, order, onToggle, onMarkLow, onOpen }: {
+function LineTable({ line, order, onToggle, onMarkLow, onOpen, onCreate }: {
   line: Line<InventoryProduct>
   order: Order
   onToggle: (ps: InventoryProduct[]) => void
   onMarkLow: () => void
   onOpen: (id: string) => void
+  onCreate: (color: string, size: string) => void
 }) {
   const visible = line.colors.flatMap(c => line.sizes.flatMap(s => line.cells.get(cellKey(c, s.label)) ?? []))
   const low = visible.filter(isLow).length
@@ -296,7 +347,16 @@ function LineTable({ line, order, onToggle, onMarkLow, onOpen }: {
                 </th>
                 {line.sizes.map(s => {
                   const ps = line.cells.get(cellKey(c, s.label))
-                  return <td key={s.label} className="p-0.5 text-center">{ps ? <Cell ps={ps} order={order} onToggle={onToggle} onOpen={onOpen} /> : <span className="text-stone-300" aria-label="No existe">·</span>}</td>
+                  return (
+                    <td key={s.label} className="p-0.5 text-center">
+                      {ps ? <Cell ps={ps} order={order} onToggle={onToggle} onOpen={onOpen} />
+                        : <button onClick={() => onCreate(c, s.label)} aria-label={`No existe ${c || 'sin color'} en ${s.label}: crear y pedir`}
+                                  className="group h-11 w-full min-w-[3.25rem] rounded-md text-stone-300 active:bg-amber-50 md:hover:bg-amber-50">
+                            <span className="group-active:hidden md:group-hover:hidden">·</span>
+                            <span className="hidden text-lg text-amber-700 group-active:inline md:group-hover:inline">+</span>
+                          </button>}
+                    </td>
+                  )
                 })}
               </tr>
             ))}
@@ -355,7 +415,7 @@ function Legend() {
       <span><span className="inline-block size-3 rounded-sm bg-red-100 align-[-0.1em]" /> agotado</span>
       <span><span className="inline-block size-3 rounded-sm bg-amber-100 align-[-0.1em]" /> en o bajo el mínimo</span>
       <span><span className="inline-block size-3 rounded-sm bg-amber-600 align-[-0.1em]" /> en el pedido</span>
-      <span>· no existe en ese tamaño</span>
+      <span>· no existe en ese tamaño (tócalo para crearlo y pedirlo)</span>
       <span>×2 producto repetido</span>
       <span>Mantén presionada una casilla para abrir su ficha.</span>
     </div>

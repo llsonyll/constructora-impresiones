@@ -56,6 +56,12 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
   una orden de compra nueva con esos productos (cantidad hasta el mínimo, o 1; costo = último costo; proveedor ya
   elegido si todos son del mismo) y el botón de copiar deja la lista para pegarla en un mensaje. Mantener presionada
   una casilla abre la ficha del producto.
+  - **Casilla vacía (`·`)**: ese color no existe en ese tamaño. Tocarla abre el alta rápida con el producto armado
+    como los de su línea (otro color del mismo tamaño con el color cambiado: «ESMALTE CRONS 1/4 GL BLANCO» →
+    «… AMARILLO LIMON»; si no, el mismo color en otro tamaño) y marca, categoría, unidad y proveedor de la línea.
+    *Crear y agregar al pedido* lo crea **por revisar** y sin precio (inactivo: no sale en Ventas) y lo marca en el
+    pedido; los inactivos que están en el pedido se ven en la tabla aunque no se incluyan inactivos. El costo se pone
+    en la orden y el precio al recibirla.
   - Línea, presentación y color **se leen del nombre** (`features/inventory/assortment.ts`), no hay campos aparte:
     tamaño = número + unidad (GL, LT, ML, KG, W, M, MM, pulgadas `"`; "GALON" solo = 1 GL; una fracción sin unidad
     como "1/8" toma la de su línea), color = desde la primera palabra de color (BLANCO, AZUL, CAOBA, CATERPILLAR…)
