@@ -16,7 +16,11 @@ const pct = (n: number) => `${Math.round(n * 100)}%`
  * (o sin precio) salen primero, con el precio editable y una sugerencia de costo +35%.
  * Cada renglón abre su detalle para anotar dónde se guardó lo recibido, una descripción y la foto.
  */
-export default function ReceiptSummary({ lines, onDone }: { lines: ReceiptLine[]; onDone: () => void }) {
+export default function ReceiptSummary({ lines, onDone, reopened = false }: {
+  lines: ReceiptLine[]; onDone: () => void
+  /** Abierto otra vez desde una orden ya recibida: el stock y el precio son los de ahora. */
+  reopened?: boolean
+}) {
   const patch = usePatchProduct()
   const { data: products = [] } = useInventory()
   const byId = useMemo(() => new Map(products.map(p => [p.id, p])), [products])
@@ -24,7 +28,10 @@ export default function ReceiptSummary({ lines, onDone }: { lines: ReceiptLine[]
   const [saved, setSaved] = useState<Record<string, number>>({})
   const [error, setError] = useState('')
   // Productos cuya cantidad recibida ya se sumó a una ubicación (para no sumarla dos veces).
-  const [placed, setPlaced] = useState<Set<string>>(() => new Set())
+  // Reabierto: no se sabe si lo recibido ya se sumó antes del corte; si el producto ya tiene ubicación no se vuelve
+  // a ofrecer "+N aquí" (la cantidad se corrige a mano en la ubicación).
+  const [placed, setPlaced] = useState<Set<string>>(() => new Set(
+    reopened ? lines.filter(l => (byId.get(l.product_id)?.locations.length ?? 0) > 0).map(l => l.product_id) : []))
   const [detail, setDetail] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
 
@@ -58,7 +65,9 @@ export default function ReceiptSummary({ lines, onDone }: { lines: ReceiptLine[]
   return (
     <div className="space-y-3">
       <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
-        ✓ Mercadería recibida: entró el stock de {lines.length} producto{lines.length === 1 ? '' : 's'} y se actualizaron los costos.
+        {reopened
+          ? <>Revisión de lo recibido en esta orden ({lines.length} producto{lines.length === 1 ? '' : 's'}): stock y precios actuales.</>
+          : <>✓ Mercadería recibida: entró el stock de {lines.length} producto{lines.length === 1 ? '' : 's'} y se actualizaron los costos.</>}
         {attention > 0 && <> <strong>{attention}</strong> quedan sin precio o con margen menor a {pct(LOW_MARGIN)}: revísalos abajo.</>}
         {unplaced > 0 && <> <strong>{unplaced}</strong> no tienen ubicación: toca «Ubicar» para anotar dónde los guardaste.</>}
       </div>

@@ -11,7 +11,7 @@ import { IGV_RATE, money, round2 } from '@/lib/format'
 import { type CostEntry, type InventoryProduct, useCostHistory, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import {
-  friendlyPoError, type PoDraft, poLabel, type ReceiptLine, STATUS_LABEL, STATUS_STYLE, useDeletePurchaseOrder,
+  fetchReceiptLines, friendlyPoError, type PoDraft, poLabel, type ReceiptLine, STATUS_LABEL, STATUS_STYLE, useDeletePurchaseOrder,
   usePurchaseOrder, useProviderList, useReceivePurchaseOrder, useSavePurchaseOrder, useSetPoStatus, useUpdateInvoiceRef, whatsappUrl,
 } from './api'
 import ReceiptSummary from './ReceiptSummary'
@@ -69,6 +69,8 @@ export default function PurchaseOrderPage() {
   const [scanning, setScanning] = useState(false)
   const [creating, setCreating] = useState<{ barcode?: string; name?: string } | null>(null)
   const [receipt, setReceipt] = useState<ReceiptLine[] | null>(null)
+  // El resumen se abrió otra vez desde una orden ya recibida (no recién recibida).
+  const [reopened, setReopened] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState('')
   // Tras intentar recibir con costos vacíos, se marcan en rojo.
@@ -272,7 +274,14 @@ export default function PurchaseOrderPage() {
     const units = form.lines.reduce((s, l) => s + (valid(l.qty) ? num(l.qty) : 0), 0)
     if (!confirm(`¿Recibir la mercadería? Entrarán ${fmtQty(units)} unidades de ${form.lines.length} productos al stock y se actualizarán los costos. No se puede deshacer.`)) return
     const id = await persist(); if (!id) return
-    setReceipt(await receive.mutateAsync(id))
+    setReceipt(await receive.mutateAsync(id)); setReopened(false)
+    toast.dismiss()
+    window.scrollTo({ top: 0 })
+  })
+
+  // Si se cerró el resumen antes de terminar (refresco, corte de internet), se puede volver a él.
+  const onReviewReceipt = () => run(async () => {
+    setReceipt(await fetchReceiptLines(order!, byId)); setReopened(true)
     toast.dismiss()
     window.scrollTo({ top: 0 })
   })
@@ -309,9 +318,28 @@ export default function PurchaseOrderPage() {
       </>} />
 
       {receipt ? (
-        <ReceiptSummary lines={receipt} onDone={() => setReceipt(null)} />
+        <ReceiptSummary lines={receipt} reopened={reopened} onDone={() => setReceipt(null)} />
       ) : (
         <>
+          {status === 'recibida' && (() => {
+            const pendingPrice = form.lines.filter(l => {
+              const p = byId.get(l.product_id)
+              return p && (p.price == null || (p.cost != null && (p.price - p.cost) / p.price < LOW_MARGIN))
+            }).length
+            return (
+              <div className={`flex flex-wrap items-center gap-2 rounded-lg p-3 text-sm ${pendingPrice ? 'bg-amber-50 text-amber-900' : 'bg-white shadow'}`}>
+                <span className="mr-auto">
+                  {pendingPrice
+                    ? <><b>{pendingPrice}</b> producto{pendingPrice > 1 ? 's' : ''} de esta orden sin precio o con margen menor a {Math.round(LOW_MARGIN * 100)}%.</>
+                    : 'Orden recibida.'}
+                  {' '}Puedes volver al resumen de la recepción para poner precios de venta y ubicar lo recibido.
+                </span>
+                <button onClick={onReviewReceipt} disabled={busy}
+                        className="min-h-11 rounded bg-amber-700 px-4 text-white disabled:opacity-50">Revisar precios y ubicación</button>
+              </div>
+            )
+          })()}
+
           {/* Cabecera */}
           <div className="grid gap-3 rounded-lg bg-white p-3 shadow sm:grid-cols-3">
             <label className="block text-sm sm:col-span-1">
