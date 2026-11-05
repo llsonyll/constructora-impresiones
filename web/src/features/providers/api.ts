@@ -215,6 +215,48 @@ export function useReceivePurchaseOrder() {
   })
 }
 
+/**
+ * Rearma el resumen de una orden ya recibida (el que sale al recibir), para volver a poner precios y ubicar
+ * si se cerró la pantalla antes de terminar (refresco, corte de internet…). Costo nuevo y cantidad salen del
+ * historial de costos de esa orden; el costo anterior, de la entrada previa de cada producto. Stock y precio son
+ * los actuales.
+ */
+export async function fetchReceiptLines(
+  order: Pick<PurchaseOrder, 'id' | 'items' | 'costs_include_igv' | 'received_at'>,
+  products: Map<string, { name: string; unit: string; price: number | null; stock: number }>,
+): Promise<ReceiptLine[]> {
+  const ids = [...new Set(order.items.map(i => i.product_id))]
+  const { data: mine, error: e1 } = await supabase.from('product_cost_history')
+    .select('product_id, cost, qty, created_at').eq('po_id', order.id).eq('source', 'compra')
+  if (e1) throw e1
+  const byProduct = new Map(mine.map(h => [h.product_id as string, h]))
+  const receivedAt = mine[0]?.created_at ?? order.received_at
+  const before = new Map<string, number>()
+  if (receivedAt && ids.length) {
+    const { data: prev, error: e2 } = await supabase.from('product_cost_history')
+      .select('product_id, cost').in('product_id', ids).lt('created_at', receivedAt)
+      .order('created_at', { ascending: false }).limit(20 * ids.length)
+    if (e2) throw e2
+    for (const h of prev) if (!before.has(h.product_id)) before.set(h.product_id, Number(h.cost))
+  }
+  const factor = order.costs_include_igv ? 1 : 1.18
+  const lines: ReceiptLine[] = []
+  for (const id of ids) {
+    const p = products.get(id)
+    const items = order.items.filter(i => i.product_id === id)
+    const h = byProduct.get(id)
+    const qty = h?.qty != null ? Number(h.qty) : items.reduce((s, i) => s + i.qty, 0)
+    // Sin historial (no debería pasar): el mismo cálculo que receive_purchase_order.
+    const cost = h ? Number(h.cost)
+      : qty ? Math.round(items.reduce((s, i) => s + i.qty * (i.unit_cost ?? 0), 0) / qty * factor * 10000) / 10000 : 0
+    lines.push({
+      product_id: id, name: p?.name ?? 'Producto', unit: p?.unit ?? '', qty, price: p?.price ?? null,
+      old_cost: before.get(id) ?? null, new_cost: cost, stock: p?.stock ?? 0,
+    })
+  }
+  return lines.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 /** Enlace de WhatsApp (Perú: 9 dígitos → +51). */
 export function whatsappUrl(phone: string | null, text = '') {
   const digits = (phone ?? '').replace(/\D/g, '')
