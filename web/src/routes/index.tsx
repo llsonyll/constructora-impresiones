@@ -15,6 +15,7 @@ import AssortmentPage from '@/features/inventory/AssortmentPage'
 import LocationsPage from '@/features/locations/LocationsPage'
 import ProvidersPage from '@/features/providers/ProvidersPage'
 import PurchaseOrderPage from '@/features/providers/PurchaseOrderPage'
+import PurchaseOrderPdfPage from '@/features/providers/PurchaseOrderPdfPage'
 import DocumentsPage from '@/features/documents/DocumentsPage'
 import DocumentPage from '@/features/documents/DocumentPage'
 import QuoteEditorPage from '@/features/documents/QuoteEditorPage'
@@ -56,6 +57,7 @@ export default function AppRoutes() {
           <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><LocationsPage /></RequireRole>} />
           <Route path="proveedores" element={<RequireRole roles={['admin', 'almacen']}><ProvidersPage /></RequireRole>} />
           <Route path="proveedores/ordenes/:id" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPage /></RequireRole>} />
+          <Route path="proveedores/ordenes/:id/pdf" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPdfPage /></RequireRole>} />
           <Route path="documentos" element={<RequireRole roles={['admin', 'cajero']}><DocumentsPage /></RequireRole>} />
           <Route path="documentos/cotizacion/nueva" element={<RequireRole roles={['admin', 'cajero']}><QuoteEditorPage /></RequireRole>} />
           <Route path="documentos/:id" element={<RequireRole roles={['admin', 'cajero']}><DocumentPage /></RequireRole>} />

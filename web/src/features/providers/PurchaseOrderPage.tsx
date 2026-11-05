@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
-import { ScanBarcode } from 'lucide-react'
+import { FileText, ScanBarcode } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -259,6 +259,12 @@ export default function PurchaseOrderPage() {
 
   const onSave = () => run(async () => { if (await persist()) flashMsg('Orden guardada') })
 
+  // PDF para enviar o archivar: guarda antes si hay cambios (la hoja se arma con lo guardado).
+  const onPdf = () => run(async () => {
+    const id = status === 'recibida' || status === 'cancelada' ? routeId! : await persist()
+    if (id) navigate(`/proveedores/ordenes/${id}/pdf`)
+  })
+
   const onMarkSent = () => run(async () => {
     const id = await persist(); if (!id) return
     await setStatus.mutateAsync({ id, status: 'enviada' })
@@ -495,6 +501,11 @@ export default function PurchaseOrderPage() {
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-auto text-sm">{form.lines.length} productos · <strong>{money(total)}</strong>
               {unpriced.length > 0 && <span className="text-amber-700"> · {unpriced.length} por cotizar</span>}</span>
+            {form.lines.length > 0 && (!isNew || editable) && (
+              <button onClick={onPdf} disabled={busy} className="flex min-h-11 items-center gap-1.5 rounded border px-3 text-sm disabled:opacity-50">
+                <FileText className="size-4" />PDF
+              </button>
+            )}
             {editable && <>
               {(dirty || isNew) && (
                 <button onClick={onSave} disabled={busy} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Guardar</button>
