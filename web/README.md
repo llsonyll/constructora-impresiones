@@ -142,7 +142,8 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   *Pedir por WhatsApp* arma el mensaje con la lista y marca la orden como enviada.
   **PDF** (`/proveedores/ordenes/:id/pdf`, `PurchaseOrderPdfPage`): la orden en una hoja A4 para imprimir o guardar
   como PDF (como en Documentos), en dos formatos: *Solicitud de cotización* (sin precios, columnas en blanco para que
-  el proveedor cotice; la opción por defecto si falta algún costo) u *Orden de compra* (con costos y total). Sin datos
+  el proveedor cotice; la opción por defecto si ninguna línea tiene costo) u *Orden de compra* (con costos y total;
+  la opción por defecto si hay alguno, y los que faltan salen en blanco). Sin datos
   internos (SKU, stock, precio de venta); la nota de la orden solo si se marca. Guarda la orden antes si hay cambios.
 - **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
   OC y la factura), cada costo queda en el historial y el producto sin proveedor queda asignado.

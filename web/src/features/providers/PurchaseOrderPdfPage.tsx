@@ -32,8 +32,10 @@ export default function PurchaseOrderPdfPage() {
   if (error || !order) return <p className="p-6 text-red-600">No se pudo abrir la orden{error ? `: ${(error as Error).message}` : ''}.</p>
 
   const anyMissing = order.items.some(i => i.unit_cost == null)
+  const anyPriced = order.items.some(i => i.unit_cost != null)
+  // Por defecto, con precios si la orden tiene alguno (los que faltan salen en blanco); sin precios solo si no tiene ninguno.
   const raw = params.get('modo')
-  const mode: Mode = raw === 'solicitud' || raw === 'orden' ? raw : anyMissing ? 'solicitud' : 'orden'
+  const mode: Mode = raw === 'solicitud' || raw === 'orden' ? raw : anyPriced ? 'orden' : 'solicitud'
   const withNote = params.get('nota') === '1'
   const set = (k: string, v: string | null) => setParams(p => { const n = new URLSearchParams(p); if (v == null) n.delete(k); else n.set(k, v); return n }, { replace: true })
   const provider = providers.find(p => p.id === order.provider_id)
