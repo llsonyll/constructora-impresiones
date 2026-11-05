@@ -88,6 +88,10 @@ select public.save_purchase_order(jsonb_build_object(
     jsonb_build_object('product_id', (select id from products where sku = 'GAS-0023'), 'qty', 50, 'unit_cost', 1.95))));
 ```
 - Una orden por factura; antes, comprueba que no exista ya una con ese `invoice_ref` y proveedor.
+- Si el proveedor tiene una orden **abierta** (borrador o enviada) armada como pedido (p. ej. con `/pedidos`), la
+  factura es la llegada de ese pedido: muéstrale al usuario las diferencias (cantidades, costos, productos de más o
+  de menos) y, con su visto bueno, **actualiza esa orden** con `save_purchase_order` (`id` de la orden, ítems de la
+  factura, `invoice_ref`) en vez de crear otra. Lo pedido que no llegó se registra como faltante (`/pedidos`, paso 5).
 - **Verifica** que `purchase_orders.total` coincida con el TOTAL de la factura (con IGV). Si no cuadra,
   revisa la lectura antes de seguir.
 - No llames a `receive_purchase_order`.

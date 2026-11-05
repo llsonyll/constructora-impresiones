@@ -153,7 +153,17 @@ Cuando el usuario trae la respuesta del proveedor (nota de venta, cotización, f
     registra desde la app (*Registrar*).
   - `provider_id` es a quién conviene pedírselo; si no se sabe, `null` (el que no lo atendió va en `reference`).
   - Antes de insertar, revisa que no esté ya pendiente (`select … from product_needs where status = 'pendiente'`).
-- Al cargar la factura con `/facturas`, la recepción de la orden cierra sola los faltantes de esos productos.
+- **Cotejar no es comprar.** Con la cotización no se crean productos ni órdenes: el informe y los faltantes bastan.
+  Solicitud → cotización → pedido → factura son pasos distintos, y en *Proveedores* el usuario registra las
+  facturas de lo que ya llegó.
+- **Solo si el usuario dice que va a comprar** («arma la orden», «se lo compro»): crea la orden de compra como
+  **pedido**, en borrador, con los costos cotizados (pasos 4 y 5 de `/facturas`: productos que falten sin precio
+  de venta e inactivos; `invoice_ref` vacío; en `note`, la cotización y lo que se dejó fuera). Explícale que:
+  - un borrador **no mueve stock ni costos** y aparece en *Pendientes*, no en *Recibidas*;
+  - cuando llegue la factura, esa misma orden se ajusta (cantidades, costos, N° de factura) y se **recibe**;
+    `/facturas` debe completar esa orden, no crear otra;
+  - el botón **PDF** de la orden la imprime como *Solicitud de cotización* (sin precios) o *Orden de compra*.
+- Al recibir la orden, se cierran solos los faltantes de esos productos.
 
 ## 6. Informe al usuario
 
