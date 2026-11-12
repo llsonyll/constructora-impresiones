@@ -3,7 +3,7 @@ import Sheet from '@/components/Sheet'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FurnitureType, Location } from '@/types/domain'
-import { FURNITURE_LABEL, LOCATION_RE, friendlyLocationError, locationKeys, useDeleteLocation, useSaveLocation } from './api'
+import { FURNITURE_LABEL, LOCATION_RE, friendlyLocationError, locationKeys, useDeleteLocation, useLocations, useSaveLocation } from './api'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const input = 'min-h-11 w-full rounded-lg border px-2 text-base'
@@ -13,12 +13,14 @@ const codeOf = (f: string, body: string, level: number, slot: string) =>
 /**
  * Crear o editar una ubicación. Al crear se puede generar un mueble entero de una vez: niveles desde/hasta
  * y, si los niveles están divididos, cuántas secciones (A, B, C…) tiene cada uno.
+ * Un colgador (C1, C2…) tiene un solo nivel y sin cuerpos: solo se elige cuántos tramos tiene la barra.
  */
 export default function LocationForm({ location, defaultFurniture, productCount, onClose, onSaved, onDeleted }: {
   location: Location | null; defaultFurniture: string; productCount: number
   onClose: () => void; onSaved: (id: number, furniture: string) => void; onDeleted: () => void
 }) {
   const qc = useQueryClient()
+  const { data: all = [] } = useLocations()
   const save = useSaveLocation()
   const del = useDeleteLocation()
   const [furniture, setFurniture] = useState(location?.furniture ?? defaultFurniture)
@@ -32,8 +34,9 @@ export default function LocationForm({ location, defaultFurniture, productCount,
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const f = furniture.trim().toUpperCase(), b = body.trim().toUpperCase(), s = slot.trim().toUpperCase()
-  const from = Number(level), to = location ? from : Number(levelTo), nSlots = Number(slots)
+  const hanger = type === 'colgador'
+  const f = furniture.trim().toUpperCase(), b = hanger ? '' : body.trim().toUpperCase(), s = slot.trim().toUpperCase()
+  const from = hanger ? 1 : Number(level), to = hanger || location ? from : Number(levelTo), nSlots = Number(slots)
   const codes: string[] = []
   if (Number.isInteger(from) && Number.isInteger(to) && from >= 1 && to >= from && to - from < 30)
     for (let l = from; l <= to; l++) {
@@ -41,6 +44,15 @@ export default function LocationForm({ location, defaultFurniture, productCount,
       else for (const x of LETTERS.slice(0, nSlots)) codes.push(codeOf(f, b, l, x))
     }
   const valid = codes.length > 0 && codes.every(c => LOCATION_RE.test(c))
+
+  // Al elegir "Colgador" en una ubicación nueva se propone el siguiente C libre (C1, C2…).
+  function changeType(t: FurnitureType) {
+    setType(t)
+    if (t === 'colgador' && !location && !/^C\d+$/.test(f)) {
+      const used = all.filter(l => /^C\d+$/.test(l.furniture)).map(l => Number(l.furniture.slice(1)))
+      setFurniture(`C${used.length ? Math.max(...used) + 1 : 1}`)
+    }
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
@@ -84,17 +96,32 @@ export default function LocationForm({ location, defaultFurniture, productCount,
       <h2 className="text-lg font-semibold">{location ? `Editar ${location.code}` : 'Nueva ubicación'}</h2>
       <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
         <label className="text-xs text-stone-500">Mueble
-          <input className={`${input} mt-1 uppercase`} value={furniture} onChange={e => setFurniture(e.target.value)} placeholder="E6" required />
+          <input className={`${input} mt-1 uppercase`} value={furniture} onChange={e => setFurniture(e.target.value)} placeholder={hanger ? 'C1' : 'E6'} required />
         </label>
         <label className="text-xs text-stone-500">Tipo
-          <select className={`${input} mt-1`} value={type} onChange={e => setType(e.target.value as FurnitureType)}>
+          <select className={`${input} mt-1`} value={type} onChange={e => changeType(e.target.value as FurnitureType)}>
             {Object.entries(FURNITURE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <label className="text-xs text-stone-500">Cuerpo (opcional)
-          <input className={`${input} mt-1 uppercase`} value={body} maxLength={1} onChange={e => setBody(e.target.value)} placeholder="—" />
-        </label>
-        {location ? (
+        {!hanger && (
+          <label className="text-xs text-stone-500">Cuerpo (opcional)
+            <input className={`${input} mt-1 uppercase`} value={body} maxLength={1} onChange={e => setBody(e.target.value)} placeholder="—" />
+          </label>
+        )}
+        {hanger ? (
+          location ? (
+            <label className="text-xs text-stone-500">Tramo (opcional)
+              <input className={`${input} mt-1 uppercase`} value={slot} maxLength={1} onChange={e => setSlot(e.target.value)} placeholder="—" />
+            </label>
+          ) : (
+            <label className="text-xs text-stone-500">Tramos de la barra
+              <select className={`${input} mt-1`} value={slots} onChange={e => setSlots(e.target.value)}>
+                <option value="0">Ninguno (barra entera)</option>
+                {[2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} (A–{LETTERS[n - 1]})</option>)}
+              </select>
+            </label>
+          )
+        ) : location ? (
           <>
             <label className="text-xs text-stone-500">Nivel (1 = arriba)
               <input className={`${input} mt-1`} inputMode="numeric" value={level} onChange={e => setLevel(e.target.value)} />
@@ -120,7 +147,7 @@ export default function LocationForm({ location, defaultFurniture, productCount,
           </>
         )}
         <label className="col-span-2 text-xs text-stone-500">Descripción (opcional)
-          <input className={`${input} mt-1`} value={description} onChange={e => setDescription(e.target.value)} placeholder="Ej.: tornillería, junto a la caja" />
+          <input className={`${input} mt-1`} value={description} onChange={e => setDescription(e.target.value)} placeholder={hanger ? 'Ej.: rodillos, sobre E1, altura techo' : 'Ej.: tornillería, junto a la caja'} />
         </label>
 
         <p className={`col-span-2 rounded-lg p-2 text-sm ${valid ? 'bg-stone-100' : 'bg-red-50 text-red-700'}`}>

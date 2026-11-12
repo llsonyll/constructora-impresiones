@@ -25,7 +25,8 @@ export default function FurnitureForm({ furniture, body, locations, productCount
   const [error, setError] = useState('')
   const name = `${furniture}${body ? `-${body}` : ''}`
 
-  const nLevels = Number(levels), nSlots = Number(slots)
+  const hanger = type === 'colgador'   // un solo nivel: solo se cambian los tramos
+  const nLevels = hanger ? 1 : Number(levels), nSlots = Number(slots)
   const newF = code.trim().toUpperCase()
   const validInput = Number.isInteger(nLevels) && nLevels >= 1 && nLevels <= 30 && /^[A-Z]\d+$/.test(newF)
 
@@ -89,12 +90,14 @@ export default function FurnitureForm({ furniture, body, locations, productCount
             {Object.entries(FURNITURE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <label className="text-xs text-stone-500">Niveles
-          <input className={`${input} mt-1`} inputMode="numeric" value={levels} onChange={e => setLevels(e.target.value)} />
-        </label>
-        <label className="text-xs text-stone-500">Secciones por nivel
+        {!hanger && (
+          <label className="text-xs text-stone-500">Niveles
+            <input className={`${input} mt-1`} inputMode="numeric" value={levels} onChange={e => setLevels(e.target.value)} />
+          </label>
+        )}
+        <label className="text-xs text-stone-500">{hanger ? 'Tramos de la barra' : 'Secciones por nivel'}
           <select className={`${input} mt-1`} value={slots} onChange={e => setSlots(e.target.value)}>
-            <option value="0">Ninguna (nivel entero)</option>
+            <option value="0">{hanger ? 'Ninguno (barra entera)' : 'Ninguna (nivel entero)'}</option>
             {[2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} (A–{LETTERS[n - 1]})</option>)}
           </select>
         </label>

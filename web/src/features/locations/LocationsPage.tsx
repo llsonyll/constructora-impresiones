@@ -9,7 +9,7 @@ import Sheet from '@/components/Sheet'
 import { type InventoryProduct, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import type { Location } from '@/types/domain'
-import { friendlyLocationError, normalizeCode, useLocations, useProductLocation } from './api'
+import { FURNITURE_LABEL, findByCode, friendlyLocationError, normalizeCode, useLocations, useProductLocation } from './api'
 import LocationForm from './LocationForm'
 import FurnitureForm from './FurnitureForm'
 import ProductPreviewSheet from './ProductPreviewSheet'
@@ -57,7 +57,7 @@ export default function LocationsPage() {
   function onJump(e: React.FormEvent) {
     e.preventDefault()
     const code = normalizeCode(jump.trim())
-    const hit = locations.find(l => l.code === code)
+    const hit = findByCode(locations, code)
     if (!hit) { setJumpError(`No existe la ubicación ${code}`); return }
     setJumpError(''); setJump(''); setFurniture(hit.furniture); setSelected(hit.id)
     if (!hit.active) setShowInactive(true)
@@ -102,7 +102,11 @@ export default function LocationsPage() {
                        counts={byLocation} selected={selected} onSelect={setSelected}
                        onEdit={canEdit ? () => setEditFurniture({ furniture: current!, body }) : undefined} />
       ))}
-      <p className="text-xs text-stone-500">N1 es la repisa más alta; las secciones van de izquierda a derecha. El número es la cantidad de productos.</p>
+      <p className="text-xs text-stone-500">
+        {inFurniture[0]?.furniture_type === 'colgador'
+          ? 'Colgador: una sola barra; los tramos van de izquierda a derecha. Se puede buscar como C1-A. El número es la cantidad de productos.'
+          : 'N1 es la repisa más alta; las secciones van de izquierda a derecha. El número es la cantidad de productos.'}
+      </p>
 
       {sel && !form && (
         <LocationSheet location={sel} products={byLocation.get(sel.id) ?? []} allProducts={products}
@@ -133,10 +137,12 @@ function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }:
   onEdit?: () => void
 }) {
   const levels = [...new Set(locations.map(l => l.level))].sort((a, b) => a - b)
+  const type = locations[0]?.furniture_type
+  const hanger = type === 'colgador'   // un solo nivel: no se muestra la columna N1
   return (
     <section className="rounded-lg bg-white p-2 shadow">
       <div className="mb-1 flex items-center px-1">
-        <h2 className="flex-1 text-sm font-semibold">{title}</h2>
+        <h2 className="flex-1 text-sm font-semibold">{title}{type && type !== 'estante' && <span className="ml-1 font-normal text-stone-500">· {FURNITURE_LABEL[type]}</span>}</h2>
         {onEdit && <button onClick={onEdit} aria-label={`Editar mueble ${title}`} className="-my-2 min-h-11 px-2 text-sm text-amber-800">Editar mueble</button>}
       </div>
       <div className="space-y-1">
@@ -144,7 +150,7 @@ function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }:
           const row = locations.filter(l => l.level === level)
           return (
             <div key={level} className="flex items-stretch gap-1">
-              <span className="grid w-8 shrink-0 place-items-center text-xs text-stone-500">N{level}</span>
+              {!hanger && <span className="grid w-8 shrink-0 place-items-center text-xs text-stone-500">N{level}</span>}
               <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                 {row.map(l => {
                   const n = counts.get(l.id)?.length ?? 0

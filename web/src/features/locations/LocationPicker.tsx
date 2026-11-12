@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import type { Location } from '@/types/domain'
-import { normalizeCode, useLocations } from './api'
+import { colgadorCode, normalizeCode, useLocations } from './api'
 
 /**
  * Buscador de ubicación con autocompletado: escribir "e2n5", "E2-N5" o solo "E4" y elegir de la lista.
+ * En colgadores también vale la forma corta sin nivel: "c1a" encuentra C1-N1-A.
  * Solo ofrece ubicaciones activas y no asignadas todavía (`exclude`).
  */
 export default function LocationPicker({ exclude = [], onPick, placeholder = 'Agregar ubicación (p. ej. E2-N5)' }: {
@@ -17,8 +18,9 @@ export default function LocationPicker({ exclude = [], onPick, placeholder = 'Ag
     const n = normalizeCode(q.trim())
     const pool = locations.filter(l => l.active && !exclude.includes(l.id))
     if (!n) return pool.slice(0, 8)
-    const starts = pool.filter(l => l.code.startsWith(n))
-    const rest = pool.filter(l => !l.code.startsWith(n) && (l.code.includes(n) || (l.description?.toUpperCase().includes(q.trim().toUpperCase()) ?? false)))
+    const alt = colgadorCode(n)
+    const starts = pool.filter(l => l.code.startsWith(n) || (alt != null && l.furniture_type === 'colgador' && l.code.startsWith(alt)))
+    const rest = pool.filter(l => !starts.includes(l) && (l.code.includes(n) || (l.description?.toUpperCase().includes(q.trim().toUpperCase()) ?? false)))
     return [...starts, ...rest].slice(0, 12)
   }, [locations, exclude, q])
 
