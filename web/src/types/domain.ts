@@ -37,15 +37,15 @@ export interface SynonymRow { id: number; terms: string[] }
 /** Presentación de venta: `qty` unidades base (products.unit) a `price`. Ej. Docena: 12 und a S/3.00. */
 export interface Presentation { name: string; qty: number; price: number }
 
-export type FurnitureType = 'estante' | 'vitrina' | 'mostrador'
+export type FurnitureType = 'estante' | 'vitrina' | 'mostrador' | 'colgador'
 
 /** Ubicación física: código MUEBLE[-CUERPO]-NIVEL[-SECCIÓN], calculado en la BD a partir de las partes. */
 export interface Location {
   id: number
   code: string
-  furniture: string        // E0, E1… (V vitrina, M mostrador)
+  furniture: string        // E0, E1… (V vitrina, M mostrador, C colgador)
   body: string | null      // cuerpo de un mueble compuesto
-  level: number            // N1 = repisa más alta
+  level: number            // N1 = repisa más alta (los colgadores tienen solo N1)
   slot: string | null      // sección de izquierda a derecha
   furniture_type: FurnitureType
   description: string | null
