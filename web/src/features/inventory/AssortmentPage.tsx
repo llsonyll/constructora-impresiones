@@ -169,13 +169,13 @@ export default function AssortmentPage() {
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(9rem+env(safe-area-inset-bottom))] md:p-4">
       <PageHeader title="Surtido" back="/inventario" backLabel="Inventario" />
       <p className="text-sm text-stone-600">
-        Stock por color y presentación. <b>Toca</b> una casilla para pedir 1 más y <b>mantén presionado</b> para quitar 1.
+        Stock por color y presentación (en pernos y tornillos, por diámetro y largo). <b>Toca</b> una casilla para pedir 1 más y <b>mantén presionado</b> para quitar 1.
       </p>
 
       <div className="sticky top-below-header z-[5] -mx-3 space-y-2 bg-stone-100 px-3 py-2 md:mx-0 md:px-0">
         <div className="relative">
           <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-stone-400"><Search className="size-5" /></span>
-          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar: esmalte, spray azul…"
+          <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar: esmalte, spray azul, perno 3/8…"
                  enterKeyHint="search" aria-label="Buscar"
                  className="min-h-12 w-full rounded-lg border bg-white pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden" />
           {query && <button onClick={() => setQuery('')} className="absolute inset-y-0 right-0 grid w-11 place-items-center text-stone-500" aria-label="Limpiar búsqueda">✕</button>}
@@ -284,6 +284,8 @@ function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
   const { name, template } = suggestName(line, color, size)
   const ps = line.products
   const sizeText = size === NO_SIZE ? '' : ` en ${size}`
+  const what = line.rows === 'diametro' ? <b>{[color, size === NO_SIZE ? '' : size].filter(Boolean).join(' X ') || 'esta medida'}</b>
+    : <><b>{color || 'este producto'}</b>{sizeText}</>
   return (
     <QuickCreateSheet
       initialName={name}
@@ -294,7 +296,7 @@ function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
       submitLabel="Crear y agregar al pedido"
       intro={
         <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-          No tienes <b>{color || 'este producto'}</b>{sizeText} en {line.line} · {brandLabel(line.brand)}. Revisa el nombre:
+          No tienes {what} en {line.line} · {brandLabel(line.brand)}. Revisa el nombre:
           se crea <b>por revisar</b> (sin precio no sale en Ventas) y entra al pedido. El costo lo pones en la orden y el precio, al recibir la compra.
         </p>
       }
@@ -338,7 +340,9 @@ function LineTable({ line, order, onBump, onMarkLow, onCreate }: {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="bg-stone-50 text-xs text-stone-500">
-              <th scope="col" className="sticky left-0 z-[1] bg-stone-50 px-3 py-2 text-left font-medium">Color</th>
+              <th scope="col" className="sticky left-0 z-[1] bg-stone-50 px-3 py-2 text-left font-medium">
+                {line.rows === 'diametro' ? <>Diámetro <span className="font-normal">\ largo</span></> : 'Color'}
+              </th>
               {line.sizes.map(s => <th key={s.label} scope="col" className="min-w-[3.75rem] px-1 py-2 text-center font-medium whitespace-nowrap">{s.label}</th>)}
             </tr>
           </thead>
@@ -346,14 +350,15 @@ function LineTable({ line, order, onBump, onMarkLow, onCreate }: {
             {line.colors.map(c => (
               <tr key={c} className="border-t">
                 <th scope="row" className="sticky left-0 z-[1] max-w-[10rem] bg-white px-3 py-1 text-left font-normal break-words">
-                  {c || <span className="text-stone-400">(sin color)</span>}
+                  {c ? (line.rows === 'diametro' ? `${c}${c.includes('/') ? '"' : ''}` : c)
+                    : <span className="text-stone-400">{line.rows === 'diametro' ? '(sin medida)' : '(sin color)'}</span>}
                 </th>
                 {line.sizes.map(s => {
                   const ps = line.cells.get(cellKey(c, s.label))
                   return (
                     <td key={s.label} className="p-0.5 text-center">
                       {ps ? <Cell ps={ps} order={order} onBump={onBump} />
-                        : <button onClick={() => onCreate(c, s.label)} aria-label={`No existe ${c || 'sin color'} en ${s.label}: crear y pedir`}
+                        : <button onClick={() => onCreate(c, s.label)} aria-label={line.rows === 'diametro' ? `No existe ${c} X ${s.label}: crear y pedir` : `No existe ${c || 'sin color'} en ${s.label}: crear y pedir`}
                                   className="group h-11 w-full min-w-[3.25rem] rounded-md text-stone-300 active:bg-amber-50 md:hover:bg-amber-50">
                             <span className="group-active:hidden md:group-hover:hidden">·</span>
                             <span className="hidden text-lg text-amber-700 group-active:inline md:group-hover:inline">+</span>
