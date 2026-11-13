@@ -16,14 +16,25 @@ export interface Searchable { name: string; brand?: string | null; sku?: string 
 /** Palabras que no aportan al buscar ("cinta de aislar" = "cinta aislar"). */
 const STOP = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'para', 'por', 'con', 'y', 'en', 'a', 'al', 'x'])
 
-/** Minúsculas, sin tildes ni signos. El punto y la barra quedan solo entre números (4.8, 1/2); "AUTOP." → "autop". */
+/**
+ * Minúsculas, sin tildes ni signos. El punto y la barra quedan solo entre números (4.8, 1/2); "AUTOP." → "autop".
+ * Medidas en una sola forma: "3/8x2" y "3/8 X2" → "3/8 x 2"; "1 1/2", "1-1/2" y "1.1/2" → "1.1/2".
+ */
 export function normalize(s: string) {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
     .replace(/(\d)\.(?=\d)/g, '$1\u0001').replace(/(\d)\/(?=\d)/g, '$1\u0002')   // . y / entre números se quedan
     .replace(/[^a-z0-9\u0001\u0002]+/g, ' ')
     .replace(/\u0001/g, '.').replace(/\u0002/g, '/')
+    .replace(/(\d)x(?=\d)/g, '$1 x ').replace(/(\d) ?x(?= |$)/g, '$1 x').replace(/(^| )x(\d)/g, '$1x $2')   // 3/8x2, 8x 1, x2
+    .replace(/(?<![\d/.])(\d+) (\d+\/\d+)(?![\d/])/g, '$1.$2')                                              // 1 1/2 → 1.1/2
+    .replace(/ +/g, ' ')
     .trim()
 }
+
+/** Medida o número ("2", "3/8", "1.1/2", "10mm"): se compara al inicio de una palabra, no en cualquier parte. */
+const isMeasure = (w: string) => /^\d/.test(w)
+/** Códigos (4+ cifras): se buscan en cualquier parte, como siempre ("0123" encuentra el SKU FER-00123). */
+const isCode = (w: string) => /^\d{4,}$/.test(w)
 
 /** Raíz: sin la s del plural y, en palabras largas, sin la vocal final. Solo palabras de letras. */
 export function stem(w: string) {
@@ -81,8 +92,19 @@ function haystack(p: Searchable) {
   return h
 }
 
-// Lo escrito se busca en cualquier parte (como antes: "flex" encuentra "SIKAFLEX").
-const has = (text: string, ws: string[]) => ws.every(w => text.includes(w))
+// Lo escrito se busca en cualquier parte (como antes: "flex" encuentra "SIKAFLEX"). Una medida, al inicio de una
+// palabra: "2" encuentra 2" y 2.1/2" (el exacto primero, por hasWords), pero no 1/2", 12" ni 2/3.
+function hasMeasure(text: string, w: string) {
+  // Lo que puede seguir: nada, una unidad (mm, gl) o el resto de un número mixto (.1/2); cifras, solo si se está
+  // escribiendo una fracción ("5/1" → 5/16).
+  const fraction = w.includes('/')
+  for (let i = text.indexOf(` ${w}`); i >= 0; i = text.indexOf(` ${w}`, i + 1)) {
+    const c = text.charAt(i + 1 + w.length)
+    if (c === '' || c === ' ' || c === '.' || /[a-z]/.test(c) || (fraction && /\d/.test(c))) return true
+  }
+  return false
+}
+const has = (text: string, ws: string[]) => ws.every(w => (isMeasure(w) && !isCode(w) ? hasMeasure(text, w) : text.includes(w)))
 // Un sinónimo, como palabra entera (su raíz + plural o vocal: "amarr" → amarre, amarras); "toma" no entra en "tomatierra".
 const ENDING = /^(s|es|a|e|o|as|os)?$/
 function hasWord(text: string, w: string) {

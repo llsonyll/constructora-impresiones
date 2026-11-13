@@ -5,6 +5,9 @@
  * El catálogo no guarda esos datos aparte: se sacan del nombre ("ESMALTE CRONS 1/16 GL AZUL NAVAL" →
  * línea ESMALTE · CRONS, presentación 1/16 GL, color AZUL NAVAL). Si un producto sale mal agrupado, se corrige
  * su nombre en la ficha siguiendo el patrón de los demás (TIPO MARCA TAMAÑO COLOR).
+ *
+ * Pernos, tornillos y tirafones son una tabla diámetro × largo: "PERNO HEXAGONAL ZINCADO PILLKO 3/8 X 2"" → línea
+ * PERNO HEXAGONAL ZINCADO PILLKO, fila 3/8, columna 2". Patrón: TIPO ACABADO MARCA DIÁMETRO X LARGO.
  */
 
 /** Sin tildes y en mayúsculas ("Marrón" → "MARRON"). */
@@ -88,6 +91,33 @@ function findSize(name: string, brands: Set<string>): SizeHit | null {
   return null
 }
 
+// ---------- Pernos, tornillos y tirafones: DIÁMETRO X LARGO ----------
+
+/** Productos que se piden por diámetro y largo. Solo en estos se lee "3/8 X 2"" (no en "CABLE 2X1.5MM" ni "LIJA 9X11"). */
+const FASTENER = /(?<![A-Z])(PERNOS?|TORNILLOS?|TIRAF[A-Z]*|AUTOP[A-Z]*|ESPARRAGOS?|STOVE|PIJAS?|REMACHES?|BULON[A-Z]*)(?![A-Z])/
+/** Diámetro (3/8, M8, calibre 8) X largo (2", 1 1/2", 1.1/2", 50 MM). */
+const DIAM_X_LONG = new RegExp(String.raw`(?<![\w/.,#])(M?\d+(?:\/\d+|[.,]\d+)?)\s?X\s?${NUM}\s?(MM|"|”|''|PULG(?:ADAS?)?\b)?(?![\w/])`)
+/** "SIN TUERCA" / "CON TUERCA" no separa líneas: el perno de 1/4 sin tuerca va en la misma tabla que los demás. */
+const NUT = /\s(SIN|CON|C\/|S\/)\s?TUERCAS?\b/g
+
+interface Fastener { diameter: string; diameterValue: number; size: Size; start: number; end: number }
+
+function findFastener(name: string): Fastener | null {
+  if (!FASTENER.test(name)) return null
+  const m = name.match(DIAM_X_LONG)
+  if (!m) return null
+  const d = m[1]
+  // Para ordenar las filas, todo en pulgadas: M8 = 8 mm; calibre 8 = 0.060 + 0.013 × 8 (≈ 5/32").
+  const diameterValue = d.startsWith('M') ? Number(d.slice(1).replace(',', '.')) / 25.4
+    : d.includes('/') ? toNumber(d)
+    : 0.06 + 0.013 * Number(d.replace(',', '.'))
+  const len = toNumber(m[2])
+  const size: Size = m[3] === 'MM'
+    ? { label: `${tidyNum(m[2])} MM`, family: 3, value: len, unit: 'MM' }
+    : { label: `${tidyNum(m[2])}"`, family: 4, value: len, unit: '"' }
+  return { diameter: d.replace(',', '.'), diameterValue, size, start: m.index!, end: m.index! + m[0].length }
+}
+
 // ---------- Análisis del nombre ----------
 
 export interface Parsed {
@@ -100,7 +130,11 @@ export interface Parsed {
   size: Size | null
   /** El tamaño tal como está escrito en el nombre ("1/4GL", "400ml"), para armar el nombre de otro tamaño. */
   sizeText: string
-  color: string    // '' = sin color
+  color: string    // '' = sin color. En pernos y tornillos, el diámetro ("3/8", "M8", "8"): es la fila de la tabla.
+  /** Pernos y tornillos: diámetro en pulgadas, para ordenar las filas de menor a mayor. */
+  diameterValue?: number
+  /** Pernos y tornillos: "DIÁMETRO X LARGO" tal como está escrito en el nombre ('3/8 X2"'), para armar otra medida. */
+  measureText?: string
 }
 
 /** Marcas conocidas (de la ficha de cada producto), en mayúsculas sin tildes. */
@@ -115,8 +149,10 @@ export function parseName(rawName: string, rawBrand: string | null, brands: Set<
   const name = plain(rawName).replace(/\s+/g, ' ').trim()
   const own = rawBrand?.trim() ? plain(rawBrand.trim()) : ''
 
-  const size = findSize(name, brands)
-  const rest = size ? `${name.slice(0, size.start)} | ${name.slice(size.end)}` : name   // '|' = corte donde estaba el tamaño
+  const fastener = findFastener(name)
+  const size = fastener ?? findSize(name, brands)
+  let rest = size ? `${name.slice(0, size.start)} | ${name.slice(size.end)}` : name   // '|' = corte donde estaba el tamaño
+  if (fastener) rest = rest.replace(NUT, ' ')
   const tokens = rest.split(' ').filter(Boolean)
 
   // Marca: una marca conocida escrita en el nombre (palabra o frase completa) o, si no, la de la ficha.
@@ -136,8 +172,9 @@ export function parseName(rawName: string, rawBrand: string | null, brands: Set<
   const isBrandWord = (i: number) => (brandAt && i >= brandAt[0] && i < brandAt[1]) || brands.has(words[i])
 
   // Color: desde la primera palabra de color hasta una marca, el tamaño, un guion o una coma.
+  // En pernos y tornillos la fila es el diámetro, no un color.
   let colorFrom = -1, colorTo = -1
-  for (let i = 0; i < words.length; i++) {
+  for (let i = 0; i < words.length && !fastener; i++) {
     if (COLORS.has(words[i]) && !isBrandWord(i)) { colorFrom = i; break }
   }
   if (colorFrom >= 0) {
@@ -149,14 +186,17 @@ export function parseName(rawName: string, rawBrand: string | null, brands: Set<
       if (t.endsWith(',')) break
     }
   }
-  const color = colorFrom >= 0 ? words.slice(colorFrom, colorTo).join(' ') : ''
+  const color = fastener ? fastener.diameter : colorFrom >= 0 ? words.slice(colorFrom, colorTo).join(' ') : ''
 
   // Línea: lo que queda, sin la marca ni las palabras de relleno.
   const lineWords = words.filter((w, i) => w && w !== '|' && !isPunct(w)
     && !(i >= colorFrom && i < colorTo) && !(brandAt && i >= brandAt[0] && i < brandAt[1]))
   const meaningful = lineWords.filter(w => !FILLER.has(w))
   const line = (meaningful.length ? meaningful : lineWords).join(' ') || color || name
-  return { key: `${line}|${brand}`, line, brand, size, sizeText: size ? name.slice(size.start, size.end) : '', color }
+  const sizeText = size ? name.slice(size.start, size.end) : ''
+  const parsed: Parsed = { key: `${line}|${brand}`, line, brand, size: fastener?.size ?? (size as SizeHit | null), sizeText, color }
+  if (fastener) { parsed.diameterValue = fastener.diameterValue; parsed.measureText = sizeText }
+  return parsed
 }
 
 // ---------- Tablas por línea ----------
@@ -175,7 +215,9 @@ export interface Line<P extends AssortmentProduct> {
   line: string
   brand: string
   sizes: Size[]                     // columnas, de menor a mayor
-  colors: string[]                  // filas ('' = sin color)
+  colors: string[]                  // filas ('' = sin color); en pernos y tornillos, los diámetros
+  /** Qué son las filas: colores (pinturas, sprays…) o diámetros (pernos, tornillos, tirafones: diámetro × largo). */
+  rows: 'color' | 'diametro'
   cells: Map<string, P[]>           // `${color}\u0000${size.label}` → productos (más de uno = repetido)
   products: P[]
   parsed: Map<string, Parsed>       // producto → lo leído de su nombre (con el tamaño ya unificado)
@@ -215,10 +257,14 @@ export function buildLines<P extends AssortmentProduct>(products: P[], brands: S
       const k = cellKey(parsed.color, parsed.size?.label ?? NO_SIZE)
       cells.set(k, [...(cells.get(k) ?? []), p])
     }
+    const rows: Line<P>['rows'] = items.some(it => it.parsed.measureText) ? 'diametro' : 'color'
+    const diameter = new Map(items.map(it => [it.parsed.color, it.parsed.diameterValue ?? Infinity]))
     const colors = [...new Set(items.map(it => it.parsed.color))]
-      .sort((a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)))
+      .sort(rows === 'diametro'
+        ? (a, b) => diameter.get(a)! - diameter.get(b)! || a.localeCompare(b)       // 1/4 · 5/16 · 3/8 · 1/2
+        : (a, b) => (a === '' ? -1 : b === '' ? 1 : a.localeCompare(b)))
     const { line, brand } = items[0].parsed
-    lines.push({ key, line, brand, sizes, colors, cells, products: items.map(it => it.p), parsed: new Map(items.map(it => [it.p.id, it.parsed])) })
+    lines.push({ key, line, brand, sizes, colors, rows, cells, products: items.map(it => it.p), parsed: new Map(items.map(it => [it.p.id, it.parsed])) })
   }
   return lines.sort((a, b) => a.line.localeCompare(b.line) || a.brand.localeCompare(b.brand))
 }
@@ -240,10 +286,22 @@ function replaceOnce(text: string, find: string, put: string): string | null {
  * Nombre para un producto que falta en la tabla (ese color en ese tamaño), copiando cómo están escritos los de la
  * línea: otro color del mismo tamaño con el color cambiado ("ESMALTE CRONS 1/4 GL BLANCO" → "… AMARILLO LIMON"), o el
  * mismo color en otro tamaño con el tamaño cambiado. Si no hay de dónde copiar: TIPO MARCA TAMAÑO COLOR.
+ * En pernos y tornillos, otra medida con "DIÁMETRO X LARGO" cambiado ("PERNO … 3/8 X 1"" → "PERNO … 1/2 X 2 1/2"").
  */
 export function suggestName<P extends AssortmentProduct>(line: Line<P>, color: string, sizeLabel: string): { name: string; template: P | null } {
   const size = sizeLabel === NO_SIZE ? '' : sizeLabel
   const entries = line.products.map(p => ({ p, x: line.parsed.get(p.id)!, name: plain(p.name).replace(/\s+/g, ' ').trim() }))
+  if (line.rows === 'diametro') {
+    const measure = [color, size].filter(Boolean).join(' X ')
+    // Primero uno del mismo diámetro (copia "SIN TUERCA" y demás), luego cualquiera.
+    const sorted = [...entries].sort((a, b) => Number(b.x.color === color) - Number(a.x.color === color))
+    for (const { p, x, name } of sorted) {
+      const out = x.measureText && measure ? replaceOnce(name, x.measureText, measure) : null
+      if (out) return { name: out, template: p }
+    }
+    const brand = line.brand && !line.line.split(' ').includes(line.brand) ? line.brand : ''
+    return { name: [line.line, brand, measure].filter(Boolean).join(' '), template: null }
+  }
   // Otro color, mismo tamaño.
   for (const { p, x, name } of entries) {
     if ((x.size?.label ?? NO_SIZE) !== sizeLabel || !x.color || !color) continue

@@ -27,7 +27,7 @@ automática de los trabajos de impresión y copia desde un agente local.
 | `web/` | La aplicación. Ver su [README](web/README.md) (módulos, offline, despliegue). |
 | `supabase/` | Migraciones SQL (fuente de verdad del modelo y de las reglas RLS). |
 | `collector-agent/` | Agente local de captura de impresiones y copias. Ver su [README](collector-agent/README.md). |
-| `scripts/` | Utilidades de carga de datos (catálogo desde Excel). |
+| `scripts/` | Utilidades de carga de datos (catálogo desde Excel) y correcciones de datos de una sola vez (`scripts/sql/`, se corren a mano en el SQL Editor). |
 | `.claude/skills/` | Procedimientos para Claude: `facturas` (facturas escaneadas → órdenes de compra), `stock` (hojas de conteo manuscritas → stock) y `pedidos` (lista de pedido manuscrita → PDF de solicitud al proveedor + cotejo con el catálogo). |
 | `index.html` | Aviso de mudanza: redirige al POS a quien abra la antigua dirección de GitHub Pages. |
 
@@ -41,6 +41,7 @@ la app se retiró; Firebase ya no se usa. La lógica de reparto de hojas que nac
 ## Uso local
 
 - POS: `cd web && npm install && npm run dev` (usa `web/.env.development`).
+- Pruebas (búsqueda y surtido, sin dependencias): `cd web && npm test`.
 - Agente: seguir [`collector-agent/README.md`](collector-agent/README.md).
 
 ## Despliegue
