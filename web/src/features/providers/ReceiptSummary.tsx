@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Camera, MapPin, Package, StickyNote } from 'lucide-react'
+import { Camera, MapPin, StickyNote } from 'lucide-react'
 import { money } from '@/lib/format'
-import { imageUrl } from '@/lib/images'
+import ProductImage from '@/components/ProductImage'
 import { friendlyError, type InventoryProduct, useInventory, usePatchProduct } from '@/features/inventory/api'
 import ProductEditor, { suggestPrice } from '@/features/inventory/ProductEditor'
 import type { ReceiptLine } from './api'
@@ -79,13 +79,12 @@ export default function ReceiptSummary({ lines, onDone, reopened = false }: {
           const warn = needsAttention(l)
           const sug = suggestPrice(l.new_cost, 0.35)
           const p = byId.get(l.product_id)
-          const img = imageUrl(p?.image_path)
           return (
             <li key={l.product_id} className={`space-y-2 p-3 ${warn ? 'bg-amber-50' : ''}`}>
               <div className="flex gap-2">
                 <button onClick={() => p && setDetail(l.product_id)} disabled={!p} aria-label={`Foto y detalle de ${l.name}`}
-                        className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-stone-100">
-                  {img ? <img src={img} alt="" className="size-full object-cover" /> : <Package className="size-6 text-stone-400" aria-hidden />}
+                        className="size-12 shrink-0 overflow-hidden rounded-lg">
+                  <ProductImage path={p?.image_path} size="sm" className="size-full" />
                 </button>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{l.name}</div>

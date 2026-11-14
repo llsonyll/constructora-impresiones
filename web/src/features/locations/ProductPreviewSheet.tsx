@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
-import { MapPin, Package } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import Sheet from '@/components/Sheet'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { type InventoryProduct, useCategories } from '@/features/inventory/api'
 import { useCarts } from '@/features/pos/useCart'
 import { CAJA_LABEL, cajaOf, saveCajaPref } from '@/lib/caja'
-import { imageUrl } from '@/lib/images'
+import ProductImage from '@/components/ProductImage'
 import { money } from '@/lib/format'
 
 /**
@@ -26,7 +26,6 @@ export default function ProductPreviewSheet({ product: p, hereLocationId, onClos
   // Confirmación dentro de la hoja: en el celular un aviso abajo quedaría tapado por la propia hoja.
   const [added, setAdded] = useState<number | null>(null)
 
-  const img = imageUrl(p.image_path)
   const sellable = p.active && p.price != null
   const inTicket = carts[caja].lines.filter(l => l.product_id === p.id).reduce((s, l) => s + l.qty, 0)
   const here = p.locations.find(l => l.location_id === hereLocationId)
@@ -49,10 +48,7 @@ export default function ProductPreviewSheet({ product: p, hereLocationId, onClos
   return (
     <Sheet onClose={onClose} label={p.name} className="space-y-3 sm:max-w-md">
       <div className="flex gap-3">
-        <div className="grid size-24 shrink-0 place-items-center overflow-hidden rounded-lg bg-stone-100">
-          {img ? <img src={img} alt="" className="size-full object-cover" />
-               : <Package className="size-10 text-stone-400" aria-hidden />}
-        </div>
+        <ProductImage path={p.image_path} lazy={false} className="size-24 shrink-0 rounded-lg" />
         <div className="min-w-0 flex-1">
           <h2 className="line-clamp-3 font-semibold leading-snug">{p.name}</h2>
           <p className="text-xs text-stone-500">{p.sku}{p.brand && ` · ${p.brand}`}</p>

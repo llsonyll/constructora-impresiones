@@ -14,7 +14,7 @@ import { describirJob } from '@/features/print/core'
 import CajaIcon from '@/components/CajaIcon'
 import { CAJAS, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
 import { normalizeCode } from '@/features/locations/api'
-import { imageUrl } from '@/lib/images'
+import ProductImage from '@/components/ProductImage'
 import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
 import { useProductMatcher } from '@/hooks/use-product-search'
@@ -249,16 +249,17 @@ export default function PosPage() {
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {results.map(p => {
-            const img = imageUrl(p.image_path)
             const service = p.track_stock === false
+            // Los productos siempre llevan recuadro de foto (genérico si no tienen); los servicios, solo si tienen.
+            const withImg = !!p.image_path || !service
             // Tocar la tarjeta agrega (como siempre); el botón de la esquina abre el detalle sin agregar.
             return (
               <div key={p.id} className="relative">
                 <button onClick={() => tap(p)}
                         className={`size-full overflow-hidden rounded-lg border bg-white text-left active:bg-stone-50 ${service ? `border-l-4 ${theme.border}` : ''}`}>
-                  {img && <img src={img} alt="" loading="lazy" className="aspect-[4/3] w-full object-cover" />}
+                  {withImg && <ProductImage path={p.image_path} className="aspect-[4/3] w-full" />}
                   <div className={service ? 'p-3' : 'p-2.5'}>
-                    <div className={`line-clamp-2 font-medium ${service ? 'text-base' : 'text-sm'} ${img ? '' : 'pr-8'}`}>{p.name}</div>
+                    <div className={`line-clamp-2 font-medium ${service ? 'text-base' : 'text-sm'} ${withImg ? '' : 'pr-8'}`}>{p.name}</div>
                     <div className="mt-1 flex justify-between text-sm">
                       <span className="font-semibold">{money(p.price)}</span>
                       {p.track_stock === false

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { Camera, ChevronLeft, FileText, Minus, Package, Plus, ScanBarcode, Search, Share2, Tag, Boxes } from 'lucide-react'
+import { Camera, ChevronLeft, FileText, Loader2, Minus, Package, Plus, ScanBarcode, Search, Share2, Tag, Boxes } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import Sheet from '@/components/Sheet'
 import { Link } from 'react-router-dom'
 import { imageUrl, uploadProductImage } from '@/lib/images'
+import { ImagePlaceholder, useImageStatus } from '@/components/ProductImage'
 import { money } from '@/lib/format'
 import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
@@ -164,6 +165,7 @@ function Slide({ product: p, onOpen }: { product: InventoryProduct; onOpen: (k: 
   const qc = useQueryClient()
   const [uploading, setUploading] = useState(false)
   const src = imageUrl(p.image_path)
+  const { status, imgProps } = useImageStatus(src)
   const lowStock = p.track_stock && p.stock <= p.min_stock
   const margin = p.price && p.cost != null ? (p.price - p.cost) / p.price : null
 
@@ -181,8 +183,11 @@ function Slide({ product: p, onOpen }: { product: InventoryProduct; onOpen: (k: 
     <div className="relative h-full overflow-hidden">
       {src ? (
         <>
-          <img src={src} alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl" />
-          <img src={src} alt={p.name} className="absolute inset-0 size-full object-contain" />
+          {status === 'loaded' && <img src={src} crossOrigin="anonymous" alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl" />}
+          <img {...imgProps} src={src} alt={p.name}
+               className={cn('absolute inset-0 size-full object-contain transition-opacity duration-300', status !== 'loaded' && 'opacity-0')} />
+          {status === 'loading' && <div aria-hidden className="absolute inset-0 animate-pulse bg-white/5" />}
+          {status === 'error' && <ImagePlaceholder kind="error" size="lg" label className="absolute inset-0 bg-transparent text-white/40" />}
         </>
       ) : (
         <button onClick={() => document.getElementById(`photo-${p.id}`)?.click()}
@@ -191,7 +196,9 @@ function Slide({ product: p, onOpen }: { product: InventoryProduct; onOpen: (k: 
         </button>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/85 to-transparent" />
-      {uploading && <div className="absolute inset-0 z-10 grid place-items-center bg-black/50 text-sm">Subiendo foto…</div>}
+      {uploading && <div role="status" className="absolute inset-0 z-10 grid place-items-center bg-black/50 text-sm">
+        <span className="grid justify-items-center gap-2"><Loader2 className="size-8 animate-spin" aria-hidden />Subiendo foto…</span>
+      </div>}
 
       {/* Datos */}
       <div className="absolute bottom-0 left-0 right-20 space-y-1.5 p-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">

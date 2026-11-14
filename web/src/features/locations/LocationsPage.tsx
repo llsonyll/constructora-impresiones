@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
-import { MapPin, Package, ScanBarcode } from 'lucide-react'
+import { MapPin, ScanBarcode } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -14,7 +14,7 @@ import LocationForm from './LocationForm'
 import FurnitureForm from './FurnitureForm'
 import ProductPreviewSheet from './ProductPreviewSheet'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { imageUrl } from '@/lib/images'
+import ProductImage from '@/components/ProductImage'
 import { money } from '@/lib/format'
 
 /**
@@ -302,10 +302,5 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
 
 /** Miniatura de la foto del producto (o un recuadro vacío) para las listas. */
 function Thumb({ path }: { path: string | null }) {
-  const src = imageUrl(path)
-  return (
-    <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded bg-stone-100">
-      {src ? <img src={src} alt="" loading="lazy" className="size-full object-cover" /> : <Package className="size-5 text-stone-400" aria-hidden />}
-    </span>
-  )
+  return <ProductImage path={path} size="xs" className="size-10 shrink-0 rounded" />
 }

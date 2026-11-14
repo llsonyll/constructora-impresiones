@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ImagePlaceholder, useImageStatus } from './ProductImage'
 
 const MAX = 4      // las fotos se guardan a 1024 px de lado: más allá de 4× solo se ven los píxeles
 const STEP = 1.5   // botones +/− y doble toque
@@ -19,6 +20,7 @@ export default function ZoomImage({ src, alt, className }: { src: string; alt: s
   const [view, setView] = useState<View>(START)
   // Con un dedo o el mouse encima la foto sigue al gesto sin animación; los botones sí animan.
   const [gesture, setGesture] = useState(false)
+  const { status, imgProps } = useImageStatus(src)
   const viewRef = useRef(view)
   viewRef.current = view
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -105,22 +107,27 @@ export default function ZoomImage({ src, alt, className }: { src: string; alt: s
   }
 
   const zoomed = view.s > 1
+  const loaded = status === 'loaded'
   const btn = 'grid size-11 place-items-center rounded-full bg-white/90 text-stone-800 shadow disabled:opacity-40'
   return (
     <div className={cn('relative overflow-hidden rounded-lg bg-stone-100', className)}>
       <div ref={frame} data-vaul-no-drag onPointerDown={onPointerDown} onPointerMove={onPointerMove}
            onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
            className={cn('size-full touch-none select-none', zoomed ? 'cursor-grab active:cursor-grabbing' : 'cursor-zoom-in')}>
-        <img src={src} alt={alt} draggable={false}
-             style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
-             className={cn('size-full object-contain', !gesture && 'transition-transform duration-150')} />
+        <img {...imgProps} src={src} alt={alt} draggable={false}
+             style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`,
+                      transition: gesture ? 'opacity 300ms' : 'transform 150ms, opacity 300ms' }}
+             className={cn('size-full object-contain', !loaded && 'opacity-0')} />
       </div>
-      <div className="absolute right-2 bottom-2 flex gap-1.5">
+      {status === 'loading' && <span aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-stone-200" />}
+      {/* Sin internet o foto borrada: la miniatura genérica, sin controles de zoom. */}
+      {status === 'error' && <ImagePlaceholder kind="error" label className="absolute inset-0" />}
+      {loaded && <div className="absolute right-2 bottom-2 flex gap-1.5">
         {zoomed && <button type="button" onClick={() => setView(START)} className={btn} aria-label="Ver la foto entera"><RotateCcw className="size-5" /></button>}
         <button type="button" onClick={() => zoomTo(view.s / STEP)} disabled={!zoomed} className={btn} aria-label="Alejar"><Minus className="size-5" /></button>
         <button type="button" onClick={() => zoomTo(view.s * STEP)} disabled={view.s >= MAX} className={btn} aria-label="Acercar"><Plus className="size-5" /></button>
-      </div>
-      {!zoomed && <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">Doble toque o pellizca para acercar</span>}
+      </div>}
+      {loaded && !zoomed && <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white">Doble toque o pellizca para acercar</span>}
     </div>
   )
 }
