@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import type { PoStatus } from '@/features/providers/api'
 
 /** Faltante: algo que se necesita y aún no se consiguió (tabla product_needs, ver migración 20261104000000_faltantes). */
 export type NeedStatus = 'pendiente' | 'atendido' | 'descartado'
@@ -18,7 +19,7 @@ export interface Need {
   status: NeedStatus
   po_id: string | null
   po_number: number | null
-  po_status: 'borrador' | 'enviada' | 'recibida' | 'cancelada' | null
+  po_status: PoStatus | null
   created_at: string
   resolved_at: string | null
 }

@@ -55,7 +55,7 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
   **Tocar** una casilla suma 1 a la cantidad a pedir y **mantenerla presionada** (o clic derecho) quita 1; la casilla
   muestra `+cantidad` y lo que hay. *+ Agotados al pedido* agrega de una vez los agotados o bajos de la línea (hasta el
   mínimo, o 1). El pedido se guarda en el equipo; *Armar pedido* abre una orden de compra nueva con esos productos y
-  cantidades, **sin costos** (por cotizar) y con el proveedor ya elegido si todos son del mismo; el botón de copiar
+  cantidades, **sin costos** (para pedir precios) y con el proveedor ya elegido si todos son del mismo; el botón de copiar
   deja la lista para pegarla en un mensaje.
   - **Casilla vacía (`·`)**: ese color no existe en ese tamaño. Tocarla abre el alta rápida con el producto armado
     como los de su línea (otro color del mismo tamaño con el color cambiado: «ESMALTE CRONS 1/4 GL BLANCO» →
@@ -136,14 +136,20 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
 ## Proveedores y compras (admin, almacén)
 
 - **Proveedores**: alta/edición (RUC, contacto, teléfono con enlace a WhatsApp). No se borran: se desactivan.
-- **Órdenes de compra** (`OC-0001…`): borrador → enviada → **recibida** (o cancelada).
+- **Órdenes de compra** (`OC-0001…`): borrador → *Esperando precios* (`solicitada`) → *Precios recibidos* (`cotizada`)
+  → *Pedido enviado* (`enviada`) → **recibida** (o cancelada). Se pueden saltar pasos: enviar el pedido sin pedir
+  precios, o recibir sin haberlo enviado. Vocabulario: en compras se **piden precios**; "cotización" queda para la de
+  venta a un cliente (Documentos).
   Agregar productos buscando o escaneando, *+ stock bajo del proveedor*, o crear uno nuevo al vuelo.
   Costos con o sin IGV por orden (si son sin IGV, al costo del producto se le suma 18%).
-  *Pedir por WhatsApp* arma el mensaje con la lista y marca la orden como enviada.
+  *Pedir precios* y *Enviar pedido* abren una hoja con tres formas de enviarla (WhatsApp con el mensaje armado, PDF en
+  el formato que corresponde, o *Ya lo envié de otra forma*); las tres cambian el estado y, desde borrador, el aviso
+  ofrece *Deshacer*. Con la orden en *Esperando precios*, al guardar con todos los costos pasa sola a *Precios
+  recibidos* (y vuelve si se borra uno). La orden muestra la fecha de cada paso.
   **PDF** (`/proveedores/ordenes/:id/pdf`, `PurchaseOrderPdfPage`): la orden en una hoja A4 para imprimir o guardar
-  como PDF (como en Documentos), en dos formatos: *Solicitud de cotización* (sin precios, columnas en blanco para que
-  el proveedor cotice; la opción por defecto si ninguna línea tiene costo) u *Orden de compra* (con costos y total;
-  la opción por defecto si hay alguno, y los que faltan salen en blanco). Sin datos
+  como PDF (como en Documentos), en dos formatos: *Solicitud de precios* (sin precios, columnas en blanco para que
+  el proveedor los complete; la opción por defecto si la orden espera precios o ninguna línea tiene costo) u *Orden de
+  compra* (con costos y total; la opción por defecto en los demás casos, y los que faltan salen en blanco). Sin datos
   internos (SKU, stock, precio de venta); la nota de la orden solo si se marca. Guarda la orden antes si hay cambios.
 - **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
   OC y la factura), cada costo queda en el historial y el producto sin proveedor queda asignado.
@@ -156,11 +162,17 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   último). Se ve en el editor del producto y, en la orden, la última compra con proveedor y fecha.
 - Reglas en la BD (`po_guard`): una orden recibida no se edita ni se borra (solo el N° de factura) y
   solo se recibe por el RPC.
-- **Costos por cotizar** (`20261104010000_oc_costos_por_cotizar`): el costo de una línea puede quedar vacío
-  (`purchase_order_items.unit_cost` null) mientras la orden es borrador o enviada, para guardar y enviar la lista de
-  lo que se quiere pedir y escribir los costos cuando llega la cotización. La orden avisa cuántos faltan, ofrece
+- **Costos vacíos** (`20261104010000_oc_costos_por_cotizar`): el costo de una línea puede quedar vacío
+  (`purchase_order_items.unit_cost` null) mientras la orden está abierta, para guardar y enviar la lista de
+  lo que se quiere pedir y escribir los costos cuando el proveedor da precios. La orden avisa cuántos faltan, ofrece
   *Usar último costo* y el total cuenta solo los que tienen. Para **recibir** hacen falta todos: la pantalla marca en
-  rojo los vacíos y la BD lo exige (trigger `purchase_orders_require_costs`).
+  rojo los vacíos y la BD lo exige (trigger `purchase_orders_require_costs`, que también lo pide para `cotizada`).
+- **Pedir precios** (`20261114000000_oc_estados_precios`, `20261114010000_oc_solicitud_precios`): estados
+  `solicitada` y `cotizada` en `po_status`, fechas `quote_requested_at` y `quoted_at`. `po_guard` valida los pasos
+  (solicitada desde borrador; cotizada solo desde solicitada; enviada desde borrador, solicitada o cotizada; borrador
+  desde cualquiera abierta o cancelada, y limpia las fechas de los pasos siguientes). `save_purchase_order` hace el
+  paso solicitada ↔ cotizada según falten costos; `receive_purchase_order` recibe desde cualquier estado abierto.
+  La lista tiene el filtro *Esperando precios*.
 - **Faltantes** (pestaña de Proveedores, `product_needs`, migración `20261104000000_faltantes`): lo que se necesita
   y aún no se consiguió, para que no se pierda en papeles: líneas que un proveedor no atendió, lo que pidió un cliente
   y no había, stock bajo o anotado a mano. Puede ser un producto del catálogo o solo una descripción ("Acople 7/8 a
@@ -312,7 +324,8 @@ de la base, así queda todo lo que cambia, venga del POS, del celular o de SQL d
 - **Productos**: creado, editado (solo los campos que cambiaron, antes → después; categoría y proveedor por nombre),
   foto subida o quitada, costo cambiado a mano y eliminado. Los cambios de `stock` no cuentan: los mueven las ventas,
   compras y ajustes, que tienen su propia línea.
-- **Compras**: orden creada, enviada, recibida (entró al stock), cancelada y eliminada.
+- **Compras**: orden creada, precios pedidos, precios recibidos, pedido enviado, recibida (entró al stock), cancelada,
+  devuelta a borrador y eliminada.
 - **Stock**: ajuste de un producto o conteo físico (una línea por conteo, con la diferencia y el stock final de cada producto).
 
 Cada línea guarda el usuario (`auth.uid()`, o el cajero de la venta) y su nombre al momento; sin usuario se muestra

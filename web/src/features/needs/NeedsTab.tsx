@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { type InventoryProduct, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
-import { poLabel, useProviderList } from '@/features/providers/api'
+import { isOpenPo, poLabel, useProviderList } from '@/features/providers/api'
 import { fmtNeedQty, type Need, type NeedStatus, SOURCE_SHORT, useLinkNeedProduct, useNeeds } from './api'
 import NeedSheet from './NeedSheet'
 
@@ -17,8 +17,8 @@ const FILTERS: { id: NeedStatus; label: string }[] = [
   { id: 'pendiente', label: 'Pendientes' }, { id: 'atendido', label: 'Atendidos' }, { id: 'descartado', label: 'Descartados' },
 ]
 
-/** En una orden abierta (borrador o enviada): ya se pidió, falta que llegue. */
-const ordered = (n: Need) => n.po_id != null && (n.po_status === 'borrador' || n.po_status === 'enviada')
+/** En una orden abierta (borrador, esperando precios, con precios o pedida): ya se está pidiendo, falta que llegue. */
+const ordered = (n: Need) => n.po_id != null && isOpenPo(n.po_status)
 
 /**
  * Faltantes: lo que se necesita y aún no se consiguió (líneas no atendidas por un proveedor, lo que pidió un cliente…).

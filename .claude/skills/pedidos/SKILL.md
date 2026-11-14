@@ -162,7 +162,10 @@ Cuando el usuario trae la respuesta del proveedor (nota de venta, cotización, f
   - un borrador **no mueve stock ni costos** y aparece en *Pendientes*, no en *Recibidas*;
   - cuando llegue la factura, esa misma orden se ajusta (cantidades, costos, N° de factura) y se **recibe**;
     `/facturas` debe completar esa orden, no crear otra;
-  - el botón **PDF** de la orden la imprime como *Solicitud de cotización* (sin precios) o *Orden de compra*.
+  - el botón **PDF** de la orden la imprime como *Solicitud de precios* (sin precios) o *Orden de compra*;
+  - si ya había una orden del proveedor en *Esperando precios* (`status = 'solicitada'`) con esos productos,
+    completa sus costos con `save_purchase_order` (mismo `id`) en vez de crear otra: con todos los costos pasa sola a
+    *Precios recibidos* (`cotizada`).
 - Al recibir la orden, se cierran solos los faltantes de esos productos.
 
 ## 6. Informe al usuario

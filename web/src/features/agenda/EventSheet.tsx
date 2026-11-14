@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import Sheet from '@/components/Sheet'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { poLabel, usePurchaseOrders, useProviderList } from '@/features/providers/api'
+import { isOpenPo, poLabel, usePurchaseOrders, useProviderList } from '@/features/providers/api'
 import { cn } from '@/lib/utils'
 import {
   type AgendaEvent, type AgendaKind, KIND, KINDS, REPEAT_OPTIONS, type RepeatUnit, eventDates, nthDate, repeatValue, shortDate,
@@ -202,7 +202,7 @@ function ProviderFields({ kind, providerId, poId, onProvider, onPo }: {
   const { data: providers = [] } = useProviderList()
   const { data: orders = [] } = usePurchaseOrders()
   const list = useMemo(() => providers.filter(p => p.active || p.id === providerId), [providers, providerId])
-  const open = orders.filter(o => (o.provider_id === providerId || !providerId) && (o.status === 'borrador' || o.status === 'enviada' || o.id === poId))
+  const open = orders.filter(o => (o.provider_id === providerId || !providerId) && (isOpenPo(o.status) || o.id === poId))
   return (
     <div className="grid grid-cols-2 gap-3">
       <Field label="Proveedor (opcional)" className={kind === 'pedido' ? '' : 'col-span-2'}>

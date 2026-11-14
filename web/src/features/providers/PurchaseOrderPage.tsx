@@ -11,10 +11,11 @@ import { IGV_RATE, money, round2 } from '@/lib/format'
 import { type CostEntry, type InventoryProduct, useCostHistory, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import {
-  fetchReceiptLines, friendlyPoError, type PoDraft, poLabel, type ReceiptLine, STATUS_LABEL, STATUS_STYLE, useDeletePurchaseOrder,
+  fetchReceiptLines, friendlyPoError, isOpenPo, type PoDraft, poLabel, type ReceiptLine, STATUS_LABEL, STATUS_STYLE, useDeletePurchaseOrder,
   usePurchaseOrder, useProviderList, useReceivePurchaseOrder, useSavePurchaseOrder, useSetPoStatus, useUpdateInvoiceRef, whatsappUrl,
 } from './api'
 import ReceiptSummary from './ReceiptSummary'
+import SendOrderSheet, { type SendKind } from './SendOrderSheet'
 import { fetchNeedsByIds, linkNeedsToOrder, needKeys } from '@/features/needs/api'
 
 // Arriba: abajo está la barra de acciones de la orden.
@@ -22,7 +23,7 @@ const flashMsg = (text: string) => toast(text, { id: 'orden', position: 'top-cen
 
 /**
  * auto: el costo es el propuesto (último costo), no uno escrito; se convierte si se cambia "incluyen IGV".
- * unit_cost vacío = por cotizar: la orden se guarda y se envía así (lista de pedido); para recibir hace falta.
+ * unit_cost vacío = sin costo: la orden se guarda y se envía así (para pedir precios); para recibir hace falta.
  */
 interface Line { key: string; product_id: string; qty: string; unit_cost: string; auto?: boolean }
 interface Form { provider_id: string; invoice_ref: string; note: string; costs_include_igv: boolean; lines: Line[] }
@@ -75,6 +76,8 @@ export default function PurchaseOrderPage() {
   const [actionError, setActionError] = useState('')
   // Tras intentar recibir con costos vacíos, se marcan en rojo.
   const [priceCheck, setPriceCheck] = useState(false)
+  // Hoja "Pedir precios" / "Enviar pedido" abierta (con el id de la orden ya guardada).
+  const [sending, setSending] = useState<{ kind: SendKind; id: string } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   // Carga inicial del formulario (una sola vez por orden; los refetch no pisan lo que se está editando).
@@ -87,7 +90,7 @@ export default function PurchaseOrderPage() {
     const f: Form = isNew
       ? {
           provider_id: params.get('proveedor') ?? '', invoice_ref: '', note: '', costs_include_igv: true,
-          // Desde Surtido llega la lista de lo que se quiere pedir: los costos se escriben cuando llega la cotización.
+          // Desde Surtido llega la lista de lo que se quiere pedir: los costos se escriben cuando el proveedor da precios.
           lines: (prefill ?? []).map(i => ({ key: newKey(), product_id: i.product_id, qty: fmtQty(i.qty), unit_cost: '' })),
         }
       : {
@@ -124,7 +127,7 @@ export default function PurchaseOrderPage() {
   }, [needIds, form, products])
 
   const status = isNew ? 'borrador' : order?.status ?? 'borrador'
-  const editable = status === 'borrador' || status === 'enviada'
+  const editable = isOpenPo(status)
   const dirty = !!form && (isNew ? form.lines.length > 0 || !!form.provider_id && !params.get('proveedor') : JSON.stringify(strip(form)) !== savedSnapshot)
 
   useEffect(() => {
@@ -257,7 +260,14 @@ export default function PurchaseOrderPage() {
     try { await fn() } catch (e) { setActionError(friendlyPoError(e)) } finally { setBusy(false) }
   }
 
-  const onSave = () => run(async () => { if (await persist()) flashMsg('Orden guardada') })
+  const onSave = () => run(async () => {
+    // Esperando precios y ya están todos: el servidor la pasa a "Precios recibidos" (y al revés si se borra uno).
+    const complete = form.lines.length > 0 && unpriced.length === 0
+    if (!await persist()) return
+    flashMsg(status === 'solicitada' && complete ? 'Precios completos: la orden pasó a «Precios recibidos»'
+      : status === 'cotizada' && !complete ? 'Orden guardada · faltan costos: vuelve a «Esperando precios»'
+      : 'Orden guardada')
+  })
 
   // PDF para enviar o archivar: guarda antes si hay cambios (la hoja se arma con lo guardado).
   const onPdf = () => run(async () => {
@@ -265,17 +275,37 @@ export default function PurchaseOrderPage() {
     if (id) navigate(`/proveedores/ordenes/${id}/pdf`)
   })
 
-  const onMarkSent = () => run(async () => {
-    const id = await persist(); if (!id) return
-    await setStatus.mutateAsync({ id, status: 'enviada' })
-    flashMsg('Marcada como enviada')
+  // Pedir precios / enviar pedido: guarda primero (lo que se envía es lo guardado) y abre la hoja de cómo enviarlo.
+  const onSend = (kind: SendKind) => run(async () => {
+    const id = await persist(); if (id) setSending({ kind, id })
   })
+
+  /** Cambia el estado al enviar; desde borrador se ofrece deshacer (p. ej. si no se llegó a mandar el WhatsApp). */
+  async function markSent(kind: SendKind, id: string) {
+    const prev = status
+    await setStatus.mutateAsync({ id, status: kind === 'precios' ? 'solicitada' : 'enviada' })
+    toast(kind === 'precios' ? 'Orden en «Esperando precios»' : 'Orden marcada como «Pedido enviado»', {
+      id: 'orden', position: 'top-center',
+      action: prev === 'borrador' ? { label: 'Deshacer', onClick: () => setStatus.mutate({ id, status: 'borrador' }) } : undefined,
+    })
+  }
+  const onSentWhatsApp = () => {
+    // La hoja se cierra después del toque: un enlace que se saca del documento durante el clic ya no abre WhatsApp.
+    const s = sending!; setTimeout(() => setSending(null))
+    markSent(s.kind, s.id).catch(e => setActionError(friendlyPoError(e)))
+  }
+  const onSentPdf = () => run(async () => {
+    const s = sending!; setSending(null)
+    await markSent(s.kind, s.id)
+    navigate(`/proveedores/ordenes/${s.id}/pdf?modo=${s.kind === 'precios' ? 'solicitud' : 'orden'}`)
+  })
+  const onSentOther = () => run(async () => { const s = sending!; setSending(null); await markSent(s.kind, s.id) })
 
   const onReceive = () => run(async () => {
     if (!form.lines.length) return setActionError('Agrega al menos un producto.')
     if (unpriced.length) {
       setPriceCheck(true)
-      return setActionError(`Faltan los costos de ${unpriced.length} producto${unpriced.length > 1 ? 's' : ''} (en rojo): escríbelos de la cotización o la factura antes de recibir.`)
+      return setActionError(`Faltan los costos de ${unpriced.length} producto${unpriced.length > 1 ? 's' : ''} (en rojo): escríbelos de los precios del proveedor o de la factura antes de recibir.`)
     }
     const units = form.lines.reduce((s, l) => s + (valid(l.qty) ? num(l.qty) : 0), 0)
     if (!confirm(`¿Recibir la mercadería? Entrarán ${fmtQty(units)} unidades de ${form.lines.length} productos al stock y se actualizarán los costos. No se puede deshacer.`)) return
@@ -308,12 +338,16 @@ export default function PurchaseOrderPage() {
 
   const back = () => { if (!dirty || confirm('Tienes cambios sin guardar. ¿Salir igual?')) navigate(needIds.length ? '/proveedores?tab=faltantes' : '/proveedores') }
 
-  const waText = [
-    `Hola${provider?.contact ? ` ${provider.contact}` : ''}, pedido de Ferretería La Constructora${!isNew && order ? ` (${poLabel(order.number)})` : ''}:`,
+  const ref = !isNew && order ? ` (${poLabel(order.number)})` : ''
+  const waText = (kind: SendKind) => [
+    kind === 'precios'
+      ? `Hola${provider?.contact ? ` ${provider.contact}` : ''}, le escribe Ferretería La Constructora. ¿Nos podría pasar precios de lo siguiente?${ref}`
+      : `Hola${provider?.contact ? ` ${provider.contact}` : ''}, pedido de Ferretería La Constructora${ref}:`,
     ...form.lines.map(l => { const p = byId.get(l.product_id); return `• ${l.qty} ${p?.unit ?? ''} ${p?.name ?? ''}` }),
     form.note && `Nota: ${form.note}`, 'Gracias.',
   ].filter(Boolean).join('\n')
-  const wa = whatsappUrl(provider?.phone ?? null, waText)
+  const fmtDate = (iso: string) => new Date(iso).toLocaleString('es-PE')
+  const shortDate = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
 
   return (
     <div className="space-y-3 p-4 pb-[calc(10rem+env(safe-area-inset-bottom))]">
@@ -446,7 +480,7 @@ export default function PurchaseOrderPage() {
                              className={`mt-0.5 block min-h-11 w-24 rounded border px-2 text-right text-base tabular-nums ${bad && !(valid(l.qty) && num(l.qty) > 0) ? 'border-red-500' : ''}`} />
                     </label>
                     <label className="text-xs text-stone-500">Costo unit. {form.costs_include_igv ? '(con IGV)' : '(sin IGV)'}
-                      <input inputMode="decimal" value={l.unit_cost} disabled={!editable} placeholder="por cotizar"
+                      <input inputMode="decimal" value={l.unit_cost} disabled={!editable} placeholder="sin costo"
                              onChange={e => updateLine(l.key, { unit_cost: e.target.value, auto: false })}
                              className={`mt-0.5 block min-h-11 w-28 rounded border px-2 text-right text-base tabular-nums placeholder:text-sm placeholder:text-amber-700 ${(bad && !blank(l.unit_cost)) || missing ? 'border-red-500' : ''}`} />
                     </label>
@@ -465,8 +499,12 @@ export default function PurchaseOrderPage() {
           {editable && unpriced.length > 0 && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
               <span className="mr-auto">
-                {unpriced.length} producto{unpriced.length > 1 ? 's' : ''} <b>por cotizar</b>: puedes guardar y enviar la lista así,
-                y escribir los costos cuando llegue la cotización. Para recibir hacen falta todos.
+                {status === 'solicitada'
+                  ? <>Esperando precios{order?.quote_requested_at && ` desde el ${shortDate(order.quote_requested_at)}`}: faltan{' '}
+                      <b>{unpriced.length} costo{unpriced.length > 1 ? 's' : ''}</b>. Escríbelos cuando responda el proveedor y guarda;
+                      con todos completos la orden pasa a «Precios recibidos». Lo que no te cotice, quítalo de la orden.</>
+                  : <>{unpriced.length} producto{unpriced.length > 1 ? 's' : ''} <b>sin costo</b>: puedes pedir precios al proveedor
+                      con la lista así y escribir los costos cuando responda. Para recibir hacen falta todos.</>}
               </span>
               {withRef.length > 0 && (
                 <button onClick={applyLastCosts} className="min-h-10 rounded border border-amber-700 bg-white px-3 text-amber-800">
@@ -476,19 +514,33 @@ export default function PurchaseOrderPage() {
             </div>
           )}
 
+          {status === 'solicitada' && dirty && form.lines.length > 0 && unpriced.length === 0 && (
+            <p className="rounded-lg bg-violet-50 p-3 text-sm text-violet-900">
+              Ya están todos los costos: guarda y la orden pasa a «Precios recibidos».
+            </p>
+          )}
+          {status === 'cotizada' && !dirty && (
+            <p className="rounded-lg bg-violet-50 p-3 text-sm text-violet-900">
+              Precios recibidos{order?.quoted_at && ` el ${shortDate(order.quoted_at)}`}. Revisa los márgenes; luego envía el pedido,
+              o recibe la mercadería si ya la trajeron.
+            </p>
+          )}
+
           <dl className="ml-auto max-w-xs space-y-0.5 text-sm">
             {!form.costs_include_igv && <>
               <div className="flex justify-between text-stone-500"><dt>Subtotal</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
               <div className="flex justify-between text-stone-500"><dt>IGV (18%)</dt><dd className="tabular-nums">{money(round2(total - subtotal))}</dd></div>
             </>}
-            <div className="flex justify-between text-base font-semibold"><dt>Total{unpriced.length > 0 && <span className="text-xs font-normal text-stone-500"> (sin {unpriced.length} por cotizar)</span>}</dt><dd className="tabular-nums">{money(total)}</dd></div>
+            <div className="flex justify-between text-base font-semibold"><dt>Total{unpriced.length > 0 && <span className="text-xs font-normal text-stone-500"> (faltan {unpriced.length} costo{unpriced.length > 1 ? 's' : ''})</span>}</dt><dd className="tabular-nums">{money(total)}</dd></div>
           </dl>
 
           {!isNew && order && (
             <p className="text-xs text-stone-500">
-              Creada {new Date(order.created_at).toLocaleString('es-PE')}
-              {order.ordered_at && ` · enviada ${new Date(order.ordered_at).toLocaleString('es-PE')}`}
-              {order.received_at && ` · recibida ${new Date(order.received_at).toLocaleString('es-PE')}`}
+              Creada {fmtDate(order.created_at)}
+              {order.quote_requested_at && ` · precios pedidos ${fmtDate(order.quote_requested_at)}`}
+              {order.quoted_at && ` · precios recibidos ${fmtDate(order.quoted_at)}`}
+              {order.ordered_at && ` · pedido enviado ${fmtDate(order.ordered_at)}`}
+              {order.received_at && ` · recibida ${fmtDate(order.received_at)}`}
             </p>
           )}
         </>
@@ -500,7 +552,7 @@ export default function PurchaseOrderPage() {
           {actionError && <p className="text-sm text-red-600">{actionError}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <span className="mr-auto text-sm">{form.lines.length} productos · <strong>{money(total)}</strong>
-              {unpriced.length > 0 && <span className="text-amber-700"> · {unpriced.length} por cotizar</span>}</span>
+              {unpriced.length > 0 && <span className="text-amber-700"> · {unpriced.length} sin costo</span>}</span>
             {form.lines.length > 0 && (!isNew || editable) && (
               <button onClick={onPdf} disabled={busy} className="flex min-h-11 items-center gap-1.5 rounded border px-3 text-sm disabled:opacity-50">
                 <FileText className="size-4" />PDF
@@ -510,13 +562,12 @@ export default function PurchaseOrderPage() {
               {(dirty || isNew) && (
                 <button onClick={onSave} disabled={busy} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Guardar</button>
               )}
-              {status === 'borrador' && !isNew && !dirty && wa && form.lines.length > 0 && (
-                // El enlace abre WhatsApp en el mismo toque (sin bloqueo de ventanas emergentes) y marca la orden como enviada.
-                <a href={wa} target="_blank" rel="noreferrer" onClick={() => setStatus.mutate({ id: routeId!, status: 'enviada' })}
-                   className="flex min-h-11 items-center rounded border px-3 text-sm">💬 Pedir por WhatsApp</a>
-              )}
               {status === 'borrador' && form.lines.length > 0 && (
-                <button onClick={onMarkSent} disabled={busy} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Marcar enviada</button>
+                <button onClick={() => onSend('precios')} disabled={busy} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Pedir precios</button>
+              )}
+              {status !== 'enviada' && form.lines.length > 0 && (
+                <button onClick={() => onSend('pedido')} disabled={busy}
+                        className={`min-h-11 rounded border px-3 text-sm disabled:opacity-50 ${status === 'cotizada' ? 'border-amber-700 text-amber-800' : ''}`}>Enviar pedido</button>
               )}
               <button onClick={onReceive} disabled={busy || !form.lines.length}
                       className="min-h-11 rounded bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
@@ -545,6 +596,12 @@ export default function PurchaseOrderPage() {
 
       {scanning && <BarcodeScanner title="Agregar a la orden" onClose={() => setScanning(false)}
                                    onDetected={c => { setScanning(false); handleCode(c) }} />}
+
+      {sending && (
+        <SendOrderSheet kind={sending.kind} providerName={provider?.name}
+                        whatsapp={whatsappUrl(provider?.phone ?? null, waText(sending.kind))}
+                        onWhatsApp={onSentWhatsApp} onPdf={onSentPdf} onMarkOnly={onSentOther} onClose={() => setSending(null)} />
+      )}
 
       {creating && (
         <QuickCreateSheet initialBarcode={creating.barcode} initialName={creating.name}
