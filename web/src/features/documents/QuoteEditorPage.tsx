@@ -98,7 +98,7 @@ export default function QuoteEditorPage() {
   }
 
   const back = () => { if (!dirty || confirm('¿Salir sin guardar la cotización?')) navigate(id ? `/documentos/${id}` : fromTicket ? '/ventas' : '/documentos') }
-  const title = id ? (existing.data ? `Editar ${docNumber(existing.data)}` : 'Editar cotización') : 'Nueva cotización'
+  const title = id ? (existing.data ? `Editar ${docNumber(existing.data)}` : 'Editar cotización') : 'Nueva cotización a cliente'
   const locked = existing.data && (existing.data.sale_id || existing.data.voided_at)
 
   if (id && existing.error) return <p className="p-6 text-red-600">No se pudo abrir la cotización: {friendlyDocError(existing.error)}</p>

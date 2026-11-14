@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import { money } from '@/lib/format'
 import {
-  type PoStatus, type Provider, poLabel, STATUS_LABEL, STATUS_STYLE, usePurchaseOrders, useProviderList, whatsappUrl,
+  isOpenPo, type PoStatus, type Provider, poLabel, STATUS_LABEL, STATUS_STYLE, usePurchaseOrders, useProviderList, whatsappUrl,
 } from './api'
 import ProviderSheet from './ProviderSheet'
 import NeedsTab from '@/features/needs/NeedsTab'
@@ -36,7 +36,7 @@ export default function ProvidersPage() {
 }
 
 const STATUS_FILTERS: { id: PoStatus | 'abiertas' | 'todas'; label: string }[] = [
-  { id: 'abiertas', label: 'Pendientes' }, { id: 'recibida', label: 'Recibidas' },
+  { id: 'abiertas', label: 'Pendientes' }, { id: 'solicitada', label: 'Esperando precios' }, { id: 'recibida', label: 'Recibidas' },
   { id: 'cancelada', label: 'Canceladas' }, { id: 'todas', label: 'Todas' },
 ]
 
@@ -48,12 +48,13 @@ function OrdersTab() {
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
     return orders.filter(o =>
-      (status === 'todas' || (status === 'abiertas' ? o.status === 'borrador' || o.status === 'enviada' : o.status === status))
+      (status === 'todas' || (status === 'abiertas' ? isOpenPo(o.status) : o.status === status))
       && (!q || o.provider_name.toLowerCase().includes(q) || poLabel(o.number).toLowerCase().includes(q)
           || (o.invoice_ref?.toLowerCase().includes(q) ?? false)))
   }, [orders, status, query])
 
-  const openCount = orders.filter(o => o.status === 'borrador' || o.status === 'enviada').length
+  const openCount = orders.filter(o => isOpenPo(o.status)).length
+  const waitingCount = orders.filter(o => o.status === 'solicitada').length
 
   return (
     <>
@@ -62,6 +63,7 @@ function OrdersTab() {
           <button key={f.id} onClick={() => setStatus(f.id)}
                   className={`min-h-11 rounded-full border px-4 text-sm ${status === f.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
             {f.label}{f.id === 'abiertas' && <span className="ml-1 opacity-70">{openCount}</span>}
+            {f.id === 'solicitada' && waitingCount > 0 && <span className="ml-1 opacity-70">{waitingCount}</span>}
           </button>
         ))}
       </div>
@@ -78,7 +80,7 @@ function OrdersTab() {
                 <div className="truncate font-medium">{o.provider_name}</div>
                 <div className="text-xs text-stone-500">
                   {poLabel(o.number)} · {o.item_count} producto{o.item_count === 1 ? '' : 's'}
-                  {o.invoice_ref && ` · ${o.invoice_ref}`} · {date(o.received_at ?? o.ordered_at ?? o.created_at)}
+                  {o.invoice_ref && ` · ${o.invoice_ref}`} · {date(o.received_at ?? o.ordered_at ?? o.quoted_at ?? o.quote_requested_at ?? o.created_at)}
                 </div>
               </div>
               <div className="text-right">

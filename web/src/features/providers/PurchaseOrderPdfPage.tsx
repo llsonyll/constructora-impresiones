@@ -7,7 +7,8 @@ import { useBusinessInfo, type BusinessInfo } from '@/features/documents/api'
 import { poLabel, type Provider, type PurchaseOrder, usePurchaseOrder, useProviderList } from './api'
 
 type Mode = 'solicitud' | 'orden'
-const MODE_LABEL: Record<Mode, string> = { solicitud: 'Solicitud de cotización', orden: 'Orden de compra' }
+// "Solicitud de precios", no "de cotización": en la app, cotización es la de venta a un cliente (Documentos).
+const MODE_LABEL: Record<Mode, string> = { solicitud: 'Solicitud de precios', orden: 'Orden de compra' }
 
 const longDate = (iso: string) =>
   new Date(iso).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -17,7 +18,7 @@ const unitCost = (c: number) => (Math.round(c * 100) / 100 === c ? money(c) : `S
 
 /**
  * La orden de compra lista para imprimir o guardar como PDF (desde el diálogo de impresión, como en Documentos).
- * Dos formatos: *Solicitud de cotización* (sin precios, columnas en blanco para que el proveedor cotice) y
+ * Dos formatos: *Solicitud de precios* (sin precios, columnas en blanco para que el proveedor los complete) y
  * *Orden de compra* (con los costos de la orden). Sin datos internos: ni SKU, ni stock, ni precios de venta.
  */
 export default function PurchaseOrderPdfPage() {
@@ -33,9 +34,11 @@ export default function PurchaseOrderPdfPage() {
 
   const anyMissing = order.items.some(i => i.unit_cost == null)
   const anyPriced = order.items.some(i => i.unit_cost != null)
-  // Por defecto, con precios si la orden tiene alguno (los que faltan salen en blanco); sin precios solo si no tiene ninguno.
+  // Por defecto según el estado: esperando precios → solicitud; si no, con precios si la orden tiene alguno
+  // (los que faltan salen en blanco) y sin precios solo si no tiene ninguno.
   const raw = params.get('modo')
-  const mode: Mode = raw === 'solicitud' || raw === 'orden' ? raw : anyPriced ? 'orden' : 'solicitud'
+  const mode: Mode = raw === 'solicitud' || raw === 'orden' ? raw
+    : order.status === 'solicitada' || !anyPriced ? 'solicitud' : 'orden'
   const withNote = params.get('nota') === '1'
   const set = (k: string, v: string | null) => setParams(p => { const n = new URLSearchParams(p); if (v == null) n.delete(k); else n.set(k, v); return n }, { replace: true })
   const provider = providers.find(p => p.id === order.provider_id)
@@ -66,7 +69,7 @@ export default function PurchaseOrderPdfPage() {
         <p className="text-xs text-stone-500">
           {mode === 'solicitud'
             ? 'Sin precios: el proveedor llena precio unitario y total. Para enviar antes de comprar.'
-            : `Con los costos de la orden${anyMissing ? '; los que faltan salen en blanco (por cotizar)' : ''}.`}
+            : `Con los costos de la orden${anyMissing ? '; los que no tienen costo salen en blanco' : ''}.`}
           {' '}En el diálogo de impresión elige «Guardar como PDF».
         </p>
       </div>
@@ -87,7 +90,7 @@ export function PoSheet({ order, mode, biz, provider, lines, note }: {
   const subtotal = round2(lines.reduce((s, l) => s + (sub(l) ?? 0), 0))
   const total = order.costs_include_igv ? subtotal : round2(subtotal * 1.18)
   const missing = lines.filter(l => l.cost == null).length
-  const date = order.ordered_at ?? order.created_at
+  const date = (priced ? order.ordered_at : order.quote_requested_at) ?? order.created_at
   const dense = lines.length > 26   // listas largas: letra y renglones menores al imprimir, para que quepan en una hoja
   const td = dense ? 'py-1 print:py-px' : 'py-1.5'
 
@@ -113,7 +116,7 @@ export function PoSheet({ order, mode, biz, provider, lines, note }: {
         <p className="mt-2">
           {priced
             ? 'Por medio de la presente confirmamos el siguiente pedido:'
-            : 'Por medio de la presente solicitamos cotizar y atender el siguiente pedido:'}
+            : 'Por medio de la presente le solicitamos sus precios para los siguientes productos:'}
         </p>
       </div>
 
@@ -154,7 +157,7 @@ export function PoSheet({ order, mode, biz, provider, lines, note }: {
           <div className={`flex justify-between text-base font-semibold ${order.costs_include_igv ? '' : 'border-t pt-1'}`}>
             <dt>Total{order.costs_include_igv ? ' (incluye IGV)' : ''}</dt><dd className="tabular-nums">{money(total)}</dd>
           </div>
-          {missing > 0 && <div className="text-right text-xs text-stone-500">{missing} producto{missing > 1 ? 's' : ''} por cotizar, sin sumar</div>}
+          {missing > 0 && <div className="text-right text-xs text-stone-500">{missing} producto{missing > 1 ? 's' : ''} sin precio, no suma{missing > 1 ? 'n' : ''}</div>}
         </dl>
       )}
 

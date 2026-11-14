@@ -14,7 +14,14 @@ export interface Provider {
   product_count: number
 }
 
-export type PoStatus = 'borrador' | 'enviada' | 'recibida' | 'cancelada'
+/**
+ * borrador → solicitada (precios pedidos) → cotizada (precios recibidos) → enviada (pedido) → recibida; o cancelada.
+ * Se puede saltar pasos: pedir sin pedir precios, o recibir sin haber enviado. Reglas en la BD (po_guard).
+ */
+export type PoStatus = 'borrador' | 'solicitada' | 'cotizada' | 'enviada' | 'recibida' | 'cancelada'
+/** Abierta: todavía se edita, se envía o se recibe. */
+export const OPEN_PO_STATUSES: readonly PoStatus[] = ['borrador', 'solicitada', 'cotizada', 'enviada']
+export const isOpenPo = (s: PoStatus | null | undefined) => s != null && OPEN_PO_STATUSES.includes(s)
 
 export interface PurchaseOrderRow {
   id: string
@@ -26,11 +33,13 @@ export interface PurchaseOrderRow {
   total: number
   item_count: number
   created_at: string
+  quote_requested_at: string | null
+  quoted_at: string | null
   ordered_at: string | null
   received_at: string | null
 }
 
-/** unit_cost null = por cotizar (se completa con la cotización o la factura; para recibir es obligatorio). */
+/** unit_cost null = sin costo (se completa con los precios del proveedor o la factura; para recibir es obligatorio). */
 export interface PoItem { product_id: string; qty: number; unit_cost: number | null }
 
 export interface PurchaseOrder extends Omit<PurchaseOrderRow, 'provider_name' | 'item_count'> {
@@ -53,12 +62,14 @@ export interface ReceiptLine {
 
 export const poLabel = (n: number) => `OC-${String(n).padStart(4, '0')}`
 
+// En compras se dice "pedir precios" (no "cotización", que en Documentos es la de venta a un cliente).
 export const STATUS_LABEL: Record<PoStatus, string> = {
-  borrador: 'Borrador', enviada: 'Enviada', recibida: 'Recibida', cancelada: 'Cancelada',
+  borrador: 'Borrador', solicitada: 'Esperando precios', cotizada: 'Precios recibidos', enviada: 'Pedido enviado',
+  recibida: 'Recibida', cancelada: 'Cancelada',
 }
 export const STATUS_STYLE: Record<PoStatus, string> = {
-  borrador: 'bg-stone-200 text-stone-700', enviada: 'bg-blue-100 text-blue-800',
-  recibida: 'bg-green-100 text-green-800', cancelada: 'bg-red-100 text-red-700',
+  borrador: 'bg-stone-200 text-stone-700', solicitada: 'bg-amber-100 text-amber-800', cotizada: 'bg-violet-100 text-violet-800',
+  enviada: 'bg-blue-100 text-blue-800', recibida: 'bg-green-100 text-green-800', cancelada: 'bg-red-100 text-red-700',
 }
 
 export const providerKeys = {
@@ -104,7 +115,7 @@ export function usePurchaseOrders() {
     queryKey: providerKeys.orders,
     queryFn: async (): Promise<PurchaseOrderRow[]> => {
       const { data, error } = await supabase.from('purchase_orders')
-        .select('id, number, provider_id, status, invoice_ref, total, created_at, ordered_at, received_at, providers(name), purchase_order_items(count)')
+        .select('id, number, provider_id, status, invoice_ref, total, created_at, quote_requested_at, quoted_at, ordered_at, received_at, providers(name), purchase_order_items(count)')
         .order('created_at', { ascending: false }).limit(200)
       if (error) throw error
       type Row = Omit<PurchaseOrderRow, 'provider_name' | 'item_count'> &
@@ -121,7 +132,7 @@ export function usePurchaseOrder(id: string | undefined) {
     enabled: !!id,
     queryFn: async (): Promise<PurchaseOrder> => {
       const { data, error } = await supabase.from('purchase_orders')
-        .select('id, number, provider_id, status, invoice_ref, note, costs_include_igv, total, created_at, ordered_at, received_at, purchase_order_items(product_id, qty, unit_cost, id)')
+        .select('id, number, provider_id, status, invoice_ref, note, costs_include_igv, total, created_at, quote_requested_at, quoted_at, ordered_at, received_at, purchase_order_items(product_id, qty, unit_cost, id)')
         .eq('id', id!).order('id', { referencedTable: 'purchase_order_items' }).single()
       if (error) throw error
       const { purchase_order_items, ...o } = data as unknown as Omit<PurchaseOrder, 'items'> & { purchase_order_items: (PoItem & { id: number })[] }
@@ -157,7 +168,7 @@ export function useSavePurchaseOrder() {
 export function useSetPoStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'enviada' | 'cancelada' | 'borrador' }) => {
+    mutationFn: async ({ id, status }: { id: string; status: 'solicitada' | 'enviada' | 'cancelada' | 'borrador' }) => {
       const { error } = await supabase.from('purchase_orders').update({ status }).eq('id', id)
       if (error) throw error
     },
