@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Barcode, MapPin, Package } from 'lucide-react'
+import { Barcode, MapPin } from 'lucide-react'
 import Sheet from '@/components/Sheet'
 import ZoomImage from '@/components/ZoomImage'
+import { ImagePlaceholder } from '@/components/ProductImage'
 import { imageUrl } from '@/lib/images'
 import { money, round2 } from '@/lib/format'
 import type { Product } from '@/types/domain'
@@ -35,9 +36,7 @@ export default function ProductDetailSheet({ product: p, category, inTicket, acc
   return (
     <Sheet onClose={onClose} label={`Detalle de ${p.name}`} className="space-y-3 sm:max-w-lg">
       {img ? <ZoomImage src={img} alt={p.name} className="aspect-[4/3] w-full" />
-           : <div className="grid aspect-[3/1] place-items-center rounded-lg bg-stone-100 text-sm text-stone-500">
-               <span className="grid justify-items-center gap-1"><Package className="size-10 text-stone-400" aria-hidden />Sin foto</span>
-             </div>}
+           : <ImagePlaceholder label className="aspect-[3/1] rounded-lg" />}
 
       <div>
         <h2 className="font-semibold leading-snug">{p.name}</h2>

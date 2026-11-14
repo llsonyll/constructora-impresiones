@@ -188,6 +188,10 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   empaquetado y precacheado por la PWA, así que escanea sin internet.
 - **Fotos**: se comprimen en el teléfono (1024 px, JPEG ~100 KB) y se suben al bucket público
   `product-images`; escritura solo admin/almacén. Ruta en `products.image_path`.
+  Se muestran con `components/ProductImage.tsx`: pulso gris mientras carga, miniatura genérica (caja) si el
+  producto no tiene foto, e ícono de foto rota si no se pudo cargar (p. ej. sin internet). En el POS todos los
+  productos llevan recuadro de foto; los servicios, solo si tienen una. Al subir, la foto nueva se ve al instante
+  con un indicador encima.
 - **Poner precios** (`/inventario/precios`): tarjetas una por una (sin precio / sin foto / sin código),
   escanear para saltar al producto, asignar código, foto y precio → *Guardar y siguiente*.
 - **POS**: escanear agrega al ticket; si el código no existe, alta rápida (nombre + precio, SKU `NUE-0001…`,

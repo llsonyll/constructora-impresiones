@@ -344,21 +344,21 @@ function JobFields<F extends JobForm>({ f, set }: { f: F; set: <K extends keyof 
 /** La foto se sube al elegirla (no depende de "Guardar"), igual que en "Poner precios". */
 export function PhotoSection({ product, className = 'mt-6 border-t pt-4' }: { product: InventoryProduct; className?: string }) {
   const qc = useQueryClient()
-  const [busy, setBusy] = useState(false)
+  // La foto elegida se ve mientras sube; al terminar, la guardada (o la anterior si falló).
+  const [uploading, setUploading] = useState<File | null>(null)
   const [error, setError] = useState('')
   async function onPhoto(file: File | null) {
     if (!file) return
-    setBusy(true); setError('')
+    setUploading(file); setError('')
     try {
       await uploadProductImage(product.id, file, product.image_path)
       await qc.invalidateQueries({ queryKey: inventoryKeys.products })
-    } catch (e) { setError(friendlyError(e)) } finally { setBusy(false) }
+    } catch (e) { setError(friendlyError(e)) } finally { setUploading(null) }
   }
   return (
     <section className={className}>
       <h3 className="mb-2 font-semibold">Foto</h3>
-      <div className={busy ? 'opacity-50' : ''}><PhotoInput file={null} currentUrl={imageUrl(product.image_path)} onChange={onPhoto} /></div>
-      {busy && <p className="mt-1 text-xs text-stone-500">Subiendo…</p>}
+      <PhotoInput file={uploading} busy={!!uploading} currentUrl={imageUrl(product.image_path)} onChange={onPhoto} />
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </section>
   )

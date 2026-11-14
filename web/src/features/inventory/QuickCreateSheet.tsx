@@ -154,7 +154,7 @@ export default function QuickCreateSheet({ initialName = '', initialBarcode = ''
           <option value="">Categoría (opcional)</option>
           <CategoryOptions categories={categories} />
         </select>
-        <PhotoInput file={photo} onChange={setPhoto} />
+        <PhotoInput file={photo} onChange={setPhoto} busy={saving && !!photo} />
         <p className="text-xs text-stone-500">Se crea con SKU automático y marcado “por revisar” para completar costo y categoría luego.</p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button disabled={saving || !name.trim() || (requirePrice && !price.trim())} className={`w-full rounded-lg p-3 font-medium disabled:opacity-50 ${visibleDupes.length ? 'border border-amber-700 bg-white text-amber-800' : 'bg-amber-700 text-white'}`}>
