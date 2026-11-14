@@ -9,6 +9,10 @@ export type ImageStatus = 'empty' | 'loading' | 'loaded' | 'error'
  * Estado de carga de una <img>: `empty` sin foto, `loading` mientras baja, `loaded` o `error` (sin internet,
  * archivo borrado). Pasar `imgProps` a la <img>. El `ref` cubre la foto que ya estaba en caché y terminó de
  * cargar antes de que React escuchara `onLoad`. Al cambiar `src` vuelve a `loading`.
+ *
+ * `crossOrigin`: la foto se pide con CORS para que la PWA pueda guardarla para usar sin internet (ver
+ * `runtimeCaching` en vite.config.ts). Toda <img> de una foto de producto debe llevarlo: si una sin CORS la
+ * guardara primero, las demás no podrían usar esa copia.
  */
 export function useImageStatus(src: string | null | undefined) {
   const [done, setDone] = useState<{ src: string; ok: boolean } | null>(null)
@@ -18,6 +22,7 @@ export function useImageStatus(src: string | null | undefined) {
   }, [src])
   const imgProps = {
     ref,
+    crossOrigin: 'anonymous' as const,
     onLoad: () => { if (src) setDone({ src, ok: true }) },
     onError: () => { if (src) setDone({ src, ok: false }) },
   }

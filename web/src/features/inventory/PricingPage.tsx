@@ -183,7 +183,7 @@ function Slide({ product: p, onOpen }: { product: InventoryProduct; onOpen: (k: 
     <div className="relative h-full overflow-hidden">
       {src ? (
         <>
-          {status === 'loaded' && <img src={src} alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl" />}
+          {status === 'loaded' && <img src={src} crossOrigin="anonymous" alt="" aria-hidden className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl" />}
           <img {...imgProps} src={src} alt={p.name}
                className={cn('absolute inset-0 size-full object-contain transition-opacity duration-300', status !== 'loaded' && 'opacity-0')} />
           {status === 'loading' && <div aria-hidden className="absolute inset-0 animate-pulse bg-white/5" />}

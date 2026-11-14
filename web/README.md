@@ -189,7 +189,8 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
 - **Fotos**: se comprimen en el teléfono (1024 px, JPEG ~100 KB) y se suben al bucket público
   `product-images`; escritura solo admin/almacén. Ruta en `products.image_path`.
   Se muestran con `components/ProductImage.tsx`: pulso gris mientras carga, miniatura genérica (caja) si el
-  producto no tiene foto, e ícono de foto rota si no se pudo cargar (p. ej. sin internet). En el POS todos los
+  producto no tiene foto, e ícono de foto rota si no se pudo cargar (p. ej. sin internet y nunca vista en ese
+  equipo; ver *Offline*). En el POS todos los
   productos llevan recuadro de foto; los servicios, solo si tienen una. Al subir, la foto nueva se ve al instante
   con un indicador encima.
 - **Poner precios** (`/inventario/precios`): tarjetas una por una (sin precio / sin foto / sin código),
@@ -354,6 +355,12 @@ hiciera falta reimportar desde el respaldo final de Firebase (13/10/2026, guarda
 
 `checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la
 RPC `create_sale`, que es idempotente por ese UUID: reintentar nunca duplica ventas ni descuenta stock dos veces.
+
+**Fotos sin internet**: el service worker guarda cada foto de producto la primera vez que se ve en ese equipo
+(caché `product-images`, *CacheFirst*, hasta 1500 fotos / 180 días; se descartan las menos usadas). Es seguro no
+revalidar porque cada subida usa una ruta nueva. Las `<img>` de fotos de producto llevan `crossOrigin="anonymous"`
+(ya incluido en `useImageStatus`): solo se guardan respuestas 200 con CORS, no las opacas, que Chrome cuenta como
+~7 MB de cuota cada una. Una foto nunca vista en ese equipo no está disponible sin internet.
 
 ## Despliegue (Vercel)
 
