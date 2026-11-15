@@ -112,6 +112,10 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
 - Código `MUEBLE[-CUERPO]-NIVEL[-SECCIÓN]` (p. ej. `E2-N5`, `E4-N3-B`, `E0-B-N2-F`): nivel contado de **arriba hacia abajo**
   (N1 = repisa más alta), sección de izquierda a derecha. En `locations` las partes van por separado (`furniture`,
   `body`, `level`, `slot`) y `code` se calcula de ellas (para un plano interactivo más adelante). Cargados E0–E5 (106).
+- Tipos con un solo nivel y sin cuerpos (`isSingleLevel`): **colgador** (`C1`, tramos de la barra como secciones) y
+  **depósito** (`D1` = depósito general, todo lo que no está en la ferretería; si más adelante hay zonas fijas se agregan
+  como secciones `D1-N1-A`…, u otro depósito `D2`). El N1 no se muestra y se buscan por la forma corta (`C1-A`, `D1`);
+  *Ir a…* y el autocompletado también aceptan el tipo o la descripción sin tildes (`deposito`).
 - `product_locations`: un producto puede estar en varias ubicaciones; una es la **principal** (la primera que se asigna;
   los triggers mantienen una sola y, al quitarla, pasa a otra). `qty` es **referencial**: el stock real es
   `products.stock` (movimientos). Cada venta la descuenta (trigger `stock_movements_locations`): primero de la

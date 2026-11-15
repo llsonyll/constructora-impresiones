@@ -3,7 +3,7 @@ import Sheet from '@/components/Sheet'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FurnitureType, Location } from '@/types/domain'
-import { FURNITURE_LABEL, LOCATION_RE, friendlyLocationError, locationKeys, useDeleteLocation, useLocations, useSaveLocation } from './api'
+import { FURNITURE_LABEL, LOCATION_RE, SINGLE_LEVEL_LETTER, friendlyLocationError, isSingleLevel, locationKeys, useDeleteLocation, useLocations, useSaveLocation } from './api'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const input = 'min-h-11 w-full rounded-lg border px-2 text-base'
@@ -14,6 +14,7 @@ const codeOf = (f: string, body: string, level: number, slot: string) =>
  * Crear o editar una ubicación. Al crear se puede generar un mueble entero de una vez: niveles desde/hasta
  * y, si los niveles están divididos, cuántas secciones (A, B, C…) tiene cada uno.
  * Un colgador (C1, C2…) tiene un solo nivel y sin cuerpos: solo se elige cuántos tramos tiene la barra.
+ * Un depósito (D1…) igual: un solo nivel, sin cuerpos y, si hace falta, zonas (A, B…).
  */
 export default function LocationForm({ location, defaultFurniture, productCount, onClose, onSaved, onDeleted }: {
   location: Location | null; defaultFurniture: string; productCount: number
@@ -34,9 +35,12 @@ export default function LocationForm({ location, defaultFurniture, productCount,
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const hanger = type === 'colgador'
-  const f = furniture.trim().toUpperCase(), b = hanger ? '' : body.trim().toUpperCase(), s = slot.trim().toUpperCase()
-  const from = hanger ? 1 : Number(level), to = hanger || location ? from : Number(levelTo), nSlots = Number(slots)
+  const single = isSingleLevel(type)
+  const depot = type === 'deposito'
+  const part = depot ? { one: 'Zona', many: 'Zonas del depósito', none: 'Ninguna (depósito entero)' }
+                     : { one: 'Tramo', many: 'Tramos de la barra', none: 'Ninguno (barra entera)' }
+  const f = furniture.trim().toUpperCase(), b = single ? '' : body.trim().toUpperCase(), s = slot.trim().toUpperCase()
+  const from = single ? 1 : Number(level), to = single || location ? from : Number(levelTo), nSlots = Number(slots)
   const codes: string[] = []
   if (Number.isInteger(from) && Number.isInteger(to) && from >= 1 && to >= from && to - from < 30)
     for (let l = from; l <= to; l++) {
@@ -45,12 +49,13 @@ export default function LocationForm({ location, defaultFurniture, productCount,
     }
   const valid = codes.length > 0 && codes.every(c => LOCATION_RE.test(c))
 
-  // Al elegir "Colgador" en una ubicación nueva se propone el siguiente C libre (C1, C2…).
+  // Al elegir "Colgador" o "Depósito" en una ubicación nueva se propone el siguiente libre (C1, C2… / D1, D2…).
   function changeType(t: FurnitureType) {
     setType(t)
-    if (t === 'colgador' && !location && !/^C\d+$/.test(f)) {
-      const used = all.filter(l => /^C\d+$/.test(l.furniture)).map(l => Number(l.furniture.slice(1)))
-      setFurniture(`C${used.length ? Math.max(...used) + 1 : 1}`)
+    const letter = SINGLE_LEVEL_LETTER[t]
+    if (letter && !location && !new RegExp(`^${letter}\\d+$`).test(f)) {
+      const used = all.filter(l => l.furniture[0] === letter && /^[A-Z]\d+$/.test(l.furniture)).map(l => Number(l.furniture.slice(1)))
+      setFurniture(`${letter}${used.length ? Math.max(...used) + 1 : 1}`)
     }
   }
 
@@ -96,27 +101,27 @@ export default function LocationForm({ location, defaultFurniture, productCount,
       <h2 className="text-lg font-semibold">{location ? `Editar ${location.code}` : 'Nueva ubicación'}</h2>
       <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2">
         <label className="text-xs text-stone-500">Mueble
-          <input className={`${input} mt-1 uppercase`} value={furniture} onChange={e => setFurniture(e.target.value)} placeholder={hanger ? 'C1' : 'E6'} required />
+          <input className={`${input} mt-1 uppercase`} value={furniture} onChange={e => setFurniture(e.target.value)} placeholder={SINGLE_LEVEL_LETTER[type] ? `${SINGLE_LEVEL_LETTER[type]}1` : 'E6'} required />
         </label>
         <label className="text-xs text-stone-500">Tipo
           <select className={`${input} mt-1`} value={type} onChange={e => changeType(e.target.value as FurnitureType)}>
             {Object.entries(FURNITURE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        {!hanger && (
+        {!single && (
           <label className="text-xs text-stone-500">Cuerpo (opcional)
             <input className={`${input} mt-1 uppercase`} value={body} maxLength={1} onChange={e => setBody(e.target.value)} placeholder="—" />
           </label>
         )}
-        {hanger ? (
+        {single ? (
           location ? (
-            <label className="text-xs text-stone-500">Tramo (opcional)
+            <label className="text-xs text-stone-500">{part.one} (opcional)
               <input className={`${input} mt-1 uppercase`} value={slot} maxLength={1} onChange={e => setSlot(e.target.value)} placeholder="—" />
             </label>
           ) : (
-            <label className="text-xs text-stone-500">Tramos de la barra
+            <label className="text-xs text-stone-500">{part.many}
               <select className={`${input} mt-1`} value={slots} onChange={e => setSlots(e.target.value)}>
-                <option value="0">Ninguno (barra entera)</option>
+                <option value="0">{part.none}</option>
                 {[2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} (A–{LETTERS[n - 1]})</option>)}
               </select>
             </label>
@@ -147,7 +152,7 @@ export default function LocationForm({ location, defaultFurniture, productCount,
           </>
         )}
         <label className="col-span-2 text-xs text-stone-500">Descripción (opcional)
-          <input className={`${input} mt-1`} value={description} onChange={e => setDescription(e.target.value)} placeholder={hanger ? 'Ej.: rodillos, sobre E1, altura techo' : 'Ej.: tornillería, junto a la caja'} />
+          <input className={`${input} mt-1`} value={description} onChange={e => setDescription(e.target.value)} placeholder={depot ? 'Ej.: depósito general, fuera de la ferretería' : single ? 'Ej.: rodillos, sobre E1, altura techo' : 'Ej.: tornillería, junto a la caja'} />
         </label>
 
         <p className={`col-span-2 rounded-lg p-2 text-sm ${valid ? 'bg-stone-100' : 'bg-red-50 text-red-700'}`}>
