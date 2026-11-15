@@ -1,12 +1,14 @@
 // npm test (node --test). Etiquetas de precio: reparto en hojas y textos.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { amount, brandLine, nameTier, paginate, perPage, presentationText, unitText } from './labels.ts'
+import { amount, brandLine, isFormat, nameTier, paginate, perPage, presentationText, unitText } from './labels.ts'
 
 test('paginate repite según las copias y corta por hoja', () => {
   const items = [{ data: 'a', copies: 5 }, { data: 'b', copies: 8 }, { data: 'c', copies: 1 }]
   assert.equal(perPage('ancha'), 12)
   assert.equal(perPage('angosta'), 18)
+  assert.equal(perPage('chica'), 30)
+  assert.ok(isFormat('chica') && isFormat('ancha') && !isFormat('otra') && !isFormat(null) && !isFormat('toString'))
   const pages = paginate(items, 12)
   assert.equal(pages.length, 2)
   assert.deepEqual(pages[0], [...'aaaaa', ...'bbbbbbb'])
