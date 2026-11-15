@@ -55,7 +55,7 @@
 @page { size: A4; margin: 12mm; }
 
 /*
- * Etiquetas de precio (features/labels): hojas A4 de 12 (2 × 6) o 18 (3 × 6) etiquetas. Todo se mide en cqw (1 % del ancho de la hoja),
+ * Etiquetas de precio (features/labels): hojas A4 de 12 (2 × 6), 18 (3 × 6) o 30 (5 × 6) etiquetas. Todo se mide en cqw (1 % del ancho de la hoja),
  * así la vista previa en pantalla es la hoja impresa a escala: al imprimir, 1cqw = 2.1 mm (LabelsPage pone
  * @page sin márgenes y la hoja trae los suyos, 8 mm).
  */
@@ -77,7 +77,8 @@
 .label-head { display: flex; justify-content: space-between; gap: 1cqw; font-size: 1.05cqw; color: #57534e;
               text-transform: uppercase; letter-spacing: .04em; }
 .label-name { margin-top: .5cqw; font-weight: 700; font-size: var(--name); overflow-wrap: anywhere;
-              display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines); overflow: hidden; }
+              display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines); overflow: hidden;
+              max-height: calc(var(--lines) * 1.12em - .15em); }   /* sin asomar la punta del renglón siguiente */
 .label-name[data-tier="1"] { font-size: calc(var(--name) * .83); }
 .label-name[data-tier="2"] { font-size: calc(var(--name) * .71); }
 .label-brand { margin-top: .3cqw; font-size: 1.3cqw; color: #44403c; }
@@ -86,13 +87,21 @@
 .label-price { display: flex; align-items: baseline; justify-content: flex-end; gap: .6cqw; margin-top: auto;
                font-variant-numeric: tabular-nums; white-space: nowrap; }
 .label-pres + .label-price { margin-top: .2cqw; }
-.label-price .cur { font-size: 2.4cqw; font-weight: 600; }
+.label-price .cur { font-size: var(--cur, 2.4cqw); font-weight: 600; }
 .label-price .num { font-size: var(--price); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
-.label-price .unit { font-size: 1.4cqw; color: #44403c; }
-.label-price .blank { display: inline-block; width: 16cqw; border-bottom: 1px solid #1c1917; height: 4cqw; }
+.label-price .unit { font-size: var(--unit, 1.4cqw); color: #44403c; }
+.label-price .blank { display: inline-block; width: var(--blank, 16cqw); border-bottom: 1px solid #1c1917; height: 4cqw; }
 .label-foot { margin-top: .4cqw; font-size: 1cqw; color: #78716c; font-family: ui-monospace, Menlo, monospace; }
 .label-page[data-format="ancha"] { --cols: 2; --rows: 6; --lines: 3; --name: 2.1cqw; --price: 5cqw; }
 .label-page[data-format="angosta"] { --cols: 3; --rows: 6; --lines: 3; --name: 1.9cqw; --price: 4.4cqw; }
+/* Chicas (5 × 6, 39 mm de ancho): menos margen y letra más chica; si el precio es largo, la unidad baja de renglón. */
+.label-page[data-format="chica"] { --cols: 5; --rows: 6; --lines: 4; --name: 1.55cqw; --price: 3.4cqw;
+                                    --cur: 1.8cqw; --unit: 1.15cqw; --blank: 9cqw; }
+.label-page[data-format="chica"] .label { padding: 1.1cqw 1.1cqw; }
+.label-page[data-format="chica"] .label-pres { font-size: 1.1cqw; flex-direction: column; }
+.label-page[data-format="chica"] .label-brand { font-size: 1.15cqw; }
+.label-page[data-format="chica"] .label-price { flex-wrap: wrap; row-gap: 0; column-gap: .4cqw; }
+.label-page[data-format="chica"] .label-price .num[data-long] { font-size: calc(var(--price) * .78); }  /* 1,250.00: entra con el S/ */
 @media print {
   .label-page { break-after: page; }
   .label-page:last-child { break-after: auto; }

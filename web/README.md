@@ -72,7 +72,7 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
 ## Etiquetas de precio (`/inventario/etiquetas`, admin y almacén)
 
-Etiquetas para los estantes de la tienda física, en hojas A4 de **12** (2 × 6) o **18** (3 × 6) para imprimir o
+Etiquetas para los estantes de la tienda física, en hojas A4 de **12** (2 × 6), **18** (3 × 6) o **30** (5 × 6) para imprimir o
 guardar como PDF (`features/labels/`).
 - Se van **acumulando** en una lista: buscando (nombre, código o ubicación: `e2n5` trae lo de ese casillero y
   *+ Agregar los N resultados* los suma de una vez), escaneando, con un lector USB (Enter) o con el botón **Etiqueta**
@@ -82,10 +82,12 @@ guardar como PDF (`features/labels/`).
   imprimir: después de imprimir se ofrece *Vaciar lista*. Nombre y precio se leen del inventario al imprimir, así
   siempre salen los vigentes. El botón *Etiquetas* del inventario muestra cuántos hay.
 - Cada etiqueta: nombre del negocio, nombre del producto (letra más chica si es largo), marca si el nombre no la
-  dice, hasta 3 presentaciones en las anchas y 2 en las angostas (Docena (12) S/ 3.00), el **precio** grande con la unidad (*c/u*, *el metro*,
+  dice, hasta 3 presentaciones en las anchas y 2 en las angostas y chicas (Docena (12) S/ 3.00), el **precio** grande con la unidad (*c/u*, *el metro*,
   *el kilo*…) y el SKU. Sin costos ni stock. Sin precio, sale una línea en blanco para escribirlo a mano.
-- Dos tamaños de la misma altura (el elegido queda en el equipo): **2 × 6** (97 × 47 mm, 12 por hoja, por defecto)
-  y **3 × 6** (65 × 47 mm, 18 por hoja, más chica; el nombre muy largo se corta en 3 renglones). Líneas punteadas para cortar. La hoja se mide en `cqw` (`index.css`, `.label-*`): la vista previa
+- Tres tamaños de la misma altura (el elegido queda en el equipo): **2 × 6** (97 × 47 mm, 12 por hoja, por defecto),
+  **3 × 6** (65 × 47 mm, 18 por hoja, más chica; el nombre muy largo se corta en 3 renglones) y **5 × 6** (39 × 47 mm,
+  30 por hoja, para productos pequeños: letra más chica, el nombre hasta 4 renglones, las presentaciones una por renglón,
+  el precio de 4 cifras un poco más chico y la unidad baja de renglón si no entra). Líneas punteadas para cortar. La hoja se mide en `cqw` (`index.css`, `.label-*`): la vista previa
   es la hoja a escala y al imprimir la página va sin márgenes del navegador (la hoja trae los suyos, 8 mm), así no
   salen la fecha ni la dirección. Imprimir con escala al 100 %.
 - Pendiente: **código QR** en la etiqueta (ficha o precio en línea) cuando haya un dominio propio.

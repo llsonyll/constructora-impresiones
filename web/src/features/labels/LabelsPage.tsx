@@ -11,7 +11,8 @@ import { type InventoryProduct, useInventory } from '@/features/inventory/api'
 import { useBusinessInfo } from '@/features/documents/api'
 import { labelQueue, MAX_COPIES, useLabelQueue } from './queue'
 import {
-  amount, brandLine, FORMATS, type LabelData, type LabelFormat, nameTier, paginate, perPage, presentationText, unitText,
+  amount, brandLine, FORMATS, isFormat, type LabelData, type LabelFormat, nameTier, paginate, perPage, presentationText,
+  unitText,
 } from './labels'
 
 const FORMAT_KEY = 'etiquetas-formato'
@@ -19,7 +20,7 @@ const RESULTS = 8          // resultados que se muestran al buscar
 const MAX_BULK = 120       // "Agregar los N": tope para no llenar la lista por error con una búsqueda corta
 
 const readFormat = (): LabelFormat => {
-  try { return localStorage.getItem(FORMAT_KEY) === 'angosta' ? 'angosta' : 'ancha' } catch { return 'ancha' }
+  try { const f = localStorage.getItem(FORMAT_KEY); return isFormat(f) ? f : 'ancha' } catch { return 'ancha' }
 }
 
 const toLabel = (p: InventoryProduct): LabelData => ({
@@ -28,7 +29,7 @@ const toLabel = (p: InventoryProduct): LabelData => ({
 
 /**
  * Etiquetas de precio para los estantes: se van agregando productos (buscando, escaneando o desde la ficha) y se
- * imprimen en hojas A4 de 12 (2 × 6) o 18 (3 × 6) (Imprimir / PDF, como los demás documentos). La lista queda guardada en este equipo
+ * imprimen en hojas A4 de 12 (2 × 6), 18 (3 × 6) o 30 (5 × 6) (Imprimir / PDF, como los demás documentos). La lista queda guardada en este equipo
  * hasta vaciarla; precio y nombre se leen del inventario al imprimir, así salen siempre actualizados.
  */
 export default function LabelsPage() {
@@ -292,7 +293,9 @@ function PriceLabel({ label: l, business, maxPres, top, left }: { label: LabelDa
       )}
       <div className="label-price">
         <span className="cur">S/</span>
-        {l.price != null ? <span className="num">{amount(l.price)}</span> : <span className="blank" />}
+        {l.price != null
+          ? <span className="num" data-long={amount(l.price).length > 6 || undefined}>{amount(l.price)}</span>
+          : <span className="blank" />}
         <span className="unit">{unitText(l.unit)}</span>
       </div>
       <div className="label-foot">{l.sku}</div>
