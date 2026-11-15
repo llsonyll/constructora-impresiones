@@ -1,12 +1,12 @@
 // Etiquetas de precio para la tienda: lógica sin React (se prueba con `npm test`).
 
-/** Disposición de la hoja A4: siempre 12 etiquetas, anchas (2 × 6) o casi cuadradas (3 × 4). */
-export type LabelFormat = 'ancha' | 'cuadrada'
-export const FORMATS: Record<LabelFormat, { cols: number; rows: number; label: string; size: string }> = {
-  ancha: { cols: 2, rows: 6, label: '2 × 6', size: '97 × 47 mm' },
-  cuadrada: { cols: 3, rows: 4, label: '3 × 4', size: '65 × 70 mm' },
+/** Disposición de la hoja A4: anchas (2 × 6, la de siempre) o angostas (3 × 6, de la misma altura). */
+export type LabelFormat = 'ancha' | 'angosta'
+export const FORMATS: Record<LabelFormat, { cols: number; rows: number; label: string; size: string; maxPres: number }> = {
+  ancha: { cols: 2, rows: 6, label: '2 × 6', size: '97 × 47 mm', maxPres: 3 },
+  angosta: { cols: 3, rows: 6, label: '3 × 6', size: '65 × 47 mm', maxPres: 2 },
 }
-export const PER_PAGE = 12
+export const perPage = (f: LabelFormat) => FORMATS[f].cols * FORMATS[f].rows
 
 /** Datos que se imprimen en una etiqueta (sin costos ni stock: la ve el cliente). */
 export interface LabelData {
@@ -19,11 +19,11 @@ export interface LabelData {
   presentations: { name: string; qty: number; price: number }[]
 }
 
-/** Repite cada producto según sus copias y reparte en hojas de 12, en el orden de la lista. */
-export function paginate<T>(items: { data: T; copies: number }[], perPage = PER_PAGE): T[][] {
+/** Repite cada producto según sus copias y reparte en hojas de `size` (12 o 18), en el orden de la lista. */
+export function paginate<T>(items: { data: T; copies: number }[], size: number): T[][] {
   const flat = items.flatMap(i => Array<T>(Math.max(0, i.copies)).fill(i.data))
   const pages: T[][] = []
-  for (let i = 0; i < flat.length; i += perPage) pages.push(flat.slice(i, i + perPage))
+  for (let i = 0; i < flat.length; i += size) pages.push(flat.slice(i, i + size))
   return pages
 }
 

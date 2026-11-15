@@ -11,7 +11,7 @@ import { type InventoryProduct, useInventory } from '@/features/inventory/api'
 import { useBusinessInfo } from '@/features/documents/api'
 import { labelQueue, MAX_COPIES, useLabelQueue } from './queue'
 import {
-  amount, brandLine, FORMATS, type LabelData, type LabelFormat, nameTier, paginate, PER_PAGE, presentationText, unitText,
+  amount, brandLine, FORMATS, type LabelData, type LabelFormat, nameTier, paginate, perPage, presentationText, unitText,
 } from './labels'
 
 const FORMAT_KEY = 'etiquetas-formato'
@@ -19,7 +19,7 @@ const RESULTS = 8          // resultados que se muestran al buscar
 const MAX_BULK = 120       // "Agregar los N": tope para no llenar la lista por error con una búsqueda corta
 
 const readFormat = (): LabelFormat => {
-  try { return localStorage.getItem(FORMAT_KEY) === 'cuadrada' ? 'cuadrada' : 'ancha' } catch { return 'ancha' }
+  try { return localStorage.getItem(FORMAT_KEY) === 'angosta' ? 'angosta' : 'ancha' } catch { return 'ancha' }
 }
 
 const toLabel = (p: InventoryProduct): LabelData => ({
@@ -28,7 +28,7 @@ const toLabel = (p: InventoryProduct): LabelData => ({
 
 /**
  * Etiquetas de precio para los estantes: se van agregando productos (buscando, escaneando o desde la ficha) y se
- * imprimen en hojas A4 de 12 (Imprimir / PDF, como los demás documentos). La lista queda guardada en este equipo
+ * imprimen en hojas A4 de 12 (2 × 6) o 18 (3 × 6) (Imprimir / PDF, como los demás documentos). La lista queda guardada en este equipo
  * hasta vaciarla; precio y nombre se leen del inventario al imprimir, así salen siempre actualizados.
  */
 export default function LabelsPage() {
@@ -52,10 +52,11 @@ export default function LabelsPage() {
   const lines = queue.map(q => ({ ...q, product: byId.get(q.id) }))
   // Productos que ya no existen (eliminados): no se imprimen y se pueden quitar.
   const valid = lines.filter((l): l is typeof l & { product: InventoryProduct } => !!l.product)
-  const pages = paginate(valid.map(l => ({ data: toLabel(l.product), copies: l.copies })))
+  const size = perPage(format)
+  const pages = paginate(valid.map(l => ({ data: toLabel(l.product), copies: l.copies })), size)
   const total = valid.reduce((s, l) => s + l.copies, 0)
   const noPrice = valid.filter(l => l.product.price == null).length
-  const free = pages.length ? pages.length * PER_PAGE - total : 0
+  const free = pages.length ? pages.length * size - total : 0
 
   const textScore = useProductMatcher(query)
   const results = useMemo(() => {
@@ -244,7 +245,7 @@ export default function LabelsPage() {
               ))}
             </div>
             <p className="text-xs text-stone-500">
-              12 por hoja A4{free > 0 ? `; en la última quedan ${free} libres` : ''}. En el diálogo de impresión elige «Guardar como PDF»
+              {size} por hoja A4{free > 0 ? `; en la última quedan ${free} libres` : ''}. En el diálogo de impresión elige «Guardar como PDF»
               o la impresora, con escala al 100 %. Las líneas punteadas son para cortar.
             </p>
           </section>
@@ -260,14 +261,14 @@ export default function LabelsPage() {
 
 /** Las hojas A4 tal como se imprimen (en pantalla, a escala del ancho disponible). */
 export function LabelSheets({ pages, format, business }: { pages: LabelData[][]; format: LabelFormat; business: string }) {
-  const { cols } = FORMATS[format]
+  const { cols, maxPres } = FORMATS[format]
   return (
     <div className="label-sheets mx-auto max-w-3xl space-y-4 print:max-w-none print:space-y-0">
       {pages.map((page, n) => (
         <div key={n} className="label-page shadow print:shadow-none" data-format={format} aria-label={`Hoja ${n + 1} de ${pages.length}`}>
           <div className="label-grid">
             {page.map((l, i) => (
-              <PriceLabel key={i} label={l} business={business} top={i < cols} left={i % cols === 0} />
+              <PriceLabel key={i} label={l} business={business} maxPres={maxPres} top={i < cols} left={i % cols === 0} />
             ))}
           </div>
         </div>
@@ -276,9 +277,9 @@ export function LabelSheets({ pages, format, business }: { pages: LabelData[][];
   )
 }
 
-function PriceLabel({ label: l, business, top, left }: { label: LabelData; business: string; top: boolean; left: boolean }) {
+function PriceLabel({ label: l, business, maxPres, top, left }: { label: LabelData; business: string; maxPres: number; top: boolean; left: boolean }) {
   const brand = brandLine(l.name, l.brand)
-  const pres = l.presentations.slice(0, 3)
+  const pres = l.presentations.slice(0, maxPres)
   return (
     <div className="label" data-top={top || undefined} data-left={left || undefined}>
       <div className="label-head"><span className="truncate">{business}</span></div>

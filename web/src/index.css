@@ -55,7 +55,7 @@
 @page { size: A4; margin: 12mm; }
 
 /*
- * Etiquetas de precio (features/labels): hojas A4 de 12 etiquetas. Todo se mide en cqw (1 % del ancho de la hoja),
+ * Etiquetas de precio (features/labels): hojas A4 de 12 (2 × 6) o 18 (3 × 6) etiquetas. Todo se mide en cqw (1 % del ancho de la hoja),
  * así la vista previa en pantalla es la hoja impresa a escala: al imprimir, 1cqw = 2.1 mm (LabelsPage pone
  * @page sin márgenes y la hoja trae los suyos, 8 mm).
  */
@@ -92,7 +92,7 @@
 .label-price .blank { display: inline-block; width: 16cqw; border-bottom: 1px solid #1c1917; height: 4cqw; }
 .label-foot { margin-top: .4cqw; font-size: 1cqw; color: #78716c; font-family: ui-monospace, Menlo, monospace; }
 .label-page[data-format="ancha"] { --cols: 2; --rows: 6; --lines: 3; --name: 2.1cqw; --price: 5cqw; }
-.label-page[data-format="cuadrada"] { --cols: 3; --rows: 4; --lines: 5; --name: 2.4cqw; --price: 4.6cqw; }
+.label-page[data-format="angosta"] { --cols: 3; --rows: 6; --lines: 3; --name: 1.9cqw; --price: 4.4cqw; }
 @media print {
   .label-page { break-after: page; }
   .label-page:last-child { break-after: auto; }
