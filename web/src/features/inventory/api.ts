@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { fetchAll, supabase } from '@/lib/supabase'
 import { localDb } from '@/db/local'
 import { normalize } from '@/lib/search'
 import type { JobSource, Presentation, SynonymRow } from '@/types/domain'
@@ -96,8 +96,9 @@ export function useInventory() {
   return useQuery({
     queryKey: inventoryKeys.products,
     queryFn: async (): Promise<InventoryProduct[]> => {
-      const { data, error } = await supabase.from('products').select(PRODUCT_COLS).order('name')
-      if (error) throw error
+      // Paginado: el catálogo completo (con inactivos) pasa de las 1000 filas que devuelve Supabase por consulta.
+      const data = await fetchAll(async (from, to) =>
+        await supabase.from('products').select(PRODUCT_COLS).order('name').order('id').range(from, to))
       return (data as unknown as Row[]).map(({ product_costs, product_locations, ...p }) => ({
         ...p, cost: product_costs?.cost ?? null,
         locations: [...product_locations]
