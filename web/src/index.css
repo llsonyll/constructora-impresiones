@@ -53,3 +53,48 @@
 
 /* Documentos (cotización, nota de venta): hoja A4 con márgenes al imprimir o guardar como PDF. */
 @page { size: A4; margin: 12mm; }
+
+/*
+ * Etiquetas de precio (features/labels): hojas A4 de 12 etiquetas. Todo se mide en cqw (1 % del ancho de la hoja),
+ * así la vista previa en pantalla es la hoja impresa a escala: al imprimir, 1cqw = 2.1 mm (LabelsPage pone
+ * @page sin márgenes y la hoja trae los suyos, 8 mm).
+ */
+.label-sheets { container-type: inline-size; }
+.label-page {
+  width: 100cqw; height: 141.2cqw;   /* 297/210 = 1.4143: apenas menos, para que no sobre una hoja en blanco */
+  padding: 3.81cqw;                  /* 8 mm */
+  background: white; color: black; overflow: hidden;
+}
+.label-grid { display: grid; height: 100%; grid-template-columns: repeat(var(--cols), 1fr); grid-template-rows: repeat(var(--rows), 1fr); }
+.label {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+  padding: 1.3cqw 1.6cqw;            /* ≈ 3 mm: lo que se pierde al cortar con tijera */
+  border: 0 dashed #a8a29e; border-right-width: 1px; border-bottom-width: 1px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; line-height: 1.12;
+}
+.label[data-top] { border-top-width: 1px; }
+.label[data-left] { border-left-width: 1px; }
+.label-head { display: flex; justify-content: space-between; gap: 1cqw; font-size: 1.05cqw; color: #57534e;
+              text-transform: uppercase; letter-spacing: .04em; }
+.label-name { margin-top: .5cqw; font-weight: 700; font-size: var(--name); overflow-wrap: anywhere;
+              display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--lines); overflow: hidden; }
+.label-name[data-tier="1"] { font-size: calc(var(--name) * .83); }
+.label-name[data-tier="2"] { font-size: calc(var(--name) * .71); }
+.label-brand { margin-top: .3cqw; font-size: 1.3cqw; color: #44403c; }
+.label-pres { margin-top: auto; padding-top: .4cqw; font-size: 1.3cqw; display: flex; flex-wrap: wrap; column-gap: 2cqw; }
+.label-pres b { font-variant-numeric: tabular-nums; }
+.label-price { display: flex; align-items: baseline; justify-content: flex-end; gap: .6cqw; margin-top: auto;
+               font-variant-numeric: tabular-nums; white-space: nowrap; }
+.label-pres + .label-price { margin-top: .2cqw; }
+.label-price .cur { font-size: 2.4cqw; font-weight: 600; }
+.label-price .num { font-size: var(--price); font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+.label-price .unit { font-size: 1.4cqw; color: #44403c; }
+.label-price .blank { display: inline-block; width: 16cqw; border-bottom: 1px solid #1c1917; height: 4cqw; }
+.label-foot { margin-top: .4cqw; font-size: 1cqw; color: #78716c; font-family: ui-monospace, Menlo, monospace; }
+.label-page[data-format="ancha"] { --cols: 2; --rows: 6; --lines: 3; --name: 2.1cqw; --price: 5cqw; }
+.label-page[data-format="cuadrada"] { --cols: 3; --rows: 4; --lines: 5; --name: 2.4cqw; --price: 4.6cqw; }
+@media print {
+  .label-page { break-after: page; }
+  .label-page:last-child { break-after: auto; }
+  .label { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

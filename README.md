@@ -64,6 +64,10 @@ la app se retiró; Firebase ya no se usa. La lógica de reparto de hojas que nac
     los que se indiquen), sin cargar el catálogo entero.
   - `/pedidos`: mostrar el código del proveedor en la solicitud cuando exista.
 
+- **QR en las etiquetas de precio.** Las etiquetas (`/inventario/etiquetas`) se imprimen sin QR porque aún no hay
+  un dominio propio: un QR a la dirección de Vercel quedaría roto al mudarse. Con el dominio, agregar un QR por
+  producto (p. ej. a una ficha pública con precio y foto) en el espacio libre de la etiqueta.
+
 ## Seguridad
 
 La clave publicable de Supabase viaja en el navegador por diseño; los datos se protegen con RLS y roles

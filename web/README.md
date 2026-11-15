@@ -70,6 +70,26 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
     ficha). Así ESMALTE CRONS con marca *CPP PINTOR* en la ficha cae igual en ESMALTE · CRONS. Si un producto sale en
     otra línea, se corrige su **nombre** siguiendo el patrón de los demás (TIPO MARCA TAMAÑO COLOR).
 
+## Etiquetas de precio (`/inventario/etiquetas`, admin y almacén)
+
+Etiquetas para los estantes de la tienda física, en hojas A4 de **12** para imprimir o guardar como PDF
+(`features/labels/`).
+- Se van **acumulando** en una lista: buscando (nombre, código o ubicación: `e2n5` trae lo de ese casillero y
+  *+ Agregar los N resultados* los suma de una vez), escaneando, con un lector USB (Enter) o con el botón **Etiqueta**
+  en la ficha del producto (Inventario). Un producto no se repite en la lista: para más de una etiqueta suya se suben
+  sus **copias** (− / +). Quitar y *Vaciar* tienen *Deshacer*.
+- La lista se guarda **en el equipo** (`localStorage` `etiquetas-lista`, solo ids y copias) y no se borra al
+  imprimir: después de imprimir se ofrece *Vaciar lista*. Nombre y precio se leen del inventario al imprimir, así
+  siempre salen los vigentes. El botón *Etiquetas* del inventario muestra cuántos hay.
+- Cada etiqueta: nombre del negocio, nombre del producto (letra más chica si es largo), marca si el nombre no la
+  dice, hasta 3 presentaciones (Docena (12) S/ 3.00), el **precio** grande con la unidad (*c/u*, *el metro*,
+  *el kilo*…) y el SKU. Sin costos ni stock. Sin precio, sale una línea en blanco para escribirlo a mano.
+- Dos disposiciones (queda elegida en el equipo): **2 × 6** (97 × 47 mm, para nombres largos) y **3 × 4**
+  (65 × 70 mm). Líneas punteadas para cortar. La hoja se mide en `cqw` (`index.css`, `.label-*`): la vista previa
+  es la hoja a escala y al imprimir la página va sin márgenes del navegador (la hoja trae los suyos, 8 mm), así no
+  salen la fecha ni la dirección. Imprimir con escala al 100 %.
+- Pendiente: **código QR** en la etiqueta (ficha o precio en línea) cuando haya un dominio propio.
+
 ## Búsqueda de productos: sinónimos y otros nombres
 
 Un mismo producto se pide de varias formas ("amarra", "cintillo", "precinto"). Una sola búsqueda (`src/lib/search.ts`,
