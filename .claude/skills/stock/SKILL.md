@@ -89,7 +89,8 @@ select public.bulk_adjust_stock(
 - `counted` es la cantidad **total** que hay; la RPC registra la diferencia contra el stock actual.
   Una cantidad 0 también se envía (deja el stock en cero).
 - Ubicación: `locations.code` sigue el formato `E4-N3-B` (estante E4, nivel 3, casillero B). Muchos niveles
-  tienen casilleros A/B: si el usuario solo dijo estante y nivel, pregúntale cuál.
+  tienen casilleros A/B: si el usuario solo dijo estante y nivel, pregúntale cuál. Lo que **no está en la
+  ferretería** (anotado como "depósito", "almacén", "atrás"…) va a `D1-N1`, el depósito general.
   ```sql
   insert into product_locations (product_id, location_id, is_primary)
   select id, (select id from locations where code = 'E4-N3-B'), true

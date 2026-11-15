@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { Location } from '@/types/domain'
-import { colgadorCode, normalizeCode, useLocations } from './api'
+import { isSingleLevel, matchesText, normalizeCode, shortLevelCode, useLocations } from './api'
 
 /**
  * Buscador de ubicación con autocompletado: escribir "e2n5", "E2-N5" o solo "E4" y elegir de la lista.
- * En colgadores también vale la forma corta sin nivel: "c1a" encuentra C1-N1-A.
+ * En colgadores y depósitos también vale la forma corta sin nivel: "c1a" encuentra C1-N1-A y "d1" el D1-N1.
+ * También busca por descripción o tipo, sin tildes: "deposito" encuentra el D1.
  * Solo ofrece ubicaciones activas y no asignadas todavía (`exclude`).
  */
 export default function LocationPicker({ exclude = [], onPick, placeholder = 'Agregar ubicación (p. ej. E2-N5)' }: {
@@ -18,9 +19,9 @@ export default function LocationPicker({ exclude = [], onPick, placeholder = 'Ag
     const n = normalizeCode(q.trim())
     const pool = locations.filter(l => l.active && !exclude.includes(l.id))
     if (!n) return pool.slice(0, 8)
-    const alt = colgadorCode(n)
-    const starts = pool.filter(l => l.code.startsWith(n) || (alt != null && l.furniture_type === 'colgador' && l.code.startsWith(alt)))
-    const rest = pool.filter(l => !starts.includes(l) && (l.code.includes(n) || (l.description?.toUpperCase().includes(q.trim().toUpperCase()) ?? false)))
+    const alt = shortLevelCode(n)
+    const starts = pool.filter(l => l.code.startsWith(n) || (alt != null && isSingleLevel(l.furniture_type) && l.code.startsWith(alt)))
+    const rest = pool.filter(l => !starts.includes(l) && (l.code.includes(n) || matchesText(l, q)))
     return [...starts, ...rest].slice(0, 12)
   }, [locations, exclude, q])
 

@@ -2,8 +2,25 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { FurnitureType, Location } from '@/types/domain'
 
-export const FURNITURE_LABEL: Record<FurnitureType, string> = { estante: 'Estante', vitrina: 'Vitrina', mostrador: 'Mostrador', techo: 'Techo', panel: 'Panel', colgador: 'Colgador' }
+export const FURNITURE_LABEL: Record<FurnitureType, string> = { estante: 'Estante', vitrina: 'Vitrina', mostrador: 'Mostrador', techo: 'Techo', panel: 'Panel', colgador: 'Colgador', deposito: 'Depósito' }
 export const LOCATION_RE = /^[A-Z]\d+(-[A-Z])?-N\d+(-[A-Z])?$/
+
+/**
+ * Tipos con un solo nivel (N1) y sin cuerpos: en la app no se muestra el N1 y se buscan por la forma corta.
+ * Colgador: C1, C2… con tramos de la barra. Depósito: D1 (fuera de la ferretería), con zonas si hiciera falta.
+ */
+export const isSingleLevel = (t: FurnitureType | undefined) => t === 'colgador' || t === 'deposito'
+/** Letra que se propone al crear un mueble de un solo nivel (C2, D2…). */
+export const SINGLE_LEVEL_LETTER: Partial<Record<FurnitureType, string>> = { colgador: 'C', deposito: 'D' }
+
+/** Para buscar sin importar mayúsculas ni tildes ("deposito" encuentra "Depósito"). */
+export const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().trim()
+
+/** La ubicación coincide por descripción o por tipo de mueble (p. ej. "deposito" → D1). */
+export function matchesText(l: Location, q: string) {
+  const t = fold(q)
+  return t.length >= 2 && (fold(l.description ?? '').includes(t) || fold(FURNITURE_LABEL[l.furniture_type] ?? '').startsWith(t))
+}
 
 /** Orden físico: mueble (E0, E1… E10), cuerpo, nivel de arriba hacia abajo, sección de izquierda a derecha. */
 export function compareLocations(a: Location, b: Location) {
@@ -21,18 +38,18 @@ export function normalizeCode(s: string) {
 }
 
 /**
- * Los colgadores tienen un solo nivel y en la app no se muestra: "C1-A" o "C1" (ya normalizado) → "C1-N1-A" / "C1-N1".
+ * Colgadores y depósitos tienen un solo nivel y en la app no se muestra: "C1-A" o "D1" (ya normalizado) → "C1-N1-A" / "D1-N1".
  * Devuelve null si el código no tiene esa forma corta.
  */
-export function colgadorCode(code: string) {
+export function shortLevelCode(code: string) {
   const m = code.match(/^([A-Z]\d+)(?:-([A-Z]))?$/)
   return m ? `${m[1]}-N1${m[2] ? `-${m[2]}` : ''}` : null
 }
 
-/** Busca por código exacto o, en colgadores, por la forma corta sin nivel. */
+/** Busca por código exacto o, en colgadores y depósitos, por la forma corta sin nivel. */
 export function findByCode(locations: Location[], code: string) {
-  const alt = colgadorCode(code)
-  return locations.find(l => l.code === code) ?? (alt ? locations.find(l => l.furniture_type === 'colgador' && l.code === alt) : undefined)
+  const alt = shortLevelCode(code)
+  return locations.find(l => l.code === code) ?? (alt ? locations.find(l => isSingleLevel(l.furniture_type) && l.code === alt) : undefined)
 }
 
 export const locationKeys = { all: ['locations'] as const }
@@ -57,6 +74,7 @@ export function friendlyLocationError(e: unknown) {
   if (err.code === '23505') return 'Ya existe una ubicación con ese código.'
   if (err.code === '23503') return err.message?.startsWith('La ubicación') ? err.message : 'Tiene productos asignados: no se puede eliminar. Desactívala o quita los productos primero.'
   if (err.code === '23514' && err.message?.includes('locations_colgador_shape')) return 'Un colgador tiene un solo nivel (N1) y no lleva cuerpo.'
+  if (err.code === '23514' && err.message?.includes('locations_deposito_shape')) return 'Un depósito tiene un solo nivel (N1) y no lleva cuerpo.'
   if (err.code === '23514') return 'Código inválido. Formato: MUEBLE[-CUERPO]-NIVEL[-SECCIÓN], p. ej. E2-N5 o E0-B-N2-F.'
   if (err.code === '42501') return 'No tienes permiso para esta acción.'
   return err.message ?? 'Error inesperado'

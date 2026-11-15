@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import Sheet from '@/components/Sheet'
 import type { FurnitureType, Location } from '@/types/domain'
-import { FURNITURE_LABEL, LOCATION_RE, friendlyLocationError, useReshapeFurniture } from './api'
+import { FURNITURE_LABEL, LOCATION_RE, friendlyLocationError, isSingleLevel, useReshapeFurniture } from './api'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 const input = 'min-h-11 w-full rounded-lg border px-2 text-base'
@@ -25,8 +25,9 @@ export default function FurnitureForm({ furniture, body, locations, productCount
   const [error, setError] = useState('')
   const name = `${furniture}${body ? `-${body}` : ''}`
 
-  const hanger = type === 'colgador'   // un solo nivel: solo se cambian los tramos
-  const nLevels = hanger ? 1 : Number(levels), nSlots = Number(slots)
+  const single = isSingleLevel(type)   // colgador o depósito: un solo nivel, solo se cambian los tramos/zonas
+  const depot = type === 'deposito'
+  const nLevels = single ? 1 : Number(levels), nSlots = Number(slots)
   const newF = code.trim().toUpperCase()
   const validInput = Number.isInteger(nLevels) && nLevels >= 1 && nLevels <= 30 && /^[A-Z]\d+$/.test(newF)
 
@@ -90,14 +91,14 @@ export default function FurnitureForm({ furniture, body, locations, productCount
             {Object.entries(FURNITURE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        {!hanger && (
+        {!single && (
           <label className="text-xs text-stone-500">Niveles
             <input className={`${input} mt-1`} inputMode="numeric" value={levels} onChange={e => setLevels(e.target.value)} />
           </label>
         )}
-        <label className="text-xs text-stone-500">{hanger ? 'Tramos de la barra' : 'Secciones por nivel'}
+        <label className="text-xs text-stone-500">{depot ? 'Zonas del depósito' : single ? 'Tramos de la barra' : 'Secciones por nivel'}
           <select className={`${input} mt-1`} value={slots} onChange={e => setSlots(e.target.value)}>
-            <option value="0">{hanger ? 'Ninguno (barra entera)' : 'Ninguna (nivel entero)'}</option>
+            <option value="0">{depot ? 'Ninguna (depósito entero)' : single ? 'Ninguno (barra entera)' : 'Ninguna (nivel entero)'}</option>
             {[2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n} (A–{LETTERS[n - 1]})</option>)}
           </select>
         </label>
