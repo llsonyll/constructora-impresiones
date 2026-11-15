@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Hash, LayoutGrid, MapPin, Replace, ScanBarcode, Search, Tag } from 'lucide-react'
+import { Hash, LayoutGrid, MapPin, Printer, Replace, ScanBarcode, Search, Tag } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { normalizeCode } from '@/features/locations/api'
@@ -7,6 +7,7 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 import { money } from '@/lib/format'
 import { rankBy } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
+import { useLabelQueue } from '@/features/labels/queue'
 import { type InventoryProduct, useCategories, useInventory } from './api'
 import CategoryOptions from './CategoryOptions'
 import ProductEditor from './ProductEditor'
@@ -51,6 +52,7 @@ export default function InventoryPage() {
   // Búsqueda sin resultados → "Crear «…»" abre el alta con ese nombre.
   const [newName, setNewName] = useState('')
   const [savedIds, setSavedIds] = useState<string[]>([])
+  const labels = useLabelQueue().length
 
   /** Código escaneado o tecleado por un lector USB (Enter): abre el producto si existe; si no, ofrece crearlo. */
   function findByCode(raw: string) {
@@ -111,12 +113,15 @@ export default function InventoryPage() {
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-lg font-semibold">Inventario</h1>
-        <div className="grid grid-cols-5 gap-1.5 max-md:w-full md:flex md:gap-2">
+        <div className="grid grid-cols-3 gap-1.5 max-md:w-full md:flex md:gap-2">
           <Link to="/inventario/surtido" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><LayoutGrid aria-hidden className="size-5 text-stone-500" />Surtido</Link>
           <Link to="/inventario/precios" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Tag aria-hidden className="size-5 text-stone-500" />Inventariar</Link>
           <Link to="/inventario/ubicaciones" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><MapPin aria-hidden className="size-5 text-stone-500" />Ubicaciones</Link>
           <Link to="/inventario/conteo" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Hash aria-hidden className="size-5 text-stone-500" />Conteo</Link>
           <Link to="/inventario/sinonimos" className="flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Replace aria-hidden className="size-5 text-stone-500" />Sinónimos</Link>
+          <Link to="/inventario/etiquetas" className="relative flex min-h-12 flex-col items-center justify-center rounded-lg border bg-white px-1 text-xs leading-tight md:flex-row md:gap-1 md:px-3 md:text-sm"><Printer aria-hidden className="size-5 text-stone-500" />Etiquetas
+            {labels > 0 && <span className="absolute -top-1.5 -right-1.5 grid min-w-5 place-items-center rounded-full bg-amber-700 px-1 text-[11px] font-semibold leading-5 text-white" aria-label={`${labels} en la lista`}>{labels}</span>}
+          </Link>
         </div>
         <button onClick={newProduct} className="min-h-11 rounded-lg bg-amber-700 px-3 text-sm text-white max-md:hidden">+ Nuevo producto</button>
       </div>

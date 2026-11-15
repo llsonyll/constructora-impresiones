@@ -1,5 +1,8 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { ScanBarcode } from 'lucide-react'
+import { Printer, ScanBarcode } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+import { labelQueue, useLabelQueue } from '@/features/labels/queue'
 import ProductLocations from '@/features/locations/ProductLocations'
 import CategoryOptions from './CategoryOptions'
 import { useQueryClient } from '@tanstack/react-query'
@@ -69,6 +72,8 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
   const { data: categories = [] } = useCategories()
   const { data: providers = [] } = useProviders()
   const save = useSaveProduct()
+  const navigate = useNavigate()
+  const inLabels = useLabelQueue().some(i => i.id === product?.id)
 
   const [initial] = useState(() => ({
     sku: product?.sku ?? '', name: product?.name ?? initialName.toUpperCase(), brand: product?.brand ?? '', barcode: product?.barcode ?? initialBarcode,
@@ -142,6 +147,20 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
             {product ? 'Editar producto' : 'Nuevo producto'}
             {dirty && <span className="ml-2 align-middle text-xs font-normal text-amber-700">● sin guardar</span>}
           </h2>
+          {product && (
+            // A la lista de etiquetas de precio (se imprime en Inventario → Etiquetas, con el precio guardado).
+            <button type="button" disabled={inLabels}
+                    onClick={() => {
+                      labelQueue.add([product.id])
+                      toast.success(`Etiqueta agregada (${labelQueue.get().length} en la lista)`, {
+                        description: dirty ? 'Sale con lo guardado: guarda los cambios antes de imprimir.' : undefined,
+                        action: { label: 'Ver lista', onClick: () => navigate('/inventario/etiquetas') },
+                      })
+                    }}
+                    className="mr-1 flex min-h-11 items-center gap-1 rounded-lg border px-2 text-sm text-amber-800 disabled:border-green-200 disabled:bg-green-50 disabled:text-green-800">
+              <Printer aria-hidden className="size-4" />{inLabels ? '✓ Etiqueta' : 'Etiqueta'}
+            </button>
+          )}
           <button onClick={requestClose} aria-label="Cerrar" className="-mr-2 grid size-11 place-items-center text-xl">✕</button>
         </div>
 
