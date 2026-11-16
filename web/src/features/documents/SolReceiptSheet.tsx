@@ -4,11 +4,33 @@ import { toast } from 'sonner'
 import Sheet from '@/components/Sheet'
 import { useAuth } from '@/features/auth/AuthProvider'
 import type { DaySale } from '@/features/sales/api'
-import { money } from '@/lib/format'
+import { IGV_RATE, igvBreakdown, money } from '@/lib/format'
 import {
-  RECEIPT_LABEL, friendlyDocError, receiptNumber, rucValido, solText, useLastReceiptNumber, useRegisterSolReceipt,
+  RECEIPT_LABEL, friendlyDocError, plain, receiptNumber, rucValido, solText, useLastReceiptNumber, useRegisterSolReceipt,
   useVoidDocument, type ReceiptType,
 } from './api'
+
+/** Fila de dato copiable para el formulario de SOL. */
+function SolField({ label, value }: { label: string; value: string }) {
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value)
+      toast.success('Copiado', { id: 'sol-copy' })
+    } catch { toast.error('No se pudo copiar') }
+  }
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <span className="shrink-0 text-stone-500">{label}</span>
+      <div className="flex items-start gap-1">
+        <span className="break-all font-mono text-right">{value}</span>
+        <button type="button" onClick={copy} title={`Copiar ${label.toLowerCase()}`}
+                className="mt-px shrink-0 rounded p-0.5 text-stone-400 hover:text-stone-700 active:text-stone-900">
+          <Copy className="size-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 /** Desde S/ 700 la boleta debe identificar al cliente (DNI, CE o pasaporte). */
 const BOLETA_DOC_DESDE = 700
@@ -40,6 +62,7 @@ export default function SolReceiptSheet({ sale, onClose }: { sale: DaySale; onCl
   const chip = (on: boolean) => `min-h-11 flex-1 rounded-lg border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 
   const doc = docNum.replace(/\s/g, '')
+  const { base: opGravada, igv: igvMonto } = igvBreakdown(sale.total)
   const warning = type === 'factura'
     ? (doc && !rucValido(doc) ? 'El RUC no es válido: revisa los 11 dígitos.' : '')
     : (sale.total >= BOLETA_DOC_DESDE && !doc ? `Desde ${money(BOLETA_DOC_DESDE)} la boleta debe llevar el DNI del cliente.` : '')
@@ -115,7 +138,22 @@ export default function SolReceiptSheet({ sale, onClose }: { sale: DaySale; onCl
 
         <details className="rounded-lg border bg-stone-50 px-3 py-2 text-sm">
           <summary className="cursor-pointer py-1 font-medium">Datos para SOL</summary>
-          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap font-sans text-xs text-stone-700">{solText(sale, { name: name.trim(), doc })}</pre>
+          <div className="mt-2 space-y-2 text-xs">
+            {sale.items.map((item, n) => (
+              <div key={n} className="space-y-1.5 rounded border bg-white p-2">
+                <p className="font-medium text-stone-500">Ítem {n + 1}</p>
+                <SolField label="Cant." value={String(item.qty)} />
+                <SolField label="Descripción" value={item.description} />
+                <SolField label="Valor unit. sin IGV" value={plain(item.unit_price / (1 + IGV_RATE), 6)} />
+              </div>
+            ))}
+            <div className="space-y-1.5 rounded border bg-white p-2">
+              <p className="font-medium text-stone-500">Totales</p>
+              <SolField label="Op. gravada" value={plain(opGravada)} />
+              <SolField label="IGV (18%)" value={plain(igvMonto)} />
+              <SolField label="Total" value={plain(sale.total)} />
+            </div>
+          </div>
         </details>
         <button type="button" onClick={copy} className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border bg-white px-3 text-sm">
           <Copy className="size-4" />Copiar datos para SOL
