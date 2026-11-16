@@ -49,6 +49,7 @@ export function useActivity(f: ActivityFilters) {
     queryKey: ['activity', f],
     initialPageParam: 0,
     enabled: f.from <= f.to,
+    meta: { silent: true },
     queryFn: async ({ pageParam }) => {
       let q = supabase.from('activity_log').select('*')
         .gte('created_at', dayRange(f.from).from).lt('created_at', dayRange(f.to).to)

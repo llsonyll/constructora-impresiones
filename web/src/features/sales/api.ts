@@ -99,6 +99,7 @@ export function useRangeSales(fromDay: string, toDay: string) {
   return useQuery({
     queryKey: salesKeys.range(fromDay, toDay),
     enabled: fromDay <= toDay,
+    meta: { silent: true },
     queryFn: () => fetchSales(dayRange(fromDay).from, dayRange(toDay).to),
   })
 }
@@ -117,6 +118,7 @@ export function useDaySales(day: string) {
   return useQuery({
     queryKey: salesKeys.day(day),
     refetchInterval: 60_000,
+    meta: { silent: true },
     queryFn: () => { const { from, to } = dayRange(day); return fetchSales(from, to) },
   })
 }
