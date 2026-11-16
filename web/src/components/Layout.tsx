@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import { CalendarClock, CalendarDays, ChartColumn, Ellipsis, FileText, History, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { Toaster } from 'sonner'
 import Sheet from '@/components/Sheet'
@@ -86,7 +87,29 @@ export default function Layout() {
       </header>
 
       <div className="pb-[var(--nav-h,0px)] print:pb-0">
-        <Outlet />
+        <ErrorBoundary
+          key={pathname}
+          fallback={(error, reset) => (
+            <div className="flex flex-col items-center gap-4 p-10 text-center">
+              <p className="font-semibold text-stone-700">Esta pantalla tuvo un error inesperado.</p>
+              {import.meta.env.DEV && (
+                <pre className="max-w-full overflow-auto rounded-lg bg-stone-800 p-3 text-left text-xs text-stone-100">
+                  {error.message}
+                </pre>
+              )}
+              <div className="flex gap-3">
+                <button onClick={reset} className="rounded-lg border px-4 py-2 text-sm">
+                  Reintentar
+                </button>
+                <a href="#/" className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-medium text-white">
+                  Ir al inicio
+                </a>
+              </div>
+            </div>
+          )}
+        >
+          <Outlet />
+        </ErrorBoundary>
       </div>
 
       {showTabs && (

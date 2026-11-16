@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider'
 import { refreshCatalog, startAutoSync } from '@/features/pos/sync'
 import AppRoutes from '@/routes'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import './index.css'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } })
@@ -21,8 +22,10 @@ function Sync() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider><Sync /><AppRoutes /></AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider><Sync /><AppRoutes /></AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )
