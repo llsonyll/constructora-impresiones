@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from '@/components/Layout'
 import { useAuth } from '@/features/auth/AuthProvider'
 import LoginPage from '@/features/auth/LoginPage'
@@ -24,6 +24,18 @@ import ActivityPage from '@/features/activity/ActivityPage'
 import AgendaPage from '@/features/agenda/AgendaPage'
 import type { Role } from '@/types/domain'
 import type { ReactNode } from 'react'
+
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center gap-4 p-10 text-center">
+      <p className="font-semibold text-stone-700">Página no encontrada.</p>
+      <p className="text-sm text-stone-500">La dirección que ingresaste no existe.</p>
+      <Link to="/" className="rounded-lg bg-amber-800 px-4 py-2 text-sm font-medium text-white">
+        Ir al inicio
+      </Link>
+    </div>
+  )
+}
 
 /** Oculta pantallas a roles sin permiso (la protección real de datos es RLS). */
 function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
@@ -64,6 +76,7 @@ export default function AppRoutes() {
           <Route path="documentos/cotizacion/nueva" element={<RequireRole roles={['admin', 'cajero']}><QuoteEditorPage /></RequireRole>} />
           <Route path="documentos/:id" element={<RequireRole roles={['admin', 'cajero']}><DocumentPage /></RequireRole>} />
           <Route path="documentos/:id/editar" element={<RequireRole roles={['admin', 'cajero']}><QuoteEditorPage /></RequireRole>} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </HashRouter>
