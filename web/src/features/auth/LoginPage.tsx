@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Toaster } from 'sonner'
 import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
@@ -18,6 +19,7 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-dvh place-items-center bg-stone-100 p-4">
+      <Toaster position="bottom-center" richColors toastOptions={{ duration: 4000 }} />
       <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3 rounded-xl bg-white p-6 shadow">
         <h1 className="text-xl font-semibold">La Constructora</h1>
         <input className="min-h-12 w-full rounded-lg border px-3 text-base" type="email" placeholder="Correo" value={email}

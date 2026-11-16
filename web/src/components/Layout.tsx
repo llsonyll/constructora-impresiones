@@ -4,7 +4,6 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import { CalendarClock, CalendarDays, ChartColumn, Ellipsis, FileText, History, LogOut, MapPin, Package, ShoppingCart, Truck, Wallet, type LucideIcon } from 'lucide-react'
 import { Toaster } from 'sonner'
 import Sheet from '@/components/Sheet'
-import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useAgendaAlerts } from '@/features/agenda/api'
 import { cn } from '@/lib/utils'
@@ -48,7 +47,7 @@ const TOAST_OFFSET = {
 const ROLE_LABEL: Record<Role, string> = { admin: 'Administrador', cajero: 'Caja', almacen: 'Almacén' }
 
 export default function Layout() {
-  const { profile } = useAuth()
+  const { profile, signOut } = useAuth()
   const { pathname } = useLocation()
   const [moreOpen, setMoreOpen] = useState(false)
   const [confirmOut, setConfirmOut] = useState(false)
@@ -83,7 +82,7 @@ export default function Layout() {
           ))}
         </nav>
         <span className="text-xs">{profile?.full_name} · {profile?.role}</span>
-        <button className="min-h-11 shrink-0 px-1 text-xs underline" onClick={() => supabase.auth.signOut()}>Salir</button>
+        <button className="min-h-11 shrink-0 px-1 text-xs underline" onClick={() => signOut()}>Salir</button>
       </header>
 
       <div className="pb-[var(--nav-h,0px)] print:pb-0">
@@ -154,7 +153,7 @@ export default function Layout() {
           {confirmOut ? (
             <div className="grid grid-cols-2 gap-2">
               <button onClick={() => setConfirmOut(false)} className="min-h-12 rounded-lg border">Cancelar</button>
-              <button onClick={() => supabase.auth.signOut()} className="min-h-12 rounded-lg bg-red-600 font-medium text-white">Sí, salir</button>
+              <button onClick={() => signOut()} className="min-h-12 rounded-lg bg-red-600 font-medium text-white">Sí, salir</button>
             </div>
           ) : (
             <button onClick={() => setConfirmOut(true)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border text-red-700">

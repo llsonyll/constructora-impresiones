@@ -1,25 +1,54 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import type { Profile } from '@/types/domain'
 
-interface AuthState { session: Session | null; profile: Profile | null; loading: boolean }
-const Ctx = createContext<AuthState>({ session: null, profile: null, loading: true })
+interface AuthState {
+  session: Session | null
+  profile: Profile | null
+  loading: boolean
+  /** Cierra la sesión correctamente; no dispara el aviso de expiración. */
+  signOut: () => Promise<void>
+}
+
+const Ctx = createContext<AuthState>({
+  session: null, profile: null, loading: true, signOut: async () => {},
+})
 export const useAuth = () => useContext(Ctx)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ session: null, profile: null, loading: true })
+  const [data, setData] = useState<Omit<AuthState, 'signOut'>>({
+    session: null, profile: null, loading: true,
+  })
+  // wasSignedIn: había sesión activa antes del último cambio de estado.
+  // isManualSignOut: el cierre lo inició el usuario (no expiración automática).
+  const wasSignedIn = useRef(false)
+  const isManualSignOut = useRef(false)
+
+  const signOut = useCallback(async () => {
+    isManualSignOut.current = true
+    await supabase.auth.signOut()
+  }, [])
 
   useEffect(() => {
     const load = async (session: Session | null) => {
-      if (!session) return setState({ session: null, profile: null, loading: false })
+      if (!session) {
+        if (wasSignedIn.current && !isManualSignOut.current) {
+          toast.warning('Tu sesión expiró. Iniciá sesión de nuevo.')
+        }
+        wasSignedIn.current = false
+        isManualSignOut.current = false
+        return setData({ session: null, profile: null, loading: false })
+      }
+      wasSignedIn.current = true
       const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle()
-      setState({ session, profile: (data as Profile) ?? null, loading: false })
+      setData({ session, profile: (data as Profile) ?? null, loading: false })
     }
     supabase.auth.getSession().then(({ data }) => load(data.session))
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => { void load(s) })
     return () => sub.subscription.unsubscribe()
-  }, [])
+  }, [signOut])
 
-  return <Ctx.Provider value={state}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ ...data, signOut }}>{children}</Ctx.Provider>
 }
