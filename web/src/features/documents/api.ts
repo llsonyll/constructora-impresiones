@@ -130,6 +130,7 @@ export function useDocument(id: string | undefined) {
   return useQuery({
     queryKey: docKeys.one(id ?? ''),
     enabled: !!id,
+    meta: { silent: true },
     queryFn: async (): Promise<Doc> => {
       const { data, error } = await supabase.from('documents').select('*').eq('id', id!).single()
       if (error) throw error
@@ -221,7 +222,7 @@ export function rucValido(ruc: string) {
 }
 
 /** 32.5 → "32.50"; el valor sin IGV va con 6 decimales (sin ceros sobrantes) para que el total cuadre en SOL. */
-const plain = (n: number, max = 2) => n.toFixed(max).replace(/(\.\d{2}\d*?)0+$/, '$1')
+export const plain = (n: number, max = 2) => n.toFixed(max).replace(/(\.\d{2}\d*?)0+$/, '$1')
 
 /** Datos de una venta listos para llenar la boleta o factura en el portal SOL. */
 export function solText(sale: { number: number | null; total: number; items: { description: string; qty: number; unit_price: number; subtotal: number }[] },

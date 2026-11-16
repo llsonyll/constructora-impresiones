@@ -39,6 +39,7 @@ const COLS = 'id, product_id, description, qty, unit, source, provider_id, refer
 export function useNeeds() {
   return useQuery({
     queryKey: needKeys.all,
+    meta: { silent: true },
     queryFn: async (): Promise<Need[]> => {
       const since = new Date(Date.now() - 60 * 86400_000).toISOString()
       const { data, error } = await supabase.from('product_needs').select(COLS)
