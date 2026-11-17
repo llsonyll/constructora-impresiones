@@ -90,6 +90,8 @@ export function createAgentClient({ url = AGENT_URL, intervalMs = 6000, onCambio
     revisar,
     /** Quita un trabajo (asignado completo o ignorado). */
     quitar(id: string) { pendientes = pendientes.filter(j => j.id !== id); guardar() },
+    /** Descarta los trabajos más antiguos, dejando solo los últimos 50. */
+    limpiarAntiguos() { pendientes = pendientes.slice(-50); guardar() },
     /** Deja pendientes solo las hojas que faltan asignar. */
     dejarHojas(id: string, hojas: number) {
       pendientes = hojas > 0 ? pendientes.map(j => j.id === id ? { ...j, hojas } : j) : pendientes.filter(j => j.id !== id)

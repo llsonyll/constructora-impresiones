@@ -79,6 +79,15 @@ export default function PrintJobsPanel({ agent, products, onAdd, onClose, onNewS
           <button onClick={agent.conectar} className="min-h-11 rounded border px-3 text-sm">Conectar</button>
         )}
       </div>
+      {pendientes.length > 50 && (
+        <p className="flex items-center justify-between rounded bg-stone-100 px-3 py-2 text-sm text-stone-600">
+          <span>{pendientes.length} trabajos acumulados</span>
+          <button onClick={() => agent.limpiarAntiguos()}
+                  className="rounded border bg-white px-3 py-1 text-sm hover:bg-stone-50">
+            Limpiar antiguos (dejar últimos 50)
+          </button>
+        </p>
+      )}
       {aviso && <p role="status" className="rounded bg-amber-50 p-2 text-sm text-amber-800">{aviso}</p>}
 
       {!pendientes.length && <p className="py-6 text-center text-sm text-stone-500">No hay trabajos pendientes.</p>}
