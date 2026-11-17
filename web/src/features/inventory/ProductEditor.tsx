@@ -72,6 +72,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
   const { data: categories = [] } = useCategories()
   const { data: providers = [] } = useProviders()
   const save = useSaveProduct()
+  const [saveError, setSaveError] = useState('')
   const navigate = useNavigate()
   const inLabels = useLabelQueue().some(i => i.id === product?.id)
 
@@ -131,10 +132,11 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
       presentations: pres.list,
       aliases: [...new Set(f.aliases.split(',').map(a => a.trim().toLowerCase()).filter(Boolean))],
     }
+    setSaveError('')
     try {
       const id = await save.mutateAsync(payload)
       onSaved(id, payload.name)
-    } catch { /* se muestra abajo */ }
+    } catch (e) { setSaveError(friendlyError(e)) }
   }
 
   return (
@@ -250,7 +252,7 @@ export default function ProductEditor({ product, initialBarcode = '', initialNam
             <textarea className={input} rows={3} value={f.notes} onChange={e => set('notes', e.target.value)} />
           </Field>
 
-          {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyError(save.error)}</p>}
+          {saveError && <p className="col-span-2 text-sm text-red-600">{saveError}</p>}
           {/* Fija al pie de la hoja: guardar sin bajar hasta el final del formulario. */}
           <div className="sticky bottom-0 z-10 col-span-2 -mx-3 flex justify-end gap-2 border-t bg-white px-3 py-3 sm:-mx-5 sm:px-5">
             <button type="button" onClick={requestClose} className="min-h-12 rounded-lg border px-4 max-sm:flex-1">Cancelar</button>
@@ -388,12 +390,15 @@ function StockSection({ product }: { product: InventoryProduct }) {
   const { data: movements = [] } = useMovements(product.id)
   const [counted, setCounted] = useState('')
   const [note, setNote] = useState('')
+  const [adjustError, setAdjustError] = useState('')
 
   async function onAdjust(e: FormEvent) {
     e.preventDefault()
     const n = num(counted)
     if (n == null || Number.isNaN(n)) return
-    try { await adjust.mutateAsync({ productId: product.id, newStock: n, note }); setCounted(''); setNote('') } catch { /* abajo */ }
+    setAdjustError('')
+    try { await adjust.mutateAsync({ productId: product.id, newStock: n, note }); setCounted(''); setNote('') }
+    catch (e) { setAdjustError(friendlyError(e)) }
   }
 
   return (
@@ -404,7 +409,7 @@ function StockSection({ product }: { product: InventoryProduct }) {
         <Field label="Motivo" className="min-w-0 flex-1"><input className={input} value={note} onChange={e => setNote(e.target.value)} placeholder="Conteo, merma, rotura…" /></Field>
         <button disabled={!counted || adjust.isPending} className="min-h-11 rounded border px-3 text-sm disabled:opacity-50">Ajustar</button>
       </form>
-      {adjust.error && <p className="mt-1 text-sm text-red-600">{friendlyError(adjust.error)}</p>}
+      {adjustError && <p className="mt-1 text-sm text-red-600">{adjustError}</p>}
 
       <h4 className="mt-4 mb-1 text-sm font-medium text-stone-600">Movimientos recientes</h4>
       <ul className="divide-y text-sm">
