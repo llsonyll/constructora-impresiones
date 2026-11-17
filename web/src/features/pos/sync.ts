@@ -34,11 +34,13 @@ export async function refreshCatalog(): Promise<number> {
 
 let syncing = false
 
+export interface FlushResult { sent: number; failed: number; newFailed: number }
+
 /** Envía las ventas pendientes en orden. Idempotente: reintentar es seguro. */
-export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
-  if (syncing || !navigator.onLine) return { sent: 0, failed: 0 }
+export async function flushOutbox(): Promise<FlushResult> {
+  if (syncing || !navigator.onLine) return { sent: 0, failed: 0, newFailed: 0 }
   syncing = true
-  let sent = 0, failed = 0
+  let sent = 0, failed = 0, newFailed = 0
   try {
     const pending = await localDb.outbox.orderBy('sold_at').toArray()
     for (const sale of pending) {
@@ -50,6 +52,8 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
         await localDb.outbox.delete(sale.id)
         sent++
       } else {
+        // newFailed solo cuenta la primera vez que una venta falla (transición pending → error).
+        if (sale.status !== 'error') newFailed++
         failed++
         await localDb.outbox.update(sale.id, {
           status: 'error', error: error.message, attempts: sale.attempts + 1,
@@ -61,11 +65,11 @@ export async function flushOutbox(): Promise<{ sent: number; failed: number }> {
   } finally {
     syncing = false
   }
-  return { sent, failed }
+  return { sent, failed, newFailed }
 }
 
-export function startAutoSync(onDone?: () => void) {
-  const run = () => flushOutbox().then(onDone)
+export function startAutoSync(onDone?: (result: FlushResult) => void) {
+  const run = () => flushOutbox().then(r => onDone?.(r))
   window.addEventListener('online', run)
   const t = setInterval(run, 30_000)
   run()

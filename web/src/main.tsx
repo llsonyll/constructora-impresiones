@@ -25,7 +25,13 @@ function Sync() {
   useEffect(() => {
     if (!session) return
     refreshCatalog().catch(() => { /* offline: se usa la caché local */ })
-    return startAutoSync(() => { refreshCatalog().catch(() => {}) })
+    return startAutoSync(({ newFailed }) => {
+      if (newFailed > 0) toast.error(
+        `${newFailed} venta${newFailed === 1 ? '' : 's'} no se pudo${newFailed === 1 ? '' : 'dieron'} registrar. Revisá el ticket del POS.`,
+        { duration: 6000 },
+      )
+      refreshCatalog().catch(() => {})
+    })
   }, [session])
   return null
 }

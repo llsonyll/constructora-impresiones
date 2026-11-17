@@ -74,6 +74,7 @@ export default function PosPage() {
   const catMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories])
   const [usage, setUsage] = useState(readUsage)
   const pendingCount = useLiveQuery(() => localDb.outbox.count(), [], 0)
+  const errorCount = useLiveQuery(() => localDb.outbox.where('status').equals('error').count(), [], 0)
 
   useEffect(() => {
     const up = () => setOnline(true), down = () => setOnline(false)
@@ -318,7 +319,8 @@ export default function PosPage() {
         <div className="flex items-center">
           <h2 className="flex-1 font-semibold">
             Ticket <span className={`ml-1 rounded px-2 py-0.5 text-xs ${theme.soft} ${theme.text}`}><CajaIcon caja={caja} /> {CAJA_LABEL[caja]}</span>
-            {pendingCount > 0 && <span className="ml-2 rounded bg-amber-100 px-2 text-xs text-amber-800">{pendingCount} por sincronizar</span>}
+            {pendingCount - errorCount > 0 && <span className="ml-2 rounded bg-amber-100 px-2 text-xs text-amber-800">{pendingCount - errorCount} por sincronizar</span>}
+              {errorCount > 0 && <span className="ml-2 rounded bg-red-100 px-2 text-xs text-red-700">{errorCount} con error</span>}
           </h2>
           <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
         </div>
