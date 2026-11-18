@@ -37,6 +37,20 @@ Precios: el catálogo guarda precios **con IGV incluido**; el POS desglosa Op. g
 
 Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 
+## Acceso (pantalla de ingreso)
+
+- **Ingresar** con correo y contraseña. El ojo de cada campo de contraseña la muestra u oculta mientras se escribe.
+- **Crear cuenta**: nombre, correo y contraseña (mínimo 8, repetida). El perfil nace `cajero` e inactivo y la persona
+  ve «pendiente de aprobación» (con *Cerrar sesión*) hasta que un admin la active. Si su correo estaba en
+  `role_invites`, nace con ese rol y activa. Con *Confirm email* activo en Supabase, primero debe abrir el enlace
+  del correo. Registrarse es seguro: un perfil inactivo no tiene rol y RLS no le deja ver ni tocar nada.
+- **¿Olvidaste tu contraseña?** envía un enlace (`resetPasswordForEmail`). El mensaje es el mismo exista o no la
+  cuenta. Al abrir el enlace, la app pide la contraseña nueva antes de entrar. Si el enlace venció o ya se usó,
+  la pantalla de ingreso lo avisa.
+- Los correos vuelven a la URL desde la que se pidieron. En Supabase → Authentication → URL Configuration,
+  *Site URL* debe ser la de producción y *Redirect URLs* incluir producción y las vistas previas de Vercel
+  (`https://*-<equipo>.vercel.app/**`). Sin SMTP propio, Supabase envía pocos correos por hora.
+
 ## Inventario (admin, almacén)
 
 - Lista pensada para el celular: buscador fijo arriba (nombre, marca, SKU o código; 📷 escanea), dos selectores
