@@ -36,6 +36,7 @@ export function usePrintAgent() {
     descartarAviso: () => setUltimoNuevo(null),
     conectar: () => ref.current?.conectar(),
     quitar: (id: string) => ref.current?.quitar(id),
+    limpiarAntiguos: () => ref.current?.limpiarAntiguos(),
     dejarHojas: (id: string, hojas: number) => ref.current?.dejarHojas(id, hojas),
   }
 }

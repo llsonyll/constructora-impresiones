@@ -20,6 +20,7 @@ export default function ProviderSheet({ provider, onClose, onSaved }: Props) {
     email: provider?.email ?? '', address: provider?.address ?? '', notes: provider?.notes ?? '', active: provider?.active ?? true,
   }))
   const [f, setF] = useState(initial)
+  const [error, setError] = useState('')
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF(s => ({ ...s, [k]: v }))
   const dirty = JSON.stringify(f) !== JSON.stringify(initial)
   const requestClose = () => { if (!dirty || confirm('Tienes cambios sin guardar. ¿Descartarlos?')) onClose() }
@@ -27,10 +28,11 @@ export default function ProviderSheet({ provider, onClose, onSaved }: Props) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    setError('')
     try {
       const id = await save.mutateAsync({ id: provider?.id, ...f, name: f.name.trim().toUpperCase() })
       onSaved(id)
-    } catch { /* se muestra abajo */ }
+    } catch (e) { setError(friendlyPoError(e)) }
   }
 
   return (
@@ -63,7 +65,7 @@ export default function ProviderSheet({ provider, onClose, onSaved }: Props) {
           <input type="checkbox" className="size-5" checked={f.active} onChange={e => set('active', e.target.checked)} />
           Activo (aparece al crear órdenes y en el inventario)
         </label>
-        {save.error && <p className="col-span-2 text-sm text-red-600">{friendlyPoError(save.error)}</p>}
+        {error && <p className="col-span-2 text-sm text-red-600">{error}</p>}
         <div className="col-span-2 flex justify-end gap-2">
           <button type="button" onClick={requestClose} className="min-h-11 rounded border px-4 text-sm">Cancelar</button>
           <button disabled={save.isPending} className="min-h-11 rounded bg-amber-700 px-4 text-sm text-white disabled:opacity-50">

@@ -179,8 +179,11 @@ function OpenShift({ caja, day, shift, total, count, byMethod, cash, expected, p
               </span>
               <span className="tabular-nums">−{money(x.amount)}</span>
               {(isAdmin || x.created_by === myId) && (
-                <button onClick={() => { if (confirm(`¿Quitar el gasto «${x.description}»?`)) del.mutate({ id: x.id, day: x.day }) }}
-                        aria-label={`Quitar gasto ${x.description}`} className="grid size-11 place-items-center text-stone-500">✕</button>
+                <button onClick={async () => {
+                  if (!confirm(`¿Quitar el gasto «${x.description}»?`)) return
+                  try { await del.mutateAsync({ id: x.id, day: x.day }) }
+                  catch (err) { setError(friendlyCashError(err)) }
+                }} aria-label={`Quitar gasto ${x.description}`} className="grid size-11 place-items-center text-stone-500">✕</button>
               )}
             </li>
           ))}

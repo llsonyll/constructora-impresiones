@@ -18,6 +18,7 @@ export default function StockCountPage() {
   const { data: categories = [] } = useCategories()
   const bulk = useBulkCount()
   const [counts, setCounts] = useState<Record<string, string>>(loadDraft)
+  const [bulkError, setBulkError] = useState('')
   const [category, setCategory] = useState<number | ''>('')
   const [query, setQuery] = useState('')
   const [onlyPending, setOnlyPending] = useState(false)
@@ -44,10 +45,11 @@ export default function StockCountPage() {
   async function save() {
     if (!entered.length) return
     if (!confirm(`Se registrará el conteo de ${entered.length} productos (${changes} con diferencia). ¿Continuar?`)) return
+    setBulkError('')
     try {
       const n = await bulk.mutateAsync({ items: entered.map(x => ({ product_id: x.id, counted: x.v })), note })
       setDone(n); setCounts({})
-    } catch { /* abajo */ }
+    } catch (e) { setBulkError(friendlyError(e)) }
   }
 
   return (
@@ -112,7 +114,7 @@ export default function StockCountPage() {
         <button onClick={save} disabled={!entered.length || bulk.isPending} className="min-h-11 rounded-lg bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
           {bulk.isPending ? 'Guardando…' : 'Guardar conteo'}
         </button>
-        {bulk.error && <p className="w-full text-sm text-red-600">{friendlyError(bulk.error)}</p>}
+        {bulkError && <p className="w-full text-sm text-red-600">{bulkError}</p>}
       </div>
     </div>
   )

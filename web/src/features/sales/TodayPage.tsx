@@ -41,6 +41,7 @@ export default function TodayPage() {
   const { data: synced = [], isLoading, error } = useDaySales(day)
   const { data: names = {} } = useCashierNames()
   const voidSale = useVoidSale(day)
+  const [voidError, setVoidError] = useState('')
 
   // Ventas que siguen en la cola del equipo (sin internet o sincronizando): también cuentan para el día.
   const outbox = useLiveQuery(() => localDb.outbox.toArray(), [], [])
@@ -84,7 +85,8 @@ export default function TodayPage() {
     const sol = s.receipt && `\n\nTiene la ${RECEIPT_LABEL[s.receipt.type].toLowerCase()} ${receiptNumber(s.receipt)} emitida en SOL: ` +
       'anúlala también en SOL (comunicación de baja o nota de crédito).'
     if (!confirm(`¿Anular la venta #${s.number} por ${money(s.total)}? Se repone el stock de los productos.${sol || ''}`)) return
-    try { await voidSale.mutateAsync(s.id) } catch { /* se muestra abajo */ }
+    setVoidError('')
+    try { await voidSale.mutateAsync(s.id) } catch (e) { setVoidError((e as Error).message) }
   }
 
   return (
@@ -148,7 +150,7 @@ export default function TodayPage() {
 
       {isLoading && <p className="text-stone-500">Cargando…</p>}
       {error && <p className="text-red-600">No se pudieron cargar las ventas: {(error as Error).message}</p>}
-      {voidSale.error && <p className="text-red-600">No se pudo anular: {(voidSale.error as Error).message}</p>}
+      {voidError && <p className="text-red-600">No se pudo anular: {voidError}</p>}
 
       <ul className="divide-y rounded-lg bg-white shadow">
         {listed.map(s => {
