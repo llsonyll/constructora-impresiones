@@ -2,6 +2,7 @@ import { HashRouter, Link, Navigate, Route, Routes } from 'react-router-dom'
 import Layout from '@/components/Layout'
 import { useAuth } from '@/features/auth/AuthProvider'
 import LoginPage from '@/features/auth/LoginPage'
+import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
 import PosPage from '@/features/pos/PosPage'
 import { CartsProvider } from '@/features/pos/useCart'
 import TodayPage from '@/features/sales/TodayPage'
@@ -37,6 +38,23 @@ function NotFound() {
   )
 }
 
+/** Cuenta creada desde la pantalla de acceso, que un admin aún no activa en *profiles*. */
+function PendingApproval() {
+  const { session, signOut } = useAuth()
+  return (
+    <div className="grid min-h-dvh place-items-center bg-stone-100 p-4">
+      <div className="w-full max-w-sm space-y-3 rounded-xl bg-white p-6 text-center shadow">
+        <h1 className="text-xl font-semibold">La Constructora</h1>
+        <p className="text-stone-700">Tu cuenta está pendiente de aprobación por un administrador.</p>
+        <p className="text-sm text-stone-500">{session?.user.email}</p>
+        <button onClick={() => void signOut()} className="min-h-12 w-full rounded-lg border font-medium text-stone-700">
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** Oculta pantallas a roles sin permiso (la protección real de datos es RLS). */
 function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }) {
   const { profile } = useAuth()
@@ -45,10 +63,11 @@ function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }
 
 // HashRouter: no requiere fallback de SPA (GitHub Pages). Con Vercel/Netlify se puede cambiar a BrowserRouter.
 export default function AppRoutes() {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, recovering } = useAuth()
   if (loading) return <p className="p-6">Cargando…</p>
   if (!session) return <LoginPage />
-  if (!profile?.active) return <p className="p-6">Tu cuenta está pendiente de aprobación por un administrador.</p>
+  if (recovering) return <ResetPasswordPage />
+  if (!profile?.active) return <PendingApproval />
 
   return (
     <CartsProvider>

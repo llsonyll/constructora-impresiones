@@ -1,10 +1,22 @@
 import { createClient } from '@supabase/supabase-js'
+import { parseAuthHash } from '@/features/auth/messages'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string
 if (!url || !key) throw new Error('Faltan VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY (ver .env.example)')
 
+/**
+ * Lo que trajo la URL al volver de un correo de Supabase (recuperar contraseña, confirmar cuenta, enlace vencido).
+ * Se lee antes de crear el cliente, porque el cliente consume el hash y lo borra de la barra de direcciones.
+ */
+export const authLink = parseAuthHash(typeof window === 'undefined' ? '' : window.location.hash)
+
 export const supabase = createClient(url, key)
+
+/** Adónde vuelve la persona desde los correos de Supabase: esta misma app (producción o vista previa). */
+export function authRedirectUrl(): string {
+  return window.location.origin + window.location.pathname
+}
 
 /** Tope de filas que devuelve PostgREST por consulta en Supabase: lo que pase de ahí se pierde sin error. */
 export const MAX_ROWS = 1000
