@@ -25,11 +25,17 @@ merge a `main`.
 
 Todos desde `web/`:
 - `npm run typecheck`: tipos (`tsc -b --noEmit`).
-- `npm test`: pruebas con `node --test`, sin dependencias (`src/**/*.test.ts`).
+- `npm test`: pruebas de lógica pura con `node --test` (`src/**/*.test.ts`).
+- `npm run test:components`: pruebas de componentes con Vitest + RTL (`src/**/*.test.tsx`).
 - `npm run build`: lo mismo que corre Vercel.
 
-Un cambio en `web/src` no está terminado hasta que `typecheck` y `test` pasan. Si agregas lógica pura (cálculos de
-caja, reparto de hojas, búsqueda, fechas de la agenda), agrégale una prueba al lado como `search.test.ts`.
+Un cambio en `web/src` no está terminado hasta que `typecheck` y `test` pasan.
+
+- Si agregas lógica pura (cálculos de caja, reparto de hojas, búsqueda, fechas), agrégale una prueba `.test.ts`
+  al lado usando `node:test` + `node:assert/strict`, sin dependencias externas.
+- Si agregas o cambias comportamiento visible de un componente React (renders condicionales, interacciones del
+  usuario), agrégale una prueba `.test.tsx` al lado con Vitest + RTL. Mockea los componentes de presentación con
+  `vi.mock` para aislar la lógica bajo prueba. El setup global está en `src/test/setup.ts`.
 
 ## Reglas que no se rompen
 
