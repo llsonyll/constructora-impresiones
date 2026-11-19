@@ -6,9 +6,10 @@ import { amount, brandLine, isFormat, nameTier, paginate, perPage, presentationT
 test('paginate repite según las copias y corta por hoja', () => {
   const items = [{ data: 'a', copies: 5 }, { data: 'b', copies: 8 }, { data: 'c', copies: 1 }]
   assert.equal(perPage('ancha'), 12)
+  assert.equal(perPage('nombre'), 12)
   assert.equal(perPage('angosta'), 18)
   assert.equal(perPage('chica'), 30)
-  assert.ok(isFormat('chica') && isFormat('ancha') && !isFormat('otra') && !isFormat(null) && !isFormat('toString'))
+  assert.ok(isFormat('chica') && isFormat('ancha') && isFormat('nombre') && !isFormat('otra') && !isFormat(null) && !isFormat('toString'))
   const pages = paginate(items, 12)
   assert.equal(pages.length, 2)
   assert.deepEqual(pages[0], [...'aaaaa', ...'bbbbbbb'])

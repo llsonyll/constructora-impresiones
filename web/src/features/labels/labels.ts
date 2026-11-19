@@ -4,11 +4,12 @@
  * Disposición de la hoja A4, todas de la misma altura: anchas (2 × 6, la de siempre), angostas (3 × 6) o chicas
  * (5 × 6, para productos pequeños).
  */
-export type LabelFormat = 'ancha' | 'angosta' | 'chica'
+export type LabelFormat = 'ancha' | 'nombre' | 'angosta' | 'chica'
 export const FORMATS: Record<LabelFormat, { cols: number; rows: number; label: string; size: string; maxPres: number }> = {
-  ancha: { cols: 2, rows: 6, label: '2 × 6', size: '97 × 47 mm', maxPres: 3 },
-  angosta: { cols: 3, rows: 6, label: '3 × 6', size: '65 × 47 mm', maxPres: 2 },
-  chica: { cols: 5, rows: 6, label: '5 × 6', size: '39 × 47 mm', maxPres: 2 },
+  ancha:   { cols: 2, rows: 6, label: '2 × 6',       size: '97 × 47 mm', maxPres: 3 },
+  nombre:  { cols: 2, rows: 6, label: 'Descripción', size: '97 × 47 mm', maxPres: 2 },
+  angosta: { cols: 3, rows: 6, label: '3 × 6',       size: '65 × 47 mm', maxPres: 2 },
+  chica:   { cols: 5, rows: 6, label: '5 × 6',       size: '39 × 47 mm', maxPres: 2 },
 }
 export const isFormat = (s: string | null): s is LabelFormat => s != null && Object.hasOwn(FORMATS, s)
 export const perPage = (f: LabelFormat) => FORMATS[f].cols * FORMATS[f].rows
