@@ -6,8 +6,8 @@ import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import { isOpenPo, poLabel, useProviderList } from '@/features/providers/api'
 import { fmtNeedQty, type Need, type NeedStatus, SOURCE_SHORT, useLinkNeedProduct, useNeeds } from './api'
 import NeedSheet from './NeedSheet'
+import { chip } from '@/lib/chip'
 
-const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 const date = (s: string | null) => s ? new Date(s).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) : ''
 const SOURCE_STYLE: Record<Need['source'], string> = {
   pedido: 'bg-orange-100 text-orange-800', cliente: 'bg-sky-100 text-sky-800',

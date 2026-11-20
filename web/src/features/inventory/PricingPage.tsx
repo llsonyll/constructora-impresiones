@@ -98,7 +98,7 @@ export default function PricingPage() {
                 const n = products.filter(q.test).length
                 return (
                   <button key={q.id} onClick={() => setQueue(q.id)} aria-pressed={queue === q.id}
-                          className={cn('min-h-9 shrink-0 rounded-full px-3 text-sm', queue === q.id ? 'bg-white font-medium text-stone-900' : 'bg-white/20')}>
+                          className={cn('min-h-9 shrink-0 rounded-full px-3 text-sm', queue === q.id ? 'bg-white font-medium text-stone-900' : 'bg-white/20 hover:bg-white/30 active:bg-white/40')}>
                     {q.label} <span className="opacity-70">{n}</span>
                   </button>
                 )

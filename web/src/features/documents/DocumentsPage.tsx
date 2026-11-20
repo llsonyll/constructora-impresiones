@@ -9,6 +9,7 @@ import {
   DOC_LABEL, STATUS_STYLE, dateLabel, docNumber, docStatus, friendlyDocError, useBusinessInfo, useDocuments,
   useSaveBusinessInfo, type BusinessInfo, type DocType,
 } from './api'
+import { segmentIdle } from '@/lib/chip'
 
 const TABS: { id: DocType; label: string; empty: string }[] = [
   { id: 'cotizacion', label: 'Cotizaciones', empty: 'Todavía no hay cotizaciones. Crea una aquí o con “Cotizar” desde el ticket de Ventas.' },
@@ -40,7 +41,7 @@ export default function DocumentsPage() {
       <div role="tablist" aria-label="Tipo de documento" className="grid grid-cols-2 gap-1 rounded-xl bg-stone-200 p-1">
         {TABS.map(t => (
           <button key={t.id} role="tab" aria-selected={type === t.id} onClick={() => setParams(t.id === 'cotizacion' ? {} : { tipo: t.id }, { replace: true })}
-                  className={`min-h-11 rounded-lg text-sm font-medium ${type === t.id ? 'bg-white shadow' : 'text-stone-600'}`}>{t.label}</button>
+                  className={`min-h-11 rounded-lg text-sm font-medium ${type === t.id ? 'bg-white shadow' : segmentIdle}`}>{t.label}</button>
         ))}
       </div>
 

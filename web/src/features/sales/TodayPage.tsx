@@ -17,10 +17,10 @@ import { Breakdown, CajaByShift, CajaCard, byCategory, cajaShiftMatrix } from '.
 import SaleNoteSheet from '@/features/documents/SaleNoteSheet'
 import SolReceiptSheet from '@/features/documents/SolReceiptSheet'
 import { RECEIPT_LABEL, receiptNumber } from '@/features/documents/api'
+import { chip, chipSelect } from '@/lib/chip'
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const RECEIPT_FILTER = { con: 'Con boleta o factura', sin: 'Sin boleta ni factura' } as const
-const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 
 /** Ventas del día: totales por caja, medio de pago, turno y categoría; detalle de cada venta y anulación (admin). */
 export default function TodayPage() {
@@ -123,18 +123,18 @@ export default function TodayPage() {
             <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
           ))}
           <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
-                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                  className={chipSelect}>
             <option value="">Todo medio de pago</option>
             {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           <select value={receiptFilter} onChange={e => setReceiptFilter(e.target.value as '' | 'con' | 'sin')} aria-label="Comprobante"
-                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                  className={chipSelect}>
             <option value="">Con y sin comprobante</option>
             {Object.entries(RECEIPT_FILTER).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           {isAdmin && cashiers.length > 1 && (
             <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
-                    className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                    className={chipSelect}>
               <option value="">Todos los cajeros</option>
               {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
             </select>

@@ -14,6 +14,7 @@ import {
   amount, brandLine, FORMATS, isFormat, type LabelData, type LabelFormat, nameTier, paginate, perPage, presentationText,
   unitText,
 } from './labels'
+import { chip } from '@/lib/chip'
 
 const FORMAT_KEY = 'etiquetas-formato'
 const RESULTS = 8          // resultados que se muestran al buscar
@@ -103,7 +104,6 @@ export default function LabelsPage() {
     else toast.warning(`El código ${code} no está en el inventario`)
   }
 
-  const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 
   return (
     <div className="mx-auto max-w-5xl space-y-3 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-4 print:max-w-none print:space-y-0 print:p-0">

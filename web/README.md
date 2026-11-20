@@ -19,6 +19,12 @@ web/
     types/      tipos de dominio
 ```
 
+**Filtros y pestañas**: sus colores salen de `lib/chip.ts` (`chip`, `chipColors`, `chipSelect`, `segmentIdle`,
+`neutralIdle`) y, en el POS y en Caja, del `tone`/`idle` de `CAJA_THEME`. El que no está elegido se tiñe al pasar
+el mouse (solo en equipos con mouse) y se oscurece al tocarlo; el elegido no cambia con el hover. Todos los botones
+muestran la manito y un anillo de foco al navegar con teclado (`index.css`). Un filtro nuevo usa estas clases en
+lugar de repetir los colores.
+
 ## Puesta en marcha
 
 Proyecto Supabase: `la-constructora` (`fsrlcvuhcfbojbextoax`, región sa-east-1). Migraciones de
