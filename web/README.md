@@ -266,12 +266,38 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
 - Cada categoría tiene su caja (`categories.caja`): *Fotocopias*, *Impresiones* y *Librería* van a **Copias y librería**;
   el resto (y los productos sin categoría) a **Ferretería**. Para mover un producto de caja, cambia su categoría.
 - En **Ventas** se elige la caja arriba (queda guardada en el equipo). Cada caja tiene su color, su catálogo, sus
-  categorías como filtros y su propio ticket (se puede dejar uno a medias y atender en la otra).
+  categorías como filtros y sus propios tickets abiertos (ver *Tickets abiertos*). La pestaña de cada caja muestra
+  cuántos tickets con productos hay abiertos en ella.
 - Cada venta queda con su caja (`sales.caja`, la envía `create_sale`). Escanear un producto de la otra caja lo lleva a su
   ticket y cambia de caja; al buscar, se avisa cuántos resultados hay en la otra caja.
 - Copias e impresiones (servicios) abren un teclado de cantidad: tocar *Fotocopia B/N* → `1` `5` → *Agregar*, o los
   atajos 10/20/50/100. Sin búsqueda, los productos más usados en el equipo salen primero.
 - *Hoy* y *Reportes* separan totales y medios de pago por caja, y suman por categoría.
+
+## Tickets abiertos (compartidos entre equipos)
+
+Los tickets en curso se comparten: cada uno abre tickets para sus clientes y **cualquiera puede continuarlos o
+cobrarlos** desde su computadora o celular (migración `20261120000000_tickets_abiertos`, tabla `open_tickets`).
+- Arriba del catálogo, una fila con los tickets abiertos de la caja (de todos los equipos, del más antiguo al más
+  nuevo): nombre, ítems y total. Tocar uno lo trae a este equipo; **+ Nuevo** abre otro sin cerrar el anterior.
+  Cada equipo trabaja en un ticket a la vez por caja (el resaltado).
+- Nombre del ticket: el que se escriba en *Cliente o referencia* (opcional), el cliente de la cotización o, si no,
+  quién lo abrió y a qué hora. Debajo se ve quién lo abrió y quién lo cambió por última vez.
+- Se edita al instante en el equipo y se guarda en el servidor ~0,6 s después (RPC `ticket_save`); los demás lo ven
+  en vivo (Realtime) y cada 30 s se consulta todo por si se perdió algún aviso. Un ticket nuevo vacío no se sube.
+- `version`: si dos equipos cambian el mismo ticket, el que guardó con una versión vieja recibe la del otro y un aviso
+  («lo cambió otro equipo: se cargó su versión»). Por ahora no hay bloqueo: conviene que lo edite una persona a la vez.
+- **Cobrar**: la venta lleva el **mismo id que el ticket**. Como `create_sale` es idempotente por id, si dos personas
+  cobran el mismo ticket solo queda una venta y el stock se descuenta una vez. Al llegar la venta, el trigger
+  `sales_close_ticket` marca el ticket como cobrado y desaparece de todos los equipos (aviso «se cerró en otro equipo»).
+- **Descartar** (botón en el ticket, con confirmación): `ticket_discard`, queda en *Actividad* (tipo venta) si tenía
+  productos. *Cotizar este ticket* también lo descarta al guardar la cotización. *Pasar a venta* de una cotización
+  abre un ticket nuevo si el activo ya tiene productos.
+- Sin internet: se sigue armando y cobrando en el equipo como antes; los cambios y descartes se suben al volver la
+  conexión. Mientras tanto los otros equipos no ven esos cambios (⏳ en la fila = todavía no llegó al servidor).
+- Los tickets no reservan stock. Solo admin y cajero comparten tickets (almacén usa un ticket local, p. ej. desde
+  Ubicaciones). Los tickets cerrados se borran solos a los 7 días; la venta guarda todo.
+- Lógica pura en `features/pos/tickets.ts` (con pruebas); sincronización en `useCart.tsx`.
 
 ## Ventas de hoy (`/hoy`)
 
@@ -412,8 +438,10 @@ hiciera falta reimportar desde el respaldo final de Firebase (13/10/2026, guarda
 
 ## Offline (POS)
 
-`checkout()` guarda la venta en Dexie con un UUID generado en el cliente y `flushOutbox()` la envía con la
-RPC `create_sale`, que es idempotente por ese UUID: reintentar nunca duplica ventas ni descuenta stock dos veces.
+`checkout()` guarda la venta en Dexie con el id del ticket (un UUID generado en el cliente) y `flushOutbox()` la
+envía con la RPC `create_sale`, que es idempotente por ese UUID: reintentar nunca duplica ventas ni descuenta stock
+dos veces. Los tickets abiertos se guardan en el equipo (`localStorage`, `pos.shared_tickets`) y se suben al volver
+internet (ver *Tickets abiertos*).
 
 **Fotos sin internet**: el service worker guarda cada foto de producto la primera vez que se ve en ese equipo
 (caché `product-images`, *CacheFirst*, hasta 1500 fotos / 180 días; se descartan las menos usadas). Es seguro no

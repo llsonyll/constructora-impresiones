@@ -6,7 +6,7 @@ import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { PAYMENT_LABEL } from '@/features/sales/api'
 import { useCarts } from '@/features/pos/useCart'
-import { CAJA_LABEL, cajaOf, saveCajaPref } from '@/lib/caja'
+import { cajaOf, saveCajaPref } from '@/lib/caja'
 import { igvBreakdown, money } from '@/lib/format'
 import type { Caja } from '@/types/domain'
 import {
@@ -47,9 +47,10 @@ export default function DocumentPage() {
       const caja = p ? cajaOf(p, catMap) : 'ferreteria'
       groups.set(caja, [...(groups.get(caja) ?? []), i])
     }
+    // Si el ticket activo de la caja ya tiene productos, la cotización va en un ticket nuevo (el otro sigue abierto).
     const busy = [...groups.keys()].filter(c => carts[c].lines.length)
-    if (busy.length && !confirm(`El ticket de ${busy.map(c => CAJA_LABEL[c]).join(' y ')} ya tiene productos. ¿Agregar la cotización a lo que hay?`)) return
     for (const [caja, items] of groups) {
+      if (busy.includes(caja)) carts[caja].newTicket()
       for (const i of items) {
         if (i.product_id) carts[caja].dispatch({ type: 'addLine', product_id: i.product_id, description: i.description, qty: i.qty, unit_price: i.unit_price, factor: i.factor })
         else carts[caja].dispatch({ type: 'addCustom', description: i.description, qty: i.qty, unit_price: i.unit_price })
@@ -59,6 +60,7 @@ export default function DocumentPage() {
     const first = [...groups.keys()][0] ?? 'ferreteria'
     saveCajaPref(first)
     if (groups.size > 1) toast.warning('La cotización tiene productos de las dos cajas: se cargó un ticket en cada una.', { id: 'pos' })
+    else if (busy.length) toast.info('Se abrió un ticket nuevo para la cotización; el anterior sigue abierto.', { id: 'pos' })
     navigate('/ventas')
   }
 

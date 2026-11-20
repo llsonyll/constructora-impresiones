@@ -20,7 +20,8 @@ import { igvBreakdown, money } from '@/lib/format'
 import { useOverlay } from '@/lib/overlay'
 import { useProductMatcher } from '@/hooks/use-product-search'
 import type { Caja, Category, PaymentMethod, Product } from '@/types/domain'
-import { useCarts } from './useCart'
+import { useCarts, useOpenTickets } from './useCart'
+import TicketTabs from './TicketTabs'
 import { checkout } from './checkout'
 import QtyPad from './QtyPad'
 import PresentationPicker, { type PickedLine } from './PresentationPicker'
@@ -60,12 +61,12 @@ export default function PosPage() {
   const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
   const payingRef = useRef(false)
-  // Un id por ticket: si el cobro se reintenta, se reutiliza y no se duplica la venta.
-  const saleIdRef = useRef<Record<Caja, string | null>>({ ferreteria: null, copias: null })
-  // Un ticket por caja: se puede atender a alguien en copias sin perder el ticket de ferretería a medias.
-  // Viven en CartsProvider: otras pantallas (Ubicaciones) también agregan a ellos.
+  // Tickets abiertos compartidos con los otros equipos; este equipo trabaja en uno por caja (el activo).
+  // Viven en CartsProvider: otras pantallas (Ubicaciones, Documentos) también agregan al activo.
   const carts = useCarts()
-  const { lines, total, dispatch, quote } = carts[caja]
+  const openTickets = useOpenTickets()
+  const { id: ticketId, lines, total, dispatch, quote } = carts[caja]
+  const ticket = openTickets.byCaja[caja].find(t => t.id === ticketId) ?? null
   const theme = CAJA_THEME[caja]
   // En el celular el ticket es una hoja a pantalla completa: "atrás" la cierra. En escritorio es una columna fija.
   useOverlay(() => setTicketOpen(false), ticketOpen && !matchMedia('(min-width: 768px)').matches)
@@ -163,17 +164,15 @@ export default function PosPage() {
   }
 
   async function pay() {
-    if (!lines.length || payingRef.current) return
+    if (!lines.length || !ticketId || payingRef.current) return
     payingRef.current = true
     setPaying(true)
-    const ids = saleIdRef.current
-    ids[caja] ??= crypto.randomUUID()
     try {
       // Ticket cargado desde una cotización: la venta lleva su cliente y queda enlazada a ella.
       const extra = quote ? { quote_id: quote.id, customer_name: quote.customer_name ?? undefined, customer_doc: quote.customer_doc ?? undefined } : {}
-      await checkout(lines, caja, method, extra, ids[caja]!)
-      ids[caja] = null
-      dispatch({ type: 'clear' })
+      // La venta lleva el id del ticket: si otro equipo ya lo cobró (o se reintenta), create_sale no la duplica.
+      await checkout(lines, caja, method, extra, ticketId)
+      carts[caja].finish('cobrado')
       setTicketOpen(false)
       toast.success(`Venta registrada en ${CAJA_LABEL[caja]}`, { id: 'pos' })
     } catch {
@@ -185,7 +184,15 @@ export default function PosPage() {
   }
 
   const count = lines.length
-  const countOf = (c: Caja) => carts[c].lines.length
+  // En la pestaña de cada caja: cuántos tickets con productos hay abiertos (de todos los equipos).
+  const countOf = (c: Caja) => openTickets.byCaja[c].filter(t => t.lines.length).length
+
+  function discardTicket() {
+    if (!ticketId) return
+    if (lines.length && !confirm('¿Descartar este ticket sin cobrar? Se quita también de los otros equipos.')) return
+    carts[caja].finish('descartado')
+    setTicketOpen(false)
+  }
 
   return (
     <div className="grid gap-4 p-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:grid-cols-[1fr_22rem] md:p-4 md:pb-4">
@@ -204,6 +211,7 @@ export default function PosPage() {
             </button>
           ))}
         </div>
+        <TicketTabs caja={caja} />
         <div className="mb-3 flex gap-2">
           <input value={query} onChange={e => setQuery(e.target.value)}
                  onKeyDown={e => e.key === 'Enter' && query.trim() && handleCode(query.trim())}
@@ -325,6 +333,23 @@ export default function PosPage() {
           </h2>
           <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
         </div>
+        {/* En el celular la fila de tickets también está aquí: se cambia de ticket sin cerrar la hoja. */}
+        {ticketOpen && <div className="md:hidden"><TicketTabs caja={caja} /></div>}
+        {ticket && (
+          <div className="flex items-center gap-2">
+            <input value={ticket.label ?? ''} onChange={e => openTickets.setLabel(ticket.id, e.target.value)} maxLength={40}
+                   placeholder="Cliente o referencia (opcional)" aria-label="Nombre del ticket"
+                   className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base md:text-sm" />
+            {(lines.length > 0 || ticket.label) && (
+              <button onClick={discardTicket} className="min-h-11 shrink-0 rounded border px-3 text-sm text-red-700">Descartar</button>
+            )}
+          </div>
+        )}
+        {ticket && ticket.updated_by_name && ticket.created_by_name && ticket.version > 0 && (
+          <p className="-mt-1 text-xs text-stone-500">
+            Abierto por {ticket.created_by_name}{ticket.updated_by_name !== ticket.created_by_name && ` · último cambio: ${ticket.updated_by_name}`}
+          </p>
+        )}
         {quote && (
           <div className="flex items-center gap-2 rounded-lg bg-stone-100 py-1 pl-3 text-sm">
             <FileText className="size-4 shrink-0 text-stone-500" />
@@ -383,7 +408,7 @@ export default function PosPage() {
         {lines.length > 0 && !quote && online && (
           <button onClick={() => navigate('/documentos/cotizacion/nueva', { state: { fromTicket: {
                     // Línea por presentación: sin unidad aparte (la descripción ya dice "· Docena").
-                    caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.factor ?? 1) !== 1 ? '' : (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
+                    caja, ticket_id: ticketId ?? undefined, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.factor ?? 1) !== 1 ? '' : (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
                   } satisfies QuoteFromTicket } })}
                   className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700">
             <FileText className="size-4" />Cotizar este ticket

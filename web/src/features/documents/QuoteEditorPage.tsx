@@ -6,7 +6,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { MapPin } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { localDb } from '@/db/local'
-import { useCarts } from '@/features/pos/useCart'
+import { useCarts, useOpenTickets } from '@/features/pos/useCart'
 import { igvBreakdown, money, round2 } from '@/lib/format'
 import type { Caja, CartLine, Presentation, Product } from '@/types/domain'
 import { presentationLabel } from '@/features/pos/PresentationPicker'
@@ -15,7 +15,7 @@ import { docNumber, friendlyDocError, lineTotal, useDocument, useSaveQuote, type
 type Line = DocItem & { key: string }
 
 /** Llega desde el ticket del POS ("Cotizar"): sus líneas (con la unidad) y la caja, para vaciar ese ticket al guardar. */
-export interface QuoteFromTicket { lines: (Omit<CartLine, 'key'> & { unit: string })[]; caja: Caja }
+export interface QuoteFromTicket { lines: (Omit<CartLine, 'key'> & { unit: string })[]; caja: Caja; ticket_id?: string }
 
 const VALIDITY = [3, 7, 15, 30]
 const input = 'min-h-11 w-full min-w-0 rounded-lg border bg-white px-3 text-base'
@@ -27,6 +27,7 @@ export default function QuoteEditorPage() {
   const navigate = useNavigate()
   const fromTicket = (useLocation().state as { fromTicket?: QuoteFromTicket } | null)?.fromTicket
   const carts = useCarts()
+  const openTickets = useOpenTickets()
   const existing = useDocument(id)
   const save = useSaveQuote()
   const products = useLiveQuery(() => localDb.products.toArray(), [], [] as Product[])
@@ -91,7 +92,9 @@ export default function QuoteEditorPage() {
       const d = await save.mutateAsync({ id, customer_name: name, customer_doc: docNum, phone, note, valid_days: days,
         items: lines.map(({ key: _k, ...l }) => l) })
       // El ticket del POS ya quedó guardado como cotización: se libera para el siguiente cliente.
-      if (fromTicket) carts[fromTicket.caja].dispatch({ type: 'clear' })
+      // Se descarta el ticket del que salió (también en los otros equipos).
+      if (fromTicket?.ticket_id) openTickets.discard(fromTicket.ticket_id)
+      else if (fromTicket) carts[fromTicket.caja].dispatch({ type: 'clear' })
       setDirty(false)
       navigate(`/documentos/${d.id}`, { replace: true })
     } catch (e) { setError(friendlyDocError(e)) }
