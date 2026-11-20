@@ -7,8 +7,8 @@ import { money, round2 } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import { PAYMENT_LABEL, SHIFT_LABEL, todayLocal, useCashierNames, useRangeSales } from './api'
 import { Breakdown, CajaByShift, byCategory, cajaShiftMatrix } from './summary'
+import { chip, chipSelect } from '@/lib/chip'
 
-const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 const dayOf = (iso: string) => todayLocal(new Date(iso))
 const shiftDays = (day: string, n: number) => {
   const [y, m, d] = day.split('-').map(Number)
@@ -154,13 +154,13 @@ export default function ReportsPage() {
             <button key={s} onClick={() => setShift(s)} className={chip(shift === s)}>{s ? SHIFT_LABEL[s] : 'Ambos turnos'}</button>
           ))}
           <select value={method} onChange={e => setMethod(e.target.value as PaymentMethod | '')} aria-label="Medio de pago"
-                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                  className={chipSelect}>
             <option value="">Todo medio de pago</option>
             {Object.entries(PAYMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
           {cashiers.length > 1 && (
             <select value={cashier} onChange={e => setCashier(e.target.value)} aria-label="Cajero"
-                    className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                    className={chipSelect}>
               <option value="">Todos los cajeros</option>
               {cashiers.map(id => <option key={id} value={id}>{names[id] ?? 'Cajero'}</option>)}
             </select>
@@ -215,7 +215,7 @@ export default function ReportsPage() {
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="mr-auto text-xs text-stone-500">Productos más vendidos</span>
           <select value={category} onChange={e => setCategory(e.target.value)} aria-label="Categoría"
-                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                  className={chipSelect}>
             <option value="">Todas las categorías</option>
             {categories.map(([name]) => <option key={name} value={name}>{name}</option>)}
           </select>

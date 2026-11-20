@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Printer, Wrench, type LucideIcon } from 'lucide-react'
 import type { Caja, Category, Product } from '@/types/domain'
+import type { ChipTone } from './chip'
 
 export const CAJAS: Caja[] = ['ferreteria', 'copias']
 export const CAJA_LABEL: Record<Caja, string> = { ferreteria: 'Ferretería', copias: 'Copias y librería' }
 // Íconos de cada caja (ver components/CajaIcon): iguales en todos los celulares y toman el color del texto.
 export const CAJA_ICON: Record<Caja, LucideIcon> = { ferreteria: Wrench, copias: Printer }
 
-/** Color de cada caja: el POS cambia de color para que se note en cuál se está cobrando. */
-export const CAJA_THEME: Record<Caja, { solid: string; soft: string; text: string; border: string }> = {
-  ferreteria: { solid: 'bg-amber-700', soft: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-700' },
-  copias:     { solid: 'bg-sky-700',   soft: 'bg-sky-50',   text: 'text-sky-800',   border: 'border-sky-700' },
+/**
+ * Color de cada caja: el POS cambia de color para que se note en cuál se está cobrando.
+ * `tone` elige los chips de filtro del mismo color (lib/chip); `idle` es el hover y el toque de una pestaña no
+ * elegida con borde (p. ej. la sección de Copias en el POS).
+ */
+export const CAJA_THEME: Record<Caja, { solid: string; soft: string; text: string; border: string; tone: ChipTone; idle: string }> = {
+  ferreteria: { solid: 'bg-amber-700', soft: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-700', tone: 'amber',
+                idle: 'hover:border-amber-300 hover:bg-amber-50 active:bg-amber-100' },
+  copias:     { solid: 'bg-sky-700',   soft: 'bg-sky-50',   text: 'text-sky-800',   border: 'border-sky-700',   tone: 'sky',
+                idle: 'hover:border-sky-300 hover:bg-sky-50 active:bg-sky-100' },
 }
 
 /** Caja de un producto según su categoría; sin categoría (o categoría desconocida) → ferretería. */

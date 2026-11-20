@@ -49,6 +49,10 @@
   html { -webkit-tap-highlight-color: transparent; }
   /* Sin el retraso de doble toque para zoom en botones y enlaces. */
   a, button, input, select, textarea, label { touch-action: manipulation; }
+  /* Tailwind 4 dejó los botones con el cursor de flecha: la manito indica en la PC que se puede presionar. */
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), select:not(:disabled) { cursor: pointer; }
+  /* Foco visible con teclado (Tab), en el color de la marca. Solo con teclado: al tocar o hacer clic no aparece. */
+  button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 }
 
 /* Documentos (cotización, nota de venta): hoja A4 con márgenes al imprimir o guardar como PDF. */

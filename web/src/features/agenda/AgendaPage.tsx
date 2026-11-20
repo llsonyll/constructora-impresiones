@@ -12,6 +12,7 @@ import {
 import { friendlyAgendaError, useAgenda, useSetOccurrence } from './api'
 import EventSheet from './EventSheet'
 import OccurrenceSheet, { DONE_VERB } from './OccurrenceSheet'
+import { neutralIdle } from '@/lib/chip'
 
 const WEEK = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const FILTER_KEY = 'agenda.kinds'
@@ -104,7 +105,7 @@ export default function AgendaPage() {
           const K = KIND[k], on = kinds.includes(k)
           return (
             <button key={k} onClick={() => toggleKind(k)} aria-pressed={on}
-                    className={cn('flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm', on ? `${K.soft} ${K.text} border-current` : 'bg-white text-stone-400')}>
+                    className={cn('flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-sm', on ? `${K.soft} ${K.text} border-current` : `${neutralIdle} text-stone-400 hover:text-stone-600`)}>
               <span className={cn('size-2 rounded-full', on ? K.dot : 'bg-stone-300')} />{K.short}
             </button>
           )

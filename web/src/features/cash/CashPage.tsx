@@ -6,6 +6,7 @@ import { useAuth } from '@/features/auth/AuthProvider'
 import { PAYMENT_LABEL, SHIFT_LABEL, dayRange, todayLocal, useCashierNames, useDaySales } from '@/features/sales/api'
 import CajaIcon from '@/components/CajaIcon'
 import { CAJAS, CAJA_LABEL, CAJA_THEME } from '@/lib/caja'
+import { chip, segmentIdle } from '@/lib/chip'
 import { currentShift, money, round2 } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import {
@@ -74,7 +75,7 @@ export default function CashPage() {
           const closed = dayClosures.filter(x => x.caja === c).length
           return (
             <button key={c} role="tab" aria-selected={caja === c} onClick={() => setCaja(c)}
-                    className={`flex min-h-12 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : 'text-stone-600'}`}>
+                    className={`flex min-h-12 items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-medium ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : segmentIdle}`}>
               <CajaIcon caja={c} />{CAJA_LABEL[c]}
               {closed > 0 && <span className={`whitespace-nowrap rounded-full px-1.5 text-xs ${caja === c ? 'bg-white/25' : 'bg-white'}`}>{closed}/2 ✓</span>}
             </button>
@@ -86,7 +87,7 @@ export default function CashPage() {
           const done = dayClosures.some(x => x.caja === caja && x.shift === t)
           return (
             <button key={t} onClick={() => setShift(t)} aria-pressed={shift === t}
-                    className={`min-h-11 rounded-full border px-4 text-sm ${shift === t ? `${theme.border} ${theme.solid} text-white` : 'bg-white'}`}>
+                    className={chip(shift === t, theme.tone)}>
               {SHIFT_LABEL[t]}{done ? ' ✓ cerrado' : ''}
             </button>
           )

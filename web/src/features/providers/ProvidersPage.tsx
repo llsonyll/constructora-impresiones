@@ -7,6 +7,7 @@ import {
 } from './api'
 import ProviderSheet from './ProviderSheet'
 import NeedsTab from '@/features/needs/NeedsTab'
+import { chip } from '@/lib/chip'
 
 const date = (s: string | null) => s ? new Date(s).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' }) : ''
 
@@ -61,7 +62,7 @@ function OrdersTab() {
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTERS.map(f => (
           <button key={f.id} onClick={() => setStatus(f.id)}
-                  className={`min-h-11 rounded-full border px-4 text-sm ${status === f.id ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+                  className={chip(status === f.id)}>
             {f.label}{f.id === 'abiertas' && <span className="ml-1 opacity-70">{openCount}</span>}
             {f.id === 'solicitada' && waitingCount > 0 && <span className="ml-1 opacity-70">{waitingCount}</span>}
           </button>

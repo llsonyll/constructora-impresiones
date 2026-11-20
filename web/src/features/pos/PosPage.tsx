@@ -13,6 +13,7 @@ import { usePrintAgent } from '@/features/print/usePrintAgent'
 import { describirJob } from '@/features/print/core'
 import CajaIcon from '@/components/CajaIcon'
 import { CAJAS, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
+import { chip, segmentIdle } from '@/lib/chip'
 import { normalizeCode } from '@/features/locations/api'
 import ProductImage from '@/components/ProductImage'
 import { igvBreakdown, money } from '@/lib/format'
@@ -195,7 +196,7 @@ export default function PosPage() {
           {CAJAS.map(c => (
             <button key={c} role="tab" aria-selected={caja === c} onClick={() => setCaja(c)}
                     className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-2 text-sm font-medium
-                                ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : 'text-stone-600'}`}>
+                                ${caja === c ? `${CAJA_THEME[c].solid} text-white shadow` : segmentIdle}`}>
               <CajaIcon caja={c} />{CAJA_LABEL[c]}
               {countOf(c) > 0 && (
                 <span className={`rounded-full px-1.5 text-xs ${caja === c ? 'bg-white/25' : 'bg-white'}`}>{countOf(c)}</span>
@@ -222,7 +223,7 @@ export default function PosPage() {
             {([['servicios', 'Copias e impresiones', Printer], ['libreria', 'Librería', BookOpen]] as const).map(([id, label, Icon]) => (
               <button key={id} role="tab" aria-selected={modulo === id} onClick={() => { setModulo(id); setQuery('') }}
                       className={`flex min-h-12 items-center justify-center gap-2 rounded-lg border-2 px-2 text-sm font-medium
-                                  ${modulo === id ? `${theme.border} ${theme.soft} ${theme.text}` : 'border-transparent bg-white text-stone-600'}`}>
+                                  ${modulo === id ? `${theme.border} ${theme.soft} ${theme.text}` : `border-transparent bg-white text-stone-600 ${theme.idle}`}`}>
                 <Icon className="size-5" />{label}
                 {id === 'libreria' && <span className="text-xs font-normal opacity-70">{countLibreria}</span>}
               </button>
@@ -233,7 +234,7 @@ export default function PosPage() {
           <div className="-mx-3 mb-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0">
             {[{ id: null as number | null, name: 'Todo' }, ...cajaCats].map(c => (
               <button key={c.id ?? 'todo'} onClick={() => setCategory(c.id)} aria-pressed={category === c.id}
-                      className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${category === c.id ? `${theme.border} ${theme.solid} text-white` : 'bg-white'}`}>
+                      className={`shrink-0 ${chip(category === c.id, theme.tone)}`}>
                 {c.name}
               </button>
             ))}

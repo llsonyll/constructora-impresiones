@@ -6,8 +6,8 @@ import { money } from '@/lib/format'
 import { todayLocal, useCashierNames } from '@/features/sales/api'
 import type { Presentation } from '@/types/domain'
 import { KIND_LABEL, useActivity, type ActivityChange, type ActivityKind, type ActivityRow, type StockLine } from './api'
+import { chip, chipSelect } from '@/lib/chip'
 
-const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
 const shiftDays = (day: string, n: number) => {
   const [y, m, d] = day.split('-').map(Number)
   return todayLocal(new Date(y, m - 1, d + n))
@@ -123,7 +123,7 @@ export default function ActivityPage() {
             <button key={k} onClick={() => setKind(k)} className={chip(kind === k)}>{k ? KIND_LABEL[k] : 'Todo'}</button>
           ))}
           <select value={actor} onChange={e => setActor(e.target.value)} aria-label="Usuario"
-                  className="min-h-11 rounded-full border bg-white px-3 text-sm">
+                  className={chipSelect}>
             <option value="">Todos los usuarios</option>
             {Object.entries(names).sort((a, b) => a[1].localeCompare(b[1])).map(([id, n]) => <option key={id} value={id}>{n}</option>)}
           </select>

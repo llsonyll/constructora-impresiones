@@ -8,6 +8,7 @@ import {
   type AgendaEvent, type AgendaKind, KIND, KINDS, REPEAT_OPTIONS, type RepeatUnit, eventDates, nthDate, repeatValue, shortDate,
 } from './agenda'
 import { friendlyAgendaError, useDeleteEvent, useSaveEvent } from './api'
+import { neutralIdle, segmentIdle } from '@/lib/chip'
 
 function Field({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
   return <label className={`block text-sm ${className}`}><span className="mb-1 block text-xs text-stone-500">{label}</span>{children}</label>
@@ -116,7 +117,7 @@ export default function EventSheet({ event, defaults, onClose }: Props) {
               return (
                 <button key={k} type="button" onClick={() => pickKind(k)} aria-pressed={f.kind === k}
                         className={cn('flex min-h-11 items-center gap-2 rounded-lg border px-2 text-left text-sm',
-                                      f.kind === k ? `${K.soft} ${K.text} border-current font-medium` : 'bg-white')}>
+                                      f.kind === k ? `${K.soft} ${K.text} border-current font-medium` : neutralIdle)}>
                   <K.icon className="size-4 shrink-0" />{K.short}
                 </button>
               )
@@ -131,7 +132,7 @@ export default function EventSheet({ event, defaults, onClose }: Props) {
         {!event && !f.title && meta.suggestions.length > 0 && (
           <div className="-mt-1 flex flex-wrap gap-1.5">
             {meta.suggestions.map(s => (
-              <button key={s} type="button" onClick={() => set('title', s)} className="min-h-9 rounded-full border bg-white px-3 text-sm">{s}</button>
+              <button key={s} type="button" onClick={() => set('title', s)} className={`min-h-9 rounded-full border px-3 text-sm ${neutralIdle}`}>{s}</button>
             ))}
           </div>
         )}
@@ -153,7 +154,7 @@ export default function EventSheet({ event, defaults, onClose }: Props) {
             <div className="grid grid-cols-3 gap-1 rounded-lg bg-stone-200 p-1 text-sm">
               {([['nunca', 'Nunca'], ['veces', f.kind === 'pago' ? 'N° de cuotas' : 'N° de veces'], ['fecha', 'En fecha']] as [Ends, string][]).map(([v, l]) => (
                 <button key={v} type="button" onClick={() => set('ends', v)} aria-pressed={f.ends === v}
-                        className={cn('min-h-10 rounded-md px-1', f.ends === v ? 'bg-white font-medium shadow' : 'text-stone-600')}>{l}</button>
+                        className={cn('min-h-10 rounded-md px-1', f.ends === v ? 'bg-white font-medium shadow' : segmentIdle)}>{l}</button>
               ))}
             </div>
             {f.ends === 'veces' && (

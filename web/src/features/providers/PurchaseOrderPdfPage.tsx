@@ -5,6 +5,7 @@ import { money, round2 } from '@/lib/format'
 import { useInventory } from '@/features/inventory/api'
 import { useBusinessInfo, type BusinessInfo } from '@/features/documents/api'
 import { poLabel, type Provider, type PurchaseOrder, usePurchaseOrder, useProviderList } from './api'
+import { chip } from '@/lib/chip'
 
 type Mode = 'solicitud' | 'orden'
 // "Solicitud de precios", no "de cotización": en la app, cotización es la de venta a un cliente (Documentos).
@@ -48,7 +49,6 @@ export default function PurchaseOrderPdfPage() {
     return { name: p?.name ?? 'Producto', unit: p?.unit ?? '', qty: i.qty, cost: i.unit_cost }
   })
 
-  const chip = (on: boolean) => `min-h-11 rounded-full border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
   return (
     <div className="mx-auto max-w-3xl space-y-3 p-3 pb-[calc(2rem+env(safe-area-inset-bottom))] md:p-4 print:max-w-none print:p-0">
       <div className="space-y-3 print:hidden">

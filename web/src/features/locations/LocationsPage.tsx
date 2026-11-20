@@ -16,6 +16,7 @@ import ProductPreviewSheet from './ProductPreviewSheet'
 import { useAuth } from '@/features/auth/AuthProvider'
 import ProductImage from '@/components/ProductImage'
 import { money } from '@/lib/format'
+import { chip } from '@/lib/chip'
 
 /**
  * Ubicaciones por mueble: cuadrícula con cuántos productos hay en cada casillero. Al tocar uno se ven sus
@@ -86,7 +87,7 @@ export default function LocationsPage() {
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0">
         {furnitures.map(f => (
           <button key={f} data-furniture={f} onClick={() => setFurniture(f)} aria-pressed={current === f}
-                  className={`min-h-11 min-w-14 shrink-0 rounded-full border px-4 text-sm font-medium ${current === f ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+                  className={`min-w-14 shrink-0 font-medium ${chip(current === f)}`}>
             {f}
           </button>
         ))}

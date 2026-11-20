@@ -9,6 +9,7 @@ import {
   RECEIPT_LABEL, friendlyDocError, plain, receiptNumber, rucValido, solText, useLastReceiptNumber, useRegisterSolReceipt,
   useVoidDocument, type ReceiptType,
 } from './api'
+import { chipColors } from '@/lib/chip'
 
 /** Fila de dato copiable para el formulario de SOL. */
 function SolField({ label, value }: { label: string; value: string }) {
@@ -59,7 +60,7 @@ export default function SolReceiptSheet({ sale, onClose }: { sale: DaySale; onCl
   const [error, setError] = useState('')
   const { data: last } = useLastReceiptNumber(type, series)
   const input = 'mt-1 min-h-11 w-full rounded-lg border px-3 text-base'
-  const chip = (on: boolean) => `min-h-11 flex-1 rounded-lg border px-4 text-sm ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`
+  const chip = (on: boolean) => `min-h-11 flex-1 rounded-lg border px-4 text-sm ${chipColors(on)}`
 
   const doc = docNum.replace(/\s/g, '')
   const { base: opGravada, igv: igvMonto } = igvBreakdown(sale.total)

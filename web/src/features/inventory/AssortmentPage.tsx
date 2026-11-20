@@ -9,6 +9,7 @@ import { type InventoryProduct, useCategories, useInventory } from './api'
 import { brandSet, buildLines, cellKey, isLow, type Line, NO_SIZE, suggestName } from './assortment'
 import CategoryOptions from './CategoryOptions'
 import QuickCreateSheet from './QuickCreateSheet'
+import { chipColors } from '@/lib/chip'
 
 const ORDER_KEY = 'surtido-pedido'
 type Order = Record<string, number>   // producto → cantidad a pedir
@@ -309,7 +310,7 @@ function CreateMissing({ missing: { line, color, size }, onClose, onCreated }: {
 function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button onClick={onClick} aria-pressed={on}
-            className={`min-h-9 shrink-0 rounded-full border px-3 text-sm whitespace-nowrap ${on ? 'border-amber-700 bg-amber-700 text-white' : 'bg-white'}`}>
+            className={`min-h-9 shrink-0 rounded-full border px-3 text-sm whitespace-nowrap ${chipColors(on)}`}>
       {children}
     </button>
   )
