@@ -13,7 +13,7 @@ import { usePrintAgent } from '@/features/print/usePrintAgent'
 import { describirJob } from '@/features/print/core'
 import CajaIcon from '@/components/CajaIcon'
 import { CAJAS, CAJA_LABEL, CAJA_THEME, bumpUsage, cajaOf, readUsage, useCajaPref } from '@/lib/caja'
-import { chip, segmentIdle } from '@/lib/chip'
+import { chip, chipColors, ghost, removeIdle, segmentIdle } from '@/lib/chip'
 import { normalizeCode } from '@/features/locations/api'
 import ProductImage from '@/components/ProductImage'
 import { igvBreakdown, money } from '@/lib/format'
@@ -323,14 +323,14 @@ export default function PosPage() {
             {pendingCount - errorCount > 0 && <span className="ml-2 rounded bg-amber-100 px-2 text-xs text-amber-800">{pendingCount - errorCount} por sincronizar</span>}
               {errorCount > 0 && <span className="ml-2 rounded bg-red-100 px-2 text-xs text-red-700">{errorCount} con error</span>}
           </h2>
-          <button onClick={() => setTicketOpen(false)} className="-mr-2 grid size-11 place-items-center text-xl md:hidden" aria-label="Cerrar ticket">✕</button>
+          <button onClick={() => setTicketOpen(false)} className={`-mr-2 grid size-11 place-items-center rounded-full text-xl md:hidden ${ghost}`} aria-label="Cerrar ticket">✕</button>
         </div>
         {quote && (
           <div className="flex items-center gap-2 rounded-lg bg-stone-100 py-1 pl-3 text-sm">
             <FileText className="size-4 shrink-0 text-stone-500" />
             <span className="min-w-0 flex-1 truncate">Cotización <b className="font-mono">{quote.label}</b>{quote.customer_name && ` · ${quote.customer_name}`}</span>
             <button onClick={() => carts[caja].setQuote(null)} aria-label="Desvincular la cotización" title="Cobrar sin enlazar a la cotización"
-                    className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+                    className="grid size-11 shrink-0 place-items-center rounded-full text-stone-500 hover:bg-stone-200 hover:text-stone-800 active:bg-stone-300">✕</button>
           </div>
         )}
         <ul className="divide-y">
@@ -338,13 +338,13 @@ export default function PosPage() {
             <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm">
               <span className="min-w-0 flex-1 break-words">{l.description}</span>
               <div className="flex items-center rounded border">
-                <button className="grid size-11 place-items-center text-lg" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty - 1 })} aria-label="Menos">−</button>
+                <button className={`grid size-11 place-items-center rounded-l text-lg ${ghost}`} onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty - 1 })} aria-label="Menos">−</button>
                 <input type="number" min={0} step="any" value={l.qty} className="min-h-11 w-12 border-x text-center text-base"
                        onChange={e => dispatch({ type: 'setQty', key: l.key, qty: Number(e.target.value) })} />
-                <button className="grid size-11 place-items-center text-lg" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty + 1 })} aria-label="Más">+</button>
+                <button className={`grid size-11 place-items-center rounded-r text-lg ${ghost}`} onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty + 1 })} aria-label="Más">+</button>
               </div>
               <span className="w-16 shrink-0 text-right">{money(l.qty * l.unit_price)}</span>
-              <button aria-label="Quitar" onClick={() => dispatch({ type: 'remove', key: l.key })} className="-mr-2 grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+              <button aria-label="Quitar" onClick={() => dispatch({ type: 'remove', key: l.key })} className={`-mr-2 grid size-11 shrink-0 place-items-center rounded-full ${removeIdle}`}>✕</button>
             </li>
           ))}
           {!lines.length && <li className="py-4 text-center text-sm text-stone-500">Ticket vacío</li>}
@@ -359,13 +359,13 @@ export default function PosPage() {
         }}>
           <input value={customDesc} onChange={e => setCustomDesc(e.target.value)} placeholder="Ítem libre" className="min-h-11 min-w-0 flex-1 rounded border px-2 text-base md:text-sm" />
           <input value={customPrice} onChange={e => setCustomPrice(e.target.value)} placeholder="S/" inputMode="decimal" className="min-h-11 w-20 rounded border px-2 text-base md:text-sm" />
-          <button className="min-w-11 rounded border px-3 text-sm" aria-label="Agregar ítem libre">+</button>
+          <button className={`min-w-11 rounded border px-3 text-sm ${ghost}`} aria-label="Agregar ítem libre">+</button>
         </form>
 
         <div className="flex flex-wrap gap-1">
           {METHODS.map(m => (
-            <button key={m.id} onClick={() => setMethod(m.id)}
-                    className={`min-h-11 flex-1 rounded border px-3 text-sm ${method === m.id ? `${theme.solid} text-white` : ''}`}>{m.label}</button>
+            <button key={m.id} onClick={() => setMethod(m.id)} aria-pressed={method === m.id}
+                    className={`min-h-11 flex-1 rounded border px-3 text-sm ${chipColors(method === m.id, theme.tone)}`}>{m.label}</button>
           ))}
         </div>
 
@@ -377,7 +377,7 @@ export default function PosPage() {
           <span>Total</span><span>{money(total)}</span>
         </div>
         <button disabled={!lines.length || paying} onClick={pay} aria-busy={paying}
-                className={`w-full rounded-lg p-3 font-medium text-white disabled:opacity-40 ${theme.solid}`}>
+                className={`w-full rounded-lg p-3 font-medium text-white disabled:opacity-40 ${theme.solid} ${theme.press}`}>
           {paying ? 'Registrando…' : `Cobrar ${money(total)}`}
         </button>
         {lines.length > 0 && !quote && online && (
@@ -385,7 +385,7 @@ export default function PosPage() {
                     // Línea por presentación: sin unidad aparte (la descripción ya dice "· Docena").
                     caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.factor ?? 1) !== 1 ? '' : (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
                   } satisfies QuoteFromTicket } })}
-                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700">
+                  className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700 ${ghost}`}>
             <FileText className="size-4" />Cotizar este ticket
           </button>
         )}
@@ -394,7 +394,7 @@ export default function PosPage() {
       {/* Barra inferior (solo celular) */}
       {!ticketOpen && (
         <button onClick={() => setTicketOpen(true)}
-                className={`fixed inset-x-3 bottom-safe-3 z-20 flex items-center justify-between rounded-xl p-4 text-white shadow-lg md:hidden ${theme.solid}`}>
+                className={`fixed inset-x-3 bottom-safe-3 z-20 flex items-center justify-between rounded-xl p-4 text-white shadow-lg md:hidden ${theme.solid} ${theme.press}`}>
           <span className="flex items-center gap-2"><CajaIcon caja={caja} /> {count ? `${count} ítem${count === 1 ? '' : 's'}` : 'Ticket vacío'}</span>
           <span className="font-semibold">{money(total)} →</span>
         </button>

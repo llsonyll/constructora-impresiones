@@ -11,13 +11,16 @@ export const CAJA_ICON: Record<Caja, LucideIcon> = { ferreteria: Wrench, copias:
 /**
  * Color de cada caja: el POS cambia de color para que se note en cuál se está cobrando.
  * `tone` elige los chips de filtro del mismo color (lib/chip); `idle` es el hover y el toque de una pestaña no
- * elegida con borde (p. ej. la sección de Copias en el POS).
+ * elegida con borde (p. ej. la sección de Copias en el POS); `press`, el de un botón `solid` (Cobrar), que no
+ * cambia si está deshabilitado.
  */
-export const CAJA_THEME: Record<Caja, { solid: string; soft: string; text: string; border: string; tone: ChipTone; idle: string }> = {
+export const CAJA_THEME: Record<Caja, { solid: string; soft: string; text: string; border: string; tone: ChipTone; idle: string; press: string }> = {
   ferreteria: { solid: 'bg-amber-700', soft: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-700', tone: 'amber',
-                idle: 'hover:border-amber-300 hover:bg-amber-50 active:bg-amber-100' },
+                idle: 'hover:border-amber-300 hover:bg-amber-50 active:bg-amber-100',
+                press: 'enabled:hover:bg-amber-800 enabled:active:bg-amber-900' },
   copias:     { solid: 'bg-sky-700',   soft: 'bg-sky-50',   text: 'text-sky-800',   border: 'border-sky-700',   tone: 'sky',
-                idle: 'hover:border-sky-300 hover:bg-sky-50 active:bg-sky-100' },
+                idle: 'hover:border-sky-300 hover:bg-sky-50 active:bg-sky-100',
+                press: 'enabled:hover:bg-sky-800 enabled:active:bg-sky-900' },
 }
 
 /** Caja de un producto según su categoría; sin categoría (o categoría desconocida) → ferretería. */

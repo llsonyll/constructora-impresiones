@@ -34,5 +34,11 @@ export const chipSelect = 'min-h-11 rounded-full border bg-white px-3 text-sm ho
 /** Pestaña segmentada no elegida, sobre el fondo gris del grupo (`bg-stone-200`): se aclara al pasar el mouse. */
 export const segmentIdle = 'text-stone-600 hover:bg-white/60 hover:text-stone-900 active:bg-white'
 
+/** Botón sin fondo (íconos ✕, − / +, acciones secundarias): un gris suave al pasar el mouse y más al tocar. */
+export const ghost = 'hover:bg-stone-100 active:bg-stone-200'
+
 /** Chip o botón neutro (blanco, sin color de marca): sugerencias, opciones sin elegir. */
-export const neutralIdle = 'bg-white hover:bg-stone-50 active:bg-stone-100'
+export const neutralIdle = `bg-white ${ghost}`
+
+/** Botón de quitar (✕ de una línea): se tiñe de rojo para avisar que borra. */
+export const removeIdle = 'text-stone-500 hover:bg-red-50 hover:text-red-700 active:bg-red-100'

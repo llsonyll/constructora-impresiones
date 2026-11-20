@@ -22,8 +22,10 @@ web/
 **Filtros y pestañas**: sus colores salen de `lib/chip.ts` (`chip`, `chipColors`, `chipSelect`, `segmentIdle`,
 `neutralIdle`) y, en el POS y en Caja, del `tone`/`idle` de `CAJA_THEME`. El que no está elegido se tiñe al pasar
 el mouse (solo en equipos con mouse) y se oscurece al tocarlo; el elegido no cambia con el hover. Todos los botones
-muestran la manito y un anillo de foco al navegar con teclado (`index.css`). Un filtro nuevo usa estas clases en
-lugar de repetir los colores.
+muestran la manito y un anillo de foco al navegar con teclado, y los campos (texto, número, fecha, desplegable) un
+anillo ámbar mientras se escribe en ellos (`index.css`; un campo que marca su foco de otra forma lleva
+`outline-none`). Botones sin fondo: `ghost`; el ✕ de quitar, `removeIdle`; un botón `solid` de la caja, `press`. Un
+filtro o botón nuevo usa estas clases en lugar de repetir los colores.
 
 ## Puesta en marcha
 
