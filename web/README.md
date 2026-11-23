@@ -281,6 +281,36 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
 - Incluye las ventas que siguen en la cola del equipo (⏳ por sincronizar) y se actualiza en vivo (Realtime en `sales`).
 - Detalle de cada venta al tocarla; **Anular venta** solo admin (`void_sale`, repone el stock). Las anuladas no suman y
   se pueden ver con *Ver anuladas*.
+- **Cambio / devolución** en el detalle de una venta de los últimos 7 días (ver la sección siguiente). Los cambios llevan
+  la etiqueta *cambio* o *devolución* y sus líneas devueltas en rojo con ↩; la venta original queda *con devolución* y
+  cada línea dice cuánto se devolvió. Un cambio no muestra *Boleta / factura SOL* (en SOL va nota de crédito + boleta).
+
+## Cambios y devoluciones (Ventas y *Hoy*, admin y cajero)
+
+Migración `20261123000000_cambios_devoluciones`. Un cliente devuelve un producto y se lleva otro (codo PVC 1/2 por
+codo hidro 1/2) sin anular la venta original.
+- **Cómo**: en el ticket, *Cambio o devolución* → buscar la venta por número (`1234`, `#1234`) o producto (`codo pvc`)
+  → elegir qué devuelve → *Pasar al ticket*. Desde *Hoy*, *Cambio / devolución* en el detalle abre esa venta y lleva a
+  Ventas. Lo devuelto entra al ticket de la caja de la venta, en negativo y al **precio que pagó** (no al del
+  catálogo). Se agrega lo que se lleva y el botón dice *Cobrar diferencia S/ …*, *Registrar cambio (sin diferencia)* o
+  *Devolver S/ … al cliente* (el medio de pago elegido es cómo se le devolvió). *Editar* en el ticket corrige lo devuelto.
+- **Modelo**: un cambio es una venta nueva, en el día, caja y turno en que ocurre, con `sales.returns_sale_id` y líneas
+  con `sale_items.returns_item_id` y `qty` negativa (descripción «… · devuelto de venta #1234»). La línea original
+  lleva `returned_qty`. El total es la diferencia y puede ser negativo. La venta original y su cierre de caja no cambian.
+- **Reglas** (en `create_sale`, se revalidan en el servidor): venta completada, misma caja, hasta **7 días** después
+  (fechas de Lima), sin pasar lo pendiente y todo lo devuelto de una sola venta. Producto, precio, presentación y costo
+  salen de la línea original. El **cajero** registra cambios (el ticket lleva al menos un producto nuevo); una
+  **devolución sin cambio** (solo devuelve dinero) la registra solo el **admin**.
+- **Stock**: lo devuelto vuelve con un movimiento `devolucion` (solo si se descontó al vender) y se repone en la primera
+  ubicación con cantidad.
+- **Buscar la venta** (`sales_for_return`, admin y cajero): ventas de los últimos 7 días de **cualquier cajero** con algo
+  por devolver (el cliente puede volver en otro turno), las 20 más recientes. Necesita internet; el cobro del cambio
+  funciona offline como cualquier venta (idempotente por UUID).
+- **Anular**: anular un cambio (admin) lo deshace todo (stock y `returned_qty`). Una venta con un cambio vigente no se
+  anula hasta anular primero el cambio.
+- Cierre de caja, *Hoy* y *Reportes* quedan netos sin cálculo aparte: el cambio suma su diferencia y una devolución en
+  efectivo resta del efectivo esperado del turno en que se devolvió. En Reportes el cambio cuenta como una venta más y
+  las líneas devueltas restan cantidad, total y margen del producto.
 
 ## Documentos (`/documentos`, admin y cajero)
 
@@ -318,7 +348,8 @@ por RPC.
 ## Cierre de caja (`/caja`)
 
 - Por **caja** (Ferretería / Copias) y **turno** (mañana / tarde) de un día. Sin monto de apertura:
-  **efectivo esperado = ventas en efectivo − gastos** pagados con el efectivo de esa caja.
+  **efectivo esperado = ventas en efectivo − gastos** pagados con el efectivo de esa caja. Los cambios suman su
+  diferencia y una devolución en efectivo resta (va como venta con total negativo).
 - **Gastos** (`cash_expenses`): monto + en qué; se registran en el turno abierto. Con el turno cerrado no se agregan
   ni quitan (trigger): hay que reabrirlo.
 - **Cerrar** (`close_cash`, security definer): el servidor suma todas las ventas completadas de esa caja/turno/día
@@ -366,7 +397,8 @@ Calendario de fechas importantes del negocio (migración `20261104210000_agenda`
 Bitácora de quién hizo qué y cuándo (`activity_log`, migración `20261028000000_activity_log`). La llenan **triggers**
 de la base, así queda todo lo que cambia, venga del POS, del celular o de SQL directo:
 
-- **Ventas**: registrada (al confirmar la transacción, con el total final; las ventas offline, al sincronizar) y anulada.
+- **Ventas**: registrada (al confirmar la transacción, con el total final; las ventas offline, al sincronizar), cambio o
+  devolución («Cambio #1240 sobre la venta #1234 · …») y anulada.
 - **Productos**: creado, editado (solo los campos que cambiaron, antes → después; categoría y proveedor por nombre),
   foto subida o quitada, costo cambiado a mano y eliminado. Los cambios de `stock` no cuentan: los mueven las ventas,
   compras y ajustes, que tienen su propia línea.

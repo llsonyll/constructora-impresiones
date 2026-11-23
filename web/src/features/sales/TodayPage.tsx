@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Undo2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useQueryClient } from '@tanstack/react-query'
 import FilterBar from '@/components/FilterBar'
@@ -6,13 +8,16 @@ import PageHeader from '@/components/PageHeader'
 import { localDb } from '@/db/local'
 import { useAuth } from '@/features/auth/AuthProvider'
 import CajaIcon from '@/components/CajaIcon'
-import { CAJAS, CAJA_LABEL } from '@/lib/caja'
+import { CAJAS, CAJA_LABEL, saveCajaPref } from '@/lib/caja'
 import { money } from '@/lib/format'
 import type { Caja, PaymentMethod, Shift } from '@/types/domain'
 import {
-  type DaySale, FREE_ITEM, NO_CATEGORY, PAYMENT_LABEL, SHIFT_LABEL, dayRange, salesKeys, todayLocal,
+  type DaySale, FREE_ITEM, NO_CATEGORY, PAYMENT_LABEL, SHIFT_LABEL, dayRange, isChange, salesKeys, todayLocal,
   useCashierNames, useDaySales, useVoidSale,
 } from './api'
+import { useCarts } from '@/features/pos/useCart'
+import ReturnSheet from '@/features/pos/ReturnSheet'
+import { remaining, withinReturnWindow } from '@/features/pos/returns'
 import { Breakdown, CajaByShift, CajaCard, byCategory, cajaShiftMatrix } from './summary'
 import SaleNoteSheet from '@/features/documents/SaleNoteSheet'
 import SolReceiptSheet from '@/features/documents/SolReceiptSheet'
@@ -36,6 +41,9 @@ export default function TodayPage() {
   const [receiptFilter, setReceiptFilter] = useState<'' | 'con' | 'sin'>('')
   const [noteFor, setNoteFor] = useState<DaySale | null>(null)
   const [receiptFor, setReceiptFor] = useState<DaySale | null>(null)
+  const [returnFor, setReturnFor] = useState<DaySale | null>(null)
+  const navigate = useNavigate()
+  const carts = useCarts()
 
   const qc = useQueryClient()
   const { data: synced = [], isLoading, error } = useDaySales(day)
@@ -64,6 +72,7 @@ export default function TodayPage() {
         items: s.items.map(i => ({
           description: i.description, qty: i.qty, unit_price: i.unit_price, subtotal: Math.round(i.qty * i.unit_price * 100) / 100,
           category: i.product_id == null ? FREE_ITEM : prodCat.get(i.product_id) ?? NO_CATEGORY,
+          returns_item_id: i.returns_item_id ?? null,
         })),
       }))
     return [...pending, ...synced].sort((a, b) => b.sold_at.localeCompare(a.sold_at))
@@ -84,7 +93,10 @@ export default function TodayPage() {
   async function onVoid(s: DaySale) {
     const sol = s.receipt && `\n\nTiene la ${RECEIPT_LABEL[s.receipt.type].toLowerCase()} ${receiptNumber(s.receipt)} emitida en SOL: ` +
       'anúlala también en SOL (comunicación de baja o nota de crédito).'
-    if (!confirm(`¿Anular la venta #${s.number} por ${money(s.total)}? Se repone el stock de los productos.${sol || ''}`)) return
+    const msg = isChange(s)
+      ? `¿Anular el cambio #${s.number} (${money(s.total)})? Se deshace: lo devuelto vuelve a quedar vendido y lo que se llevó vuelve al stock.`
+      : `¿Anular la venta #${s.number} por ${money(s.total)}? Se repone el stock de los productos.${sol || ''}`
+    if (!confirm(msg)) return
     setVoidError('')
     try { await voidSale.mutateAsync(s.id) } catch (e) { setVoidError((e as Error).message) }
   }
@@ -168,6 +180,8 @@ export default function TodayPage() {
                     {' · '}<CajaIcon caja={s.caja} /> {PAYMENT_LABEL[s.payment_method]} · {SHIFT_LABEL[s.shift]}
                     {isAdmin && s.cashier_id && ` · ${names[s.cashier_id] ?? 'Cajero'}`}
                     {s.receipt && <span className="ml-1 whitespace-nowrap rounded bg-sky-100 px-1 text-sky-800">{RECEIPT_LABEL[s.receipt.type]} {receiptNumber(s.receipt)}</span>}
+                    {isChange(s) && <span className="ml-1 whitespace-nowrap rounded bg-rose-100 px-1 text-rose-800"><Undo2 className="inline size-3 align-[-0.1em]" /> {s.items.some(i => i.qty > 0) ? 'cambio' : 'devolución'}</span>}
+                    {s.items.some(i => (i.returned_qty ?? 0) > 0) && <span className="ml-1 whitespace-nowrap rounded bg-stone-100 px-1 text-stone-600">con devolución</span>}
                     {anulada && <span className="ml-1 rounded bg-stone-200 px-1 text-stone-600">anulada</span>}
                   </div>
                 </div>
@@ -178,8 +192,11 @@ export default function TodayPage() {
                   <table className="w-full">
                     <tbody>
                       {s.items.map((i, n) => (
-                        <tr key={n}>
-                          <td className="py-0.5">{i.description}</td>
+                        <tr key={n} className={i.qty < 0 ? 'text-rose-800' : ''}>
+                          <td className="py-0.5">
+                            {i.qty < 0 && <Undo2 className="mr-1 inline size-3.5 align-[-0.15em]" aria-label="Devuelto" />}{i.description}
+                            {(i.returned_qty ?? 0) > 0 && <span className="ml-1 text-xs text-rose-700">({i.returned_qty} devuelto{i.returned_qty === 1 ? '' : 's'})</span>}
+                          </td>
                           <td className="w-24 text-right tabular-nums text-stone-500">{i.qty} × {money(i.unit_price)}</td>
                           <td className="w-20 text-right tabular-nums">{money(i.subtotal)}</td>
                         </tr>
@@ -193,10 +210,24 @@ export default function TodayPage() {
                       <div className="flex flex-wrap justify-end gap-2">
                         <div className="mr-auto flex flex-wrap gap-2">
                           <button onClick={() => setNoteFor(s)} className="min-h-11 rounded border bg-white px-3">Nota de venta</button>
-                          <button onClick={() => setReceiptFor(s)} className="min-h-11 rounded border bg-white px-3">
-                            {s.receipt ? `${RECEIPT_LABEL[s.receipt.type]} ${receiptNumber(s.receipt)}` : 'Boleta / factura SOL'}
-                          </button>
+                          {/* Un cambio no va a SOL tal cual: allí es nota de crédito por lo devuelto y boleta por lo nuevo. */}
+                          {!isChange(s) && (
+                            <button onClick={() => setReceiptFor(s)} className="min-h-11 rounded border bg-white px-3">
+                              {s.receipt ? `${RECEIPT_LABEL[s.receipt.type]} ${receiptNumber(s.receipt)}` : 'Boleta / factura SOL'}
+                            </button>
+                          )}
+                          {withinReturnWindow(s.sold_at) && s.items.some(i => i.qty > 0 && remaining({ qty: i.qty, returned_qty: i.returned_qty ?? 0 }) > 0) && (
+                            <button onClick={() => setReturnFor(s)} className="flex min-h-11 items-center gap-1.5 rounded border bg-white px-3">
+                              <Undo2 className="size-4" />Cambio / devolución
+                            </button>
+                          )}
                         </div>
+                        {isChange(s) && (
+                          <p className="w-full text-xs text-stone-500">
+                            Si la venta original tenía boleta o factura, en SOL corresponde una nota de crédito por lo devuelto y,
+                            si se llevó otro producto, su boleta o factura.
+                          </p>
+                        )}
                         {isAdmin && (
                           <button onClick={() => onVoid(s)} disabled={voidSale.isPending}
                                   className="min-h-11 rounded border border-red-300 px-3 text-red-700 disabled:opacity-50">Anular venta</button>
@@ -212,6 +243,17 @@ export default function TodayPage() {
       </ul>
       {noteFor && <SaleNoteSheet sale={noteFor} onClose={() => setNoteFor(null)} />}
       {receiptFor && <SolReceiptSheet sale={receiptFor} onClose={() => setReceiptFor(null)} />}
+      {returnFor && (
+        <ReturnSheet saleNumber={returnFor.number ?? undefined} current={carts[returnFor.caja].lines}
+                     onClose={() => setReturnFor(null)}
+                     onAdd={(sale, rl) => {
+                       // Lo devuelto pasa al ticket de su caja; en Ventas se agrega lo que se lleva y se cobra.
+                       carts[sale.caja].dispatch({ type: 'setReturns', lines: rl })
+                       saveCajaPref(sale.caja)
+                       setReturnFor(null)
+                       navigate('/ventas')
+                     }} />
+      )}
     </div>
   )
 }

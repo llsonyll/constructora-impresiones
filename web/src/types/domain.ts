@@ -62,6 +62,8 @@ export interface CartLine {
   qty: number
   unit_price: number
   factor?: number             // unidades base por cada unidad de la línea (presentación: docena = 12); sin dato = 1
+  returns_item_id?: number    // línea devuelta (cambio): línea de la venta original; qty negativa
+  returns_sale_number?: number // número de esa venta (solo para mostrar)
 }
 
 /** Venta pendiente de sincronizar. `id` se genera en el cliente => create_sale es idempotente. */

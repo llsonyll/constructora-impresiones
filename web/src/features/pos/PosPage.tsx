@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, FileText, MapPin, Maximize2, Plus, Printer, ScanBarcode } from 'lucide-react'
+import { BookOpen, FileText, MapPin, Maximize2, Plus, Printer, ScanBarcode, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLiveQuery } from 'dexie-react-hooks'
 import BarcodeScanner from '@/components/BarcodeScanner'
@@ -25,6 +25,8 @@ import { checkout } from './checkout'
 import QtyPad from './QtyPad'
 import PresentationPicker, { type PickedLine } from './PresentationPicker'
 import ProductDetailSheet from './ProductDetailSheet'
+import ReturnSheet from './ReturnSheet'
+import { ticketKind } from './returns'
 import type { QuoteFromTicket } from '@/features/documents/QuoteEditorPage'
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
@@ -39,6 +41,7 @@ export default function PosPage() {
   const canCreate = profile?.role === 'admin' || profile?.role === 'almacen'
   // Servicios de copias (fotocopia, impresión, otros): también el cajero, vía RPC create_copy_service.
   const canCreateService = profile?.role === 'admin' || profile?.role === 'cajero'
+  const isAdmin = profile?.role === 'admin'
   const [query, setQuery] = useState('')
   const [method, setMethod] = useState<PaymentMethod>('efectivo')
   const [customDesc, setCustomDesc] = useState('')
@@ -57,6 +60,7 @@ export default function PosPage() {
   const [padFor, setPadFor] = useState<Product | null>(null)
   const [presFor, setPresFor] = useState<Product | null>(null)
   const [detailFor, setDetailFor] = useState<Product | null>(null)
+  const [returnOpen, setReturnOpen] = useState(false)
   const agent = usePrintAgent()
   // Bloqueo síncrono contra el doble toque: el estado `paying` recién se aplica en el siguiente render.
   const payingRef = useRef(false)
@@ -66,6 +70,10 @@ export default function PosPage() {
   // Viven en CartsProvider: otras pantallas (Ubicaciones) también agregan a ellos.
   const carts = useCarts()
   const { lines, total, dispatch, quote } = carts[caja]
+  // Cambio: el ticket lleva lo que el cliente devuelve (en negativo) y lo que se lleva; se cobra la diferencia.
+  const kind = ticketKind(lines)
+  const returned = lines.filter(l => l.returns_item_id != null)
+  const blockedReturn = kind === 'devolucion' && !isAdmin
   const theme = CAJA_THEME[caja]
   // En el celular el ticket es una hoja a pantalla completa: "atrás" la cierra. En escritorio es una columna fija.
   useOverlay(() => setTicketOpen(false), ticketOpen && !matchMedia('(min-width: 768px)').matches)
@@ -163,7 +171,7 @@ export default function PosPage() {
   }
 
   async function pay() {
-    if (!lines.length || payingRef.current) return
+    if (!lines.length || payingRef.current || blockedReturn) return
     payingRef.current = true
     setPaying(true)
     const ids = saleIdRef.current
@@ -175,7 +183,8 @@ export default function PosPage() {
       ids[caja] = null
       dispatch({ type: 'clear' })
       setTicketOpen(false)
-      toast.success(`Venta registrada en ${CAJA_LABEL[caja]}`, { id: 'pos' })
+      toast.success(kind === 'venta' ? `Venta registrada en ${CAJA_LABEL[caja]}`
+        : kind === 'cambio' ? 'Cambio registrado' : 'Devolución registrada', { id: 'pos' })
     } catch {
       toast.error('No se pudo registrar la venta. Intenta de nuevo.', { id: 'pos' })
     } finally {
@@ -333,8 +342,26 @@ export default function PosPage() {
                     className="grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
           </div>
         )}
+        {returned.length > 0 && (
+          <div className="flex items-center gap-2 rounded-lg bg-rose-50 py-1 pl-3 text-sm text-rose-900">
+            <Undo2 className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              {kind === 'cambio' ? 'Cambio' : 'Devolución'} de la venta <b className="font-mono">#{returned[0].returns_sale_number}</b>
+              {kind === 'devolucion' && <span className="block text-xs">Agrega lo que se lleva el cliente{isAdmin ? ', o devuelve el dinero' : ''}.</span>}
+            </span>
+            <button onClick={() => setReturnOpen(true)} className="min-h-11 shrink-0 px-2 text-xs underline">Editar</button>
+          </div>
+        )}
         <ul className="divide-y">
-          {lines.map(l => (
+          {lines.map(l => l.returns_item_id != null ? (
+            <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm text-rose-800">
+              <Undo2 className="size-4 shrink-0" aria-label="Devuelto" />
+              <span className="min-w-0 flex-1 break-words">{l.description}</span>
+              <span className="shrink-0 tabular-nums">{l.qty}</span>
+              <span className="w-16 shrink-0 text-right tabular-nums">{money(l.qty * l.unit_price)}</span>
+              <button aria-label="Quitar lo devuelto" onClick={() => dispatch({ type: 'remove', key: l.key })} className="-mr-2 grid size-11 shrink-0 place-items-center text-stone-500">✕</button>
+            </li>
+          ) : (
             <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm">
               <span className="min-w-0 flex-1 break-words">{l.description}</span>
               <div className="flex items-center rounded border">
@@ -361,7 +388,14 @@ export default function PosPage() {
           <input value={customPrice} onChange={e => setCustomPrice(e.target.value)} placeholder="S/" inputMode="decimal" className="min-h-11 w-20 rounded border px-2 text-base md:text-sm" />
           <button className="min-w-11 rounded border px-3 text-sm" aria-label="Agregar ítem libre">+</button>
         </form>
+        {!returned.length && (
+          <button onClick={() => setReturnOpen(true)} disabled={!online} title={online ? undefined : 'Necesitas internet para buscar la venta'}
+                  className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border text-sm text-stone-700 disabled:opacity-50">
+            <Undo2 className="size-4" />Cambio o devolución
+          </button>
+        )}
 
+        {total < 0 && <p className="text-xs text-stone-500">¿Cómo se le devuelve el dinero?</p>}
         <div className="flex flex-wrap gap-1">
           {METHODS.map(m => (
             <button key={m.id} onClick={() => setMethod(m.id)}
@@ -376,11 +410,15 @@ export default function PosPage() {
         <div className="flex items-baseline justify-between text-lg font-semibold">
           <span>Total</span><span>{money(total)}</span>
         </div>
-        <button disabled={!lines.length || paying} onClick={pay} aria-busy={paying}
-                className={`w-full rounded-lg p-3 font-medium text-white disabled:opacity-40 ${theme.solid}`}>
-          {paying ? 'Registrando…' : `Cobrar ${money(total)}`}
+        {blockedReturn && <p className="text-xs text-rose-700">Solo el administrador registra devoluciones de dinero sin cambio.</p>}
+        <button disabled={!lines.length || paying || blockedReturn} onClick={pay} aria-busy={paying}
+                className={`w-full rounded-lg p-3 font-medium text-white disabled:opacity-40 ${total < 0 ? 'bg-rose-700' : theme.solid}`}>
+          {paying ? 'Registrando…'
+            : total < 0 ? `Devolver ${money(-total)} al cliente`
+            : kind === 'cambio' ? (total === 0 ? 'Registrar cambio (sin diferencia)' : `Cobrar diferencia ${money(total)}`)
+            : `Cobrar ${money(total)}`}
         </button>
-        {lines.length > 0 && !quote && online && (
+        {lines.length > 0 && kind === 'venta' && !quote && online && (
           <button onClick={() => navigate('/documentos/cotizacion/nueva', { state: { fromTicket: {
                     // Línea por presentación: sin unidad aparte (la descripción ya dice "· Docena").
                     caja, lines: lines.map(({ key: _k, ...l }) => ({ ...l, unit: (l.factor ?? 1) !== 1 ? '' : (l.product_id && products.find(p => p.id === l.product_id)?.unit) || 'und' })),
@@ -426,7 +464,7 @@ export default function PosPage() {
       {detailFor && (
         <ProductDetailSheet product={detailFor} category={detailFor.category_id != null ? catMap.get(detailFor.category_id)?.name : undefined}
                             accent={CAJA_THEME[cajaOf(detailFor, catMap)].solid} onClose={() => setDetailFor(null)}
-                            inTicket={carts[cajaOf(detailFor, catMap)].lines.filter(l => l.product_id === detailFor.id).reduce((s, l) => s + l.qty * (l.factor ?? 1), 0)}
+                            inTicket={carts[cajaOf(detailFor, catMap)].lines.filter(l => l.product_id === detailFor.id && l.returns_item_id == null).reduce((s, l) => s + l.qty * (l.factor ?? 1), 0)}
                             onAdd={picked => { addPicked(detailFor, picked); setDetailFor(null) }} />
       )}
 
@@ -438,6 +476,16 @@ export default function PosPage() {
                            if (!newService.fromPanel) { setCaja('copias'); setModulo('servicios') }
                            setNewService(null)
                          }} />
+      )}
+
+      {returnOpen && (
+        <ReturnSheet current={returned} saleNumber={returned[0]?.returns_sale_number} onClose={() => setReturnOpen(false)}
+                     onAdd={(sale, rl) => {
+                       carts[sale.caja].dispatch({ type: 'setReturns', lines: rl })
+                       setReturnOpen(false)
+                       if (sale.caja !== caja) setCaja(sale.caja)
+                       if (rl.length) toast(`Devolución en el ticket de ${CAJA_LABEL[sale.caja]}: agrega lo que se lleva el cliente`, { id: 'pos' })
+                     }} />
       )}
 
       {scanning && <BarcodeScanner onClose={() => setScanning(false)} onDetected={c => { setScanning(false); handleCode(c) }} />}

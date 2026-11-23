@@ -9,11 +9,12 @@ type Action =
   | { type: 'setQty'; key: string; qty: number }
   | { type: 'undoAdd'; product_id: string; unit_price: number; qty: number; factor?: number }
   | { type: 'remove'; key: string }
+  | { type: 'setReturns'; lines: Omit<CartLine, 'key'>[] }
   | { type: 'clear' }
 
-/** Misma línea: mismo producto, precio y presentación (factor; sin dato = unidad base). */
+/** Misma línea: mismo producto, precio y presentación (factor; sin dato = unidad base). Lo devuelto va aparte. */
 const sameLine = (l: CartLine, product_id: string, unit_price: number, factor = 1) =>
-  l.product_id === product_id && l.unit_price === unit_price && (l.factor ?? 1) === factor
+  l.returns_item_id == null && l.product_id === product_id && l.unit_price === unit_price && (l.factor ?? 1) === factor
 
 function reducer(state: CartLine[], a: Action): CartLine[] {
   switch (a.type) {
@@ -44,6 +45,9 @@ function reducer(state: CartLine[], a: Action): CartLine[] {
                                    : state.map(l => l === line ? { ...l, qty: round2(l.qty - a.qty) } : l)
     }
     case 'remove': return state.filter(l => l.key !== a.key)
+    // Cambio: reemplaza lo devuelto (de una sola venta) y lo deja al inicio del ticket.
+    case 'setReturns':
+      return [...a.lines.map(l => ({ ...l, key: crypto.randomUUID() })), ...state.filter(l => l.returns_item_id == null)]
     case 'clear': return []
   }
 }
