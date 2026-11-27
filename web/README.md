@@ -192,7 +192,14 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   enlace a esa ubicación). El borrador queda en el equipo por casillero (`localStorage` `conteo-casillero-<id>`) con la
   hora en que se contó cada línea: el stock se corrige contra el que había a esa hora (`stock_at`), así las ventas hechas
   entre el conteo y el guardado no se pierden. `/inventario/ubicaciones?ir=E2-N5` abre esa ubicación.
-- Ficha del producto: sección *Ubicación en tienda* (autocompletado, ★ principal, cantidad, quitar).
+- **Mover entre ubicaciones** (RPC `move_to_location`, migración `20261127200000_mover_entre_ubicaciones`, admin y
+  almacén): resta de una ubicación y suma en otra (la asigna si el producto no la tenía); **el stock no cambia**. No deja
+  mover más de lo anotado en el origen (hay que contarlo antes); un origen sin cantidad no se toca. Desde la ficha
+  (*Mover* en cada ubicación) y desde **Reponer** (`/inventario/reponer`, aviso en *Ubicaciones*): lista lo que en la
+  tienda está en su mínimo o menos (sin mínimo: agotado en el estante), con cantidad anotada, y que tiene cantidad en un
+  depósito (`features/locations/restock.ts`). Propone bajar lo que falta para el doble del mínimo (sin mínimo, todo lo
+  del depósito), del depósito con más cantidad a la ubicación principal de la tienda; *Mover* lo hace.
+- Ficha del producto: sección *Ubicación en tienda* (autocompletado, ★ principal, cantidad, mover, quitar).
 - Inventario: 📍 en cada fila, filtro *Sin ubicación* (sin servicios) y búsqueda por código (`E2-N5` o `E4`).
   Ventas: la ubicación principal se ve en la tarjeta (va en el catálogo offline) y también se puede buscar por código.
 - Lectura para todos los roles; escritura admin/almacén (RLS). El **cajero** la ve en solo lectura (en *Más*): busca dónde
@@ -219,7 +226,9 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   internos (SKU, stock, precio de venta); la nota de la orden solo si se marca. Guarda la orden antes si hay cambios.
 - **Recibir** (`receive_purchase_order`, una transacción): entra el stock (movimiento `compra` con la
   OC y la factura), cada costo queda en el historial y el producto sin proveedor queda asignado.
-  Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo. Cada renglón muestra
+  Luego muestra costo anterior → nuevo y margen, para corregir precios ahí mismo, y ofrece **ubicar toda la orden de
+  una vez**: *Cada uno a su ubicación* (la principal; sin ubicación, al depósito) o *Todo al depósito* (suma lo recibido a
+  la cantidad de la ubicación con `move_to_location`, sin origen; los ya ubicados no se repiten). Cada renglón muestra
   foto, ubicaciones y si tiene nota; tocarlo abre su detalle: **ubicación** (la primera que se agrega, o
   *+N aquí* en una que ya tenía, suma lo recibido a su cantidad referencial, una sola vez), **descripción /
   notas** (`products.notes`), **foto** y *Ficha completa* (el editor del inventario).

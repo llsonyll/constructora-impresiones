@@ -170,3 +170,22 @@ export function useCountLocation() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
   })
 }
+
+/** Una línea a mover: de una ubicación a otra (reponer) o solo sumar al destino (compra recibida, sin `from`). */
+export interface MoveItem { product_id: string; to_location_id: number; qty: number; from_location_id?: number }
+
+/** Mover mercadería entre ubicaciones (RPC move_to_location, una transacción). No cambia el stock. */
+export function useMoveToLocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (items: MoveItem[]) => {
+      const { data, error } = await supabase.rpc('move_to_location', { p: { items } })
+      if (error) throw error
+      return data as number
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
+  })
+}
+
+/** Ids de las ubicaciones de tipo depósito (D1…), para separar tienda y depósito. */
+export const depotIds = (locations: Location[]) => new Set(locations.filter(l => l.furniture_type === 'deposito').map(l => l.id))

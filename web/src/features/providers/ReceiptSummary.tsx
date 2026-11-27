@@ -6,6 +6,8 @@ import { friendlyError, type InventoryProduct, useInventory, usePatchProduct } f
 import ProductEditor, { suggestPrice } from '@/features/inventory/ProductEditor'
 import type { ReceiptLine } from './api'
 import ReceivedItemSheet from './ReceivedItemSheet'
+import { friendlyLocationError, useLocations, useMoveToLocation } from '@/features/locations/api'
+import { placementItems } from '@/features/locations/restock'
 
 const LOW_MARGIN = 0.15
 const margin = (price: number | null, cost: number) => (price ? (price - cost) / price : null)
@@ -34,6 +36,26 @@ export default function ReceiptSummary({ lines, onDone, reopened = false }: {
     reopened ? lines.filter(l => (byId.get(l.product_id)?.locations.length ?? 0) > 0).map(l => l.product_id) : []))
   const [detail, setDetail] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
+
+  // Ubicar todo lo recibido de una vez (move_to_location, sin origen: solo suma al destino; el stock ya entró).
+  const { data: locations = [] } = useLocations()
+  const depot = locations.find(l => l.furniture_type === 'deposito' && l.active)
+  const move = useMoveToLocation()
+  const [placeMsg, setPlaceMsg] = useState<{ text: string; ok: boolean } | null>(null)
+  const toPlace = lines.filter(l => !placed.has(l.product_id) && byId.has(l.product_id) && Number(l.qty) > 0)
+  async function placeAll(mode: 'principal' | 'deposito') {
+    if (!depot) return
+    const items = placementItems(toPlace.map(l => ({ product_id: l.product_id, qty: Number(l.qty) })), byId, mode, depot.id)
+    setPlaceMsg(null)
+    try {
+      await move.mutateAsync(items)
+      setPlaced(s => new Set([...s, ...items.map(i => i.product_id)]))
+      const toDepot = items.filter(i => i.to_location_id === depot.id).length
+      setPlaceMsg({ ok: true, text: mode === 'deposito'
+        ? `✓ ${items.length} producto${items.length === 1 ? '' : 's'} sumados a ${depot.code}.`
+        : `✓ ${items.length - toDepot} sumados a su ubicación principal${toDepot ? ` y ${toDepot} (sin ubicación o con la principal en el depósito) a ${depot.code}` : ''}.` })
+    } catch (e) { setPlaceMsg({ ok: false, text: friendlyLocationError(e) }) }
+  }
 
   const priceOf = (l: ReceiptLine) => saved[l.product_id] ?? l.price
   const needsAttention = (l: ReceiptLine) => { const m = margin(priceOf(l), l.new_cost); return m == null || m < LOW_MARGIN }
@@ -71,6 +93,21 @@ export default function ReceiptSummary({ lines, onDone, reopened = false }: {
         {attention > 0 && <> <strong>{attention}</strong> quedan sin precio o con margen menor a {pct(LOW_MARGIN)}: revísalos abajo.</>}
         {unplaced > 0 && <> <strong>{unplaced}</strong> no tienen ubicación: toca «Ubicar» para anotar dónde los guardaste.</>}
       </div>
+      {!reopened && depot && toPlace.length > 1 && (
+        <div className="space-y-2 rounded-lg border bg-white p-3 text-sm">
+          <p>¿Dónde guardaste lo que llegó? Suma lo recibido a la cantidad de la ubicación, de toda la orden a la vez:</p>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => placeAll('principal')} disabled={move.isPending}
+                    className="min-h-11 flex-1 rounded-lg border border-amber-300 bg-amber-50 px-3 text-amber-900 disabled:opacity-50">
+              Cada uno a su ubicación <span className="text-xs">(sin ubicación → {depot.code})</span>
+            </button>
+            <button onClick={() => placeAll('deposito')} disabled={move.isPending}
+                    className="min-h-11 flex-1 rounded-lg border px-3 disabled:opacity-50">Todo al depósito {depot.code}</button>
+          </div>
+          <p className="text-xs text-stone-500">O producto por producto, tocando su ubicación abajo.</p>
+        </div>
+      )}
+      {placeMsg && <p role="status" className={`rounded-lg p-2 text-sm ${placeMsg.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{placeMsg.text}</p>}
       <ul className="divide-y rounded-lg bg-white shadow">
         {sorted.map(l => {
           const price = priceOf(l)
