@@ -27,6 +27,7 @@ import PresentationPicker, { type PickedLine } from './PresentationPicker'
 import ProductDetailSheet from './ProductDetailSheet'
 import ReturnSheet from './ReturnSheet'
 import { ticketKind } from './returns'
+import { inTicket, overStock, stockWarning } from './stock'
 import type { QuoteFromTicket } from '@/features/documents/QuoteEditorPage'
 
 const METHODS: { id: PaymentMethod; label: string }[] = [
@@ -136,23 +137,27 @@ export default function PosPage() {
   /** Agrega al ticket de la caja del producto (si es de la otra caja, cambia a ella y avisa). */
   function add(p: Product, qty = 1) {
     const target = cajaOf(p, catMap)
+    const warn = stockWarning(p, inTicket(carts[target].lines, p.id), qty)
     if (qty === 1) carts[target].dispatch({ type: 'addProduct', product: p })
     else carts[target].dispatch({ type: 'addLine', product_id: p.id, description: p.name, qty, unit_price: p.price })
     used(p.id)
     // Un solo aviso a la vez (id fijo): tocar rápido varios productos no apila mensajes.
     const undo = { label: 'Deshacer', onClick: () => carts[target].dispatch({ type: 'undoAdd', product_id: p.id, unit_price: p.price, qty }) }
     if (target !== caja) { setCaja(target); toast.warning(`${p.name} es de ${CAJA_LABEL[target]}: cambiaste a esa caja`, { id: 'pos', action: undo }) }
+    else if (warn) toast.warning(warn, { id: 'pos', action: undo })
     else toast(`+${qty} ${p.name}`, { id: 'pos', action: undo })
   }
 
   /** Unidad y/o presentaciones elegidas (docena, ciento, bolsa…): una línea por cada una. */
   function addPicked(p: Product, picked: PickedLine[]) {
     const target = cajaOf(p, catMap)
+    const warn = stockWarning(p, inTicket(carts[target].lines, p.id), picked.reduce((s, l) => s + l.qty * (l.factor ?? 1), 0))
     for (const l of picked) carts[target].dispatch({ type: 'addLine', product_id: p.id, description: l.description, qty: l.qty, unit_price: l.unit_price, factor: l.factor })
     used(p.id)
     const undo = { label: 'Deshacer', onClick: () => { for (const l of picked) carts[target].dispatch({ type: 'undoAdd', product_id: p.id, unit_price: l.unit_price, qty: l.qty, factor: l.factor }) } }
     const text = picked.map(l => `+${l.qty} ${l.label}`).join(', ')
     if (target !== caja) { setCaja(target); toast.warning(`${p.name} es de ${CAJA_LABEL[target]}: cambiaste a esa caja`, { id: 'pos', action: undo }) }
+    else if (warn) toast.warning(warn, { id: 'pos', action: undo })
     else toast(`${text} · ${p.name}`, { id: 'pos', action: undo })
   }
 
@@ -363,7 +368,15 @@ export default function PosPage() {
             </li>
           ) : (
             <li key={l.key} className="flex items-center gap-1.5 py-1 text-sm">
-              <span className="min-w-0 flex-1 break-words">{l.description}</span>
+              <span className="min-w-0 flex-1 break-words">{l.description}
+                {(() => {
+                  // Más de lo que hay en el sistema: se cobra igual, pero queda a la vista (y el producto, para contar).
+                  const p = l.product_id ? products.find(x => x.id === l.product_id) : undefined
+                  return p && overStock(p, inTicket(lines, p.id)) && (
+                    <span className="block text-xs text-amber-700">Sin stock suficiente en el sistema (hay {Math.max(p.stock, 0)} {p.unit})</span>
+                  )
+                })()}
+              </span>
               <div className="flex items-center rounded border">
                 <button className="grid size-11 place-items-center text-lg" onClick={() => dispatch({ type: 'setQty', key: l.key, qty: l.qty - 1 })} aria-label="Menos">−</button>
                 <input type="number" min={0} step="any" value={l.qty} className="min-h-11 w-12 border-x text-center text-base"

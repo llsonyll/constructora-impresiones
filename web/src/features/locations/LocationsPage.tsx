@@ -52,6 +52,9 @@ export default function LocationsPage() {
     return m
   }, [products])
   const unplaced = products.filter(p => p.track_stock && !p.locations.length).length
+  // Vendidos sin stock: su stock no es real. Se cuentan con «Contar este casillero» (o en Inventario si no tienen ubicación).
+  const negative = products.filter(p => p.track_stock && p.stock < 0).length
+  const hasNegative = (id: number) => (byLocation.get(id) ?? []).some(p => p.track_stock && p.stock < 0)
 
   const visible = locations.filter(l => showInactive || l.active)
   const furnitures = [...new Set(visible.map(l => l.furniture))]
@@ -92,6 +95,11 @@ export default function LocationsPage() {
           <span><b>{unplaced}</b> productos sin ubicación</span><span>Ver →</span>
         </Link>
       )}
+      {canEdit && negative > 0 && (
+        <Link to="/inventario?estado=negativo" className="flex min-h-11 items-center justify-between rounded-lg bg-red-50 px-3 text-sm text-red-800">
+          <span><b>{negative}</b> con stock negativo: contarlos <span className="text-xs">(● en su casillero)</span></span><span>Ver →</span>
+        </Link>
+      )}
 
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:flex-wrap md:px-0">
         {furnitures.map(f => (
@@ -110,7 +118,7 @@ export default function LocationsPage() {
 
       {bodies.map(body => (
         <FurnitureGrid key={body ?? '-'} title={body ? `${current}-${body}` : current!} locations={inFurniture.filter(l => l.body === body)}
-                       counts={byLocation} selected={selected} onSelect={setSelected}
+                       counts={byLocation} selected={selected} onSelect={setSelected} alert={canEdit ? hasNegative : undefined}
                        onEdit={canEdit ? () => setEditFurniture({ furniture: current!, body }) : undefined} />
       ))}
       <p className="text-xs text-stone-500">
@@ -145,9 +153,10 @@ export default function LocationsPage() {
 }
 
 /** Un mueble (o cuerpo): una fila por nivel, de arriba (N1) hacia abajo; los niveles divididos muestran sus secciones. */
-function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }: {
+function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit, alert }: {
   title: string; locations: Location[]; counts: Map<number, InventoryProduct[]>; selected: number | null; onSelect: (id: number) => void
   onEdit?: () => void
+  alert?: (id: number) => boolean   // casillero con productos en stock negativo (para contar)
 }) {
   const levels = [...new Set(locations.map(l => l.level))].sort((a, b) => a - b)
   const type = locations[0]?.furniture_type
@@ -167,11 +176,13 @@ function FurnitureGrid({ title, locations, counts, selected, onSelect, onEdit }:
               <div className="grid flex-1 gap-1" style={{ gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))` }}>
                 {row.map(l => {
                   const n = counts.get(l.id)?.length ?? 0
+                  const warn = alert?.(l.id) ?? false
                   return (
-                    <button key={l.id} onClick={() => onSelect(l.id)} aria-label={`${l.code}: ${n} productos`} title={l.description ?? l.code}
-                            className={`flex min-h-11 flex-col items-center justify-center rounded border text-xs leading-tight
+                    <button key={l.id} onClick={() => onSelect(l.id)} aria-label={`${l.code}: ${n} productos${warn ? ', con stock negativo' : ''}`} title={l.description ?? l.code}
+                            className={`relative flex min-h-11 flex-col items-center justify-center rounded border text-xs leading-tight
                                         ${selected === l.id ? 'border-amber-700 ring-2 ring-amber-600' : ''}
                                         ${!l.active ? 'border-dashed text-stone-400' : n ? 'bg-amber-100 text-amber-900' : 'bg-stone-50 text-stone-500'}`}>
+                      {warn && <span aria-hidden className="absolute right-0.5 top-0.5 size-2 rounded-full bg-red-600" />}
                       {l.slot && <span className="font-medium">{l.slot}</span>}
                       <span className="tabular-nums">{l.slot ? n || '·' : n ? `${n} producto${n === 1 ? '' : 's'}` : 'vacío'}</span>
                     </button>
@@ -282,7 +293,7 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
                     <div className="min-w-0 flex-1">
                       <div className="line-clamp-2 text-sm">{p.name}</div>
                       <div className="text-xs text-stone-500">
-                        stock {p.stock} {p.unit}{pl.qty != null && ` · aquí ~${pl.qty}`}
+                        <span className={p.track_stock && p.stock < 0 ? 'font-medium text-red-700' : ''}>stock {p.stock} {p.unit}</span>{pl.qty != null && ` · aquí ~${pl.qty}`}
                         {pl.is_primary ? ' · ★ principal' : ` · principal: ${p.locations.find(l => l.is_primary)?.code ?? '—'}`}
                       </div>
                     </div>
