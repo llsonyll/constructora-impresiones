@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { rankBy, withCode } from '@/lib/search'
 import { useProductMatcher } from '@/hooks/use-product-search'
-import { MapPin, ScanBarcode } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { ClipboardList, MapPin, ScanBarcode } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import PageHeader from '@/components/PageHeader'
 import BarcodeScanner from '@/components/BarcodeScanner'
 import Sheet from '@/components/Sheet'
@@ -35,6 +35,15 @@ export default function LocationsPage() {
   const [editFurniture, setEditFurniture] = useState<{ furniture: string; body: string | null } | null>(null)
   const [jump, setJump] = useState('')
   const [jumpError, setJumpError] = useState('')
+  // ?ir=E2-N5 (al volver de Contar casillero o desde un aviso): abre esa ubicación.
+  const [params, setParams] = useSearchParams()
+  const goTo = params.get('ir')
+  useEffect(() => {
+    if (!goTo || !locations.length) return
+    const hit = findByCode(locations, normalizeCode(goTo))
+    if (hit) { setFurniture(hit.furniture); setSelected(hit.id); if (!hit.active) setShowInactive(true) }
+    setParams(p => { p.delete('ir'); return p }, { replace: true })
+  }, [goTo, locations, setParams])
 
   // Productos por ubicación (de la lista de inventario: un solo origen de datos, se refresca al asignar).
   const byLocation = useMemo(() => {
@@ -250,6 +259,14 @@ function LocationSheet({ location, products, allProducts, onEdit, onClose }: {
           </ul>
         )}
         {flash && <p role="status" className={`rounded-lg p-2 text-sm ${flash.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{flash.text}</p>}
+
+        {onEdit && (
+          <Link to={`/inventario/ubicaciones/${location.id}/contar`}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-medium text-amber-900">
+            <ClipboardList className="size-5" />Contar este casillero
+            <span className="font-normal text-amber-800">(ubica, anota cantidades y corrige el stock)</span>
+          </Link>
+        )}
 
         <div>
           <div className="mb-1 text-xs text-stone-500">{products.length} producto{products.length === 1 ? '' : 's'} aquí</div>

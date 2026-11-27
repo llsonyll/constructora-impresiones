@@ -149,3 +149,24 @@ export function useReshapeFurniture() {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: locationKeys.all }); void qc.invalidateQueries({ queryKey: ['inventory'] }) },
   })
 }
+
+/** Resultado de count_location: cuántos quedaron ubicados, quitados y ajustados, y a cuáles no se les tocó el stock. */
+export interface CountLocationResult {
+  ubicados: number
+  quitados: number
+  ajustados: number
+  sin_ajuste: { product_id: string; name: string; pendientes: string[] }[]
+}
+
+/** Conteo de un casillero en una transacción (RPC count_location): ubica, anota la cantidad y ajusta el stock. */
+export function useCountLocation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { location_id: number; note?: string; items: { product_id: string; counted: number; counted_at: string; remove?: boolean }[] }) => {
+      const { data, error } = await supabase.rpc('count_location', { p })
+      if (error) throw error
+      return data as CountLocationResult
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['inventory'] }),
+  })
+}

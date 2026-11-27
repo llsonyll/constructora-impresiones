@@ -65,8 +65,11 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 - Agregar: botón flotante *+ Nuevo* en el celular, o *+ Crear «…»* cuando la búsqueda no encuentra nada (precarga el nombre).
 - El editor muestra primero nombre, precio y costo (con sugerencias de recargo), y *Guardar* queda fijo al pie.
 - Editor: poner precio activa el producto (aparece en el POS); sugerencias de precio por recargo sobre costo.
-- Stock solo cambia por movimientos: ajuste individual (`adjust_stock`) o **Conteo de stock**
-  (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador).
+- Stock solo cambia por movimientos: ajuste individual (`adjust_stock`), **Conteo de stock**
+  (`bulk_adjust_stock`, una transacción; el borrador del conteo se guarda en el navegador) o **Contar este casillero**
+  (ver *Ubicaciones*). Los conteos guardan la hora de cada cantidad (`counted_at`) y la diferencia se calcula contra el
+  stock que había a esa hora: el actual menos ventas, anulaciones, compras y devoluciones posteriores (una venta cuenta por
+  su `sold_at`; los ajustes posteriores no se descuentan). Sin `counted_at` (equipos sin actualizar), contra el stock actual.
 - **Surtido** (`/inventario/surtido`): el stock de una línea como tabla **color × presentación** para decidir qué
   pedir (p. ej. ESMALTE · CRONS: filas por color, columnas 1/32 · 1/16 · 1/8 · 1/4 GL). Se elige una marca (tarjetas
   con cuántos productos tiene y cuántos hay por reponer), y se filtra por categoría, presentación, búsqueda (“azul”),
@@ -172,6 +175,17 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   precio de venta, cantidad referencial y otras ubicaciones) con **Agregar al ticket** (admin y cajero; va a la caja del producto,
   con *Deshacer* y *Ver ticket*). Los tickets del POS viven en `CartsProvider` (`features/pos/useCart.tsx`), compartidos
   por toda la app y guardados en el equipo (`localStorage` `pos.tickets`): cambiar de pantalla o recargar no los pierde.
+- **Contar este casillero** (`/inventario/ubicaciones/:id/contar`, admin y almacén; botón en el detalle del casillero):
+  ubicar, anotar cantidades y corregir el stock en una sola pasada. La lista trae lo ya ubicado ahí; lo demás se agrega
+  buscando o **escaneando seguido** (código desconocido → alta rápida) y sale como *nuevo aquí*. Se escribe cuánto hay;
+  en blanco = no se toca; *No va aquí* quita el producto del casillero (cuenta como 0 ahí). *Revisar y guardar* muestra
+  qué se ubica y qué stock cambia (antes → después). Lo guarda la RPC `count_location` (una transacción, migración
+  `20261127120000_conteo_casillero`): cada producto queda ubicado ahí con esa cantidad y su stock pasa a **lo contado
+  aquí + lo anotado en sus otras ubicaciones**, con un movimiento de ajuste (en *Actividad*: «Conteo de E2-N5: N productos
+  ajustados»). Si otra ubicación del producto no tiene cantidad, el stock no se toca y se avisa dónde falta contar (con
+  enlace a esa ubicación). El borrador queda en el equipo por casillero (`localStorage` `conteo-casillero-<id>`) con la
+  hora en que se contó cada línea: el stock se corrige contra el que había a esa hora (`stock_at`), así las ventas hechas
+  entre el conteo y el guardado no se pierden. `/inventario/ubicaciones?ir=E2-N5` abre esa ubicación.
 - Ficha del producto: sección *Ubicación en tienda* (autocompletado, ★ principal, cantidad, quitar).
 - Inventario: 📍 en cada fila, filtro *Sin ubicación* (sin servicios) y búsqueda por código (`E2-N5` o `E4`).
   Ventas: la ubicación principal se ve en la tarjeta (va en el catálogo offline) y también se puede buscar por código.

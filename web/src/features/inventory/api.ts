@@ -239,7 +239,7 @@ export function useAdjustStock() {
 export function useBulkCount() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (a: { items: { product_id: string; counted: number }[]; note: string }) => {
+    mutationFn: async (a: { items: { product_id: string; counted: number; counted_at?: string }[]; note: string }) => {
       const { data, error } = await supabase.rpc('bulk_adjust_stock', { p_items: a.items, p_note: a.note || 'Conteo físico' })
       if (error) throw error
       return data as number
