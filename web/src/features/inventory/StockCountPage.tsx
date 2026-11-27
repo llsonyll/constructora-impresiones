@@ -7,9 +7,10 @@ import CategoryOptions from './CategoryOptions'
 import { friendlyError, useBulkCount, useCategories, useInventory } from './api'
 
 const DRAFT_KEY = 'conteo-borrador'
+const TIMES_KEY = 'conteo-borrador-horas'   // hora en que se contó cada producto (ver bulk_adjust_stock)
 
-function loadDraft(): Record<string, string> {
-  try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? '{}') } catch { return {} }
+function load(key: string): Record<string, string> {
+  try { return JSON.parse(localStorage.getItem(key) ?? '{}') } catch { return {} }
 }
 
 /** Conteo físico: se escribe lo contado; al guardar, cada diferencia queda como movimiento de ajuste. */
@@ -17,7 +18,8 @@ export default function StockCountPage() {
   const { data: products = [], isLoading } = useInventory()
   const { data: categories = [] } = useCategories()
   const bulk = useBulkCount()
-  const [counts, setCounts] = useState<Record<string, string>>(loadDraft)
+  const [counts, setCounts] = useState<Record<string, string>>(() => load(DRAFT_KEY))
+  const [times, setTimes] = useState<Record<string, string>>(() => load(TIMES_KEY))
   const [bulkError, setBulkError] = useState('')
   const [category, setCategory] = useState<number | ''>('')
   const [query, setQuery] = useState('')
@@ -26,8 +28,11 @@ export default function StockCountPage() {
   const [done, setDone] = useState<number | null>(null)
 
   useEffect(() => {
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(counts)) } catch { /* modo privado */ }
-  }, [counts])
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(counts))
+      localStorage.setItem(TIMES_KEY, JSON.stringify(times))
+    } catch { /* modo privado */ }
+  }, [counts, times])
 
   const textScore = useProductMatcher(query)
   const rows = useMemo(() => {
@@ -47,8 +52,8 @@ export default function StockCountPage() {
     if (!confirm(`Se registrará el conteo de ${entered.length} productos (${changes} con diferencia). ¿Continuar?`)) return
     setBulkError('')
     try {
-      const n = await bulk.mutateAsync({ items: entered.map(x => ({ product_id: x.id, counted: x.v })), note })
-      setDone(n); setCounts({})
+      const n = await bulk.mutateAsync({ items: entered.map(x => ({ product_id: x.id, counted: x.v, ...(times[x.id] ? { counted_at: times[x.id] } : {}) })), note })
+      setDone(n); setCounts({}); setTimes({})
     } catch (e) { setBulkError(friendlyError(e)) }
   }
 
@@ -56,7 +61,8 @@ export default function StockCountPage() {
     <div className="space-y-3 p-4 pb-[calc(9rem+env(safe-area-inset-bottom))]">
       <PageHeader title="Conteo de stock" back="/inventario" backLabel="Inventario" />
       <p className="text-sm text-stone-600">
-        Escribe la cantidad contada. Deja en blanco lo que no contaste (no se toca). El borrador se guarda en este navegador.
+        Escribe la cantidad contada. Deja en blanco lo que no contaste (no se toca). El borrador se guarda en este navegador,
+        con la hora de cada cantidad: si lo registras más tarde, las ventas hechas desde que contaste se respetan.
       </p>
       {done != null && <p className="rounded bg-green-50 p-2 text-sm text-green-800">Conteo guardado: {done} productos ajustados.</p>}
 
@@ -95,11 +101,12 @@ export default function StockCountPage() {
                 <span className={`text-xs tabular-nums ${diff < 0 ? 'text-red-600' : 'text-green-700'}`}>{diff > 0 ? '+' : ''}{diff}</span>
               )}
               <input inputMode="decimal" value={v} placeholder="—" aria-label={`Contado ${p.name}`}
-                     onChange={e => setCounts(c => {
-                       const next = { ...c }
-                       if (e.target.value === '') delete next[p.id]; else next[p.id] = e.target.value
-                       return next
-                     })}
+                     onChange={e => {
+                       const v = e.target.value
+                       setCounts(c => { const next = { ...c }; if (v === '') delete next[p.id]; else next[p.id] = v; return next })
+                       // Se guarda la hora: al registrar, las ventas hechas después de contar se respetan.
+                       setTimes(t => { const next = { ...t }; if (v === '') delete next[p.id]; else next[p.id] = new Date().toISOString(); return next })
+                     }}
                      className="min-h-11 w-20 rounded border px-2 text-right text-base tabular-nums" />
             </li>
           )
@@ -109,7 +116,7 @@ export default function StockCountPage() {
       <div className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-[1fr_auto] items-center gap-2 border-t bg-white px-safe-3 pt-2 pb-safe-3 shadow
                       md:flex">
         <span className="text-sm">{entered.length} contados · {changes} con diferencia</span>
-        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) setCounts({}) }} className="min-h-11 rounded-lg border px-3 text-sm md:order-last">Limpiar</button>
+        <button onClick={() => { if (confirm('¿Borrar todo lo ingresado?')) { setCounts({}); setTimes({}) } }} className="min-h-11 rounded-lg border px-3 text-sm md:order-last">Limpiar</button>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Motivo" className="min-h-11 min-w-0 rounded-lg border px-2 text-base md:flex-1" aria-label="Motivo" />
         <button onClick={save} disabled={!entered.length || bulk.isPending} className="min-h-11 rounded-lg bg-amber-700 px-4 text-sm text-white disabled:opacity-50">
           {bulk.isPending ? 'Guardando…' : 'Guardar conteo'}
