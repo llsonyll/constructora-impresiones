@@ -16,6 +16,7 @@ import AssortmentPage from '@/features/inventory/AssortmentPage'
 import LabelsPage from '@/features/labels/LabelsPage'
 import LocationsPage from '@/features/locations/LocationsPage'
 import CountLocationPage from '@/features/locations/CountLocationPage'
+import RestockPage from '@/features/locations/RestockPage'
 import ProvidersPage from '@/features/providers/ProvidersPage'
 import PurchaseOrderPage from '@/features/providers/PurchaseOrderPage'
 import PurchaseOrderPdfPage from '@/features/providers/PurchaseOrderPdfPage'
@@ -90,6 +91,7 @@ export default function AppRoutes() {
           <Route path="inventario/sinonimos" element={<RequireRole roles={['admin', 'almacen']}><SynonymsPage /></RequireRole>} />
           <Route path="inventario/ubicaciones" element={<RequireRole roles={['admin', 'cajero', 'almacen']}><LocationsPage /></RequireRole>} />
           <Route path="inventario/ubicaciones/:id/contar" element={<RequireRole roles={['admin', 'almacen']}><CountLocationPage /></RequireRole>} />
+          <Route path="inventario/reponer" element={<RequireRole roles={['admin', 'almacen']}><RestockPage /></RequireRole>} />
           <Route path="proveedores" element={<RequireRole roles={['admin', 'almacen']}><ProvidersPage /></RequireRole>} />
           <Route path="proveedores/ordenes/:id" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPage /></RequireRole>} />
           <Route path="proveedores/ordenes/:id/pdf" element={<RequireRole roles={['admin', 'almacen']}><PurchaseOrderPdfPage /></RequireRole>} />

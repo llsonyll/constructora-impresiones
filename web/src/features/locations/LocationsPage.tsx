@@ -9,10 +9,11 @@ import Sheet from '@/components/Sheet'
 import { type InventoryProduct, useInventory } from '@/features/inventory/api'
 import QuickCreateSheet from '@/features/inventory/QuickCreateSheet'
 import type { Location } from '@/types/domain'
-import { FURNITURE_LABEL, findByCode, friendlyLocationError, isSingleLevel, matchesText, normalizeCode, useLocations, useProductLocation } from './api'
+import { FURNITURE_LABEL, depotIds, findByCode, friendlyLocationError, isSingleLevel, matchesText, normalizeCode, useLocations, useProductLocation } from './api'
 import LocationForm from './LocationForm'
 import FurnitureForm from './FurnitureForm'
 import ProductPreviewSheet from './ProductPreviewSheet'
+import { restockCandidates } from './restock'
 import { useAuth } from '@/features/auth/AuthProvider'
 import ProductImage from '@/components/ProductImage'
 import { money } from '@/lib/format'
@@ -54,6 +55,7 @@ export default function LocationsPage() {
   const unplaced = products.filter(p => p.track_stock && !p.locations.length).length
   // Vendidos sin stock: su stock no es real. Se cuentan con «Contar este casillero» (o en Inventario si no tienen ubicación).
   const negative = products.filter(p => p.track_stock && p.stock < 0).length
+  const toRestock = useMemo(() => restockCandidates(products, depotIds(locations)).length, [products, locations])
   const hasNegative = (id: number) => (byLocation.get(id) ?? []).some(p => p.track_stock && p.stock < 0)
 
   const visible = locations.filter(l => showInactive || l.active)
@@ -93,6 +95,11 @@ export default function LocationsPage() {
       {canEdit && unplaced > 0 && (
         <Link to="/inventario?estado=sin_ubicacion" className="flex min-h-11 items-center justify-between rounded-lg bg-amber-50 px-3 text-sm text-amber-900">
           <span><b>{unplaced}</b> productos sin ubicación</span><span>Ver →</span>
+        </Link>
+      )}
+      {canEdit && toRestock > 0 && (
+        <Link to="/inventario/reponer" className="flex min-h-11 items-center justify-between rounded-lg bg-sky-50 px-3 text-sm text-sky-900">
+          <span><b>{toRestock}</b> para reponer desde el depósito</span><span>Reponer →</span>
         </Link>
       )}
       {canEdit && negative > 0 && (
