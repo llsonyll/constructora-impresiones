@@ -12,7 +12,7 @@ import { type InventoryProduct, useCategories, useInventory } from './api'
 import CategoryOptions from './CategoryOptions'
 import ProductEditor from './ProductEditor'
 
-type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'sin_ubicacion' | 'inactivos' | 'recientes'
+type Filter = 'todos' | 'sin_precio' | 'revisar' | 'stock_bajo' | 'negativo' | 'sin_ubicacion' | 'inactivos' | 'recientes'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 // Filas que se dibujan de una vez (el celular se pone lento con cientos); "Ver más" agrega otras tantas.
@@ -23,6 +23,8 @@ const FILTERS: { id: Filter; label: string; test: (p: InventoryProduct) => boole
   { id: 'sin_precio', label: 'Sin precio', test: p => p.price == null },
   { id: 'revisar', label: 'Por revisar', test: p => p.needs_review },
   { id: 'stock_bajo', label: 'Stock bajo', test: p => p.active && p.track_stock && p.stock <= p.min_stock },
+  // Se vendió más de lo que había en el sistema: el stock no es real y hay que contarlo.
+  { id: 'negativo', label: 'Stock negativo (para contar)', test: p => p.track_stock && p.stock < 0 },
   // Los servicios (copias, impresiones) no ocupan lugar en la tienda.
   { id: 'sin_ubicacion', label: 'Sin ubicación', test: p => p.track_stock && !p.locations.length },
   { id: 'inactivos', label: 'Inactivos', test: p => !p.active },

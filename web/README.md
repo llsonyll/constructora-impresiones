@@ -60,7 +60,7 @@ Los usuarios nuevos quedan `active=false` hasta que un admin los apruebe.
 ## Inventario (admin, almacén)
 
 - Lista pensada para el celular: buscador fijo arriba (nombre, marca, SKU o código; 📷 escanea), dos selectores
-  (estado: *Sin precio / Por revisar / Stock bajo / Inactivos / Recientes* y categoría) y filas con precio y stock.
+  (estado: *Sin precio / Por revisar / Stock bajo / Stock negativo / Sin ubicación / Inactivos / Recientes* y categoría) y filas con precio y stock.
   En escritorio se ven además categoría, costo y margen. Se dibujan 60 filas y *Ver más* agrega otras tantas.
 - Agregar: botón flotante *+ Nuevo* en el celular, o *+ Crear «…»* cuando la búsqueda no encuentra nada (precarga el nombre).
 - El editor muestra primero nombre, precio y costo (con sugerencias de recargo), y *Guardar* queda fijo al pie.
@@ -161,11 +161,17 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   **depósito** (`D1` = depósito general, todo lo que no está en la ferretería; si más adelante hay zonas fijas se agregan
   como secciones `D1-N1-A`…, u otro depósito `D2`). El N1 no se muestra y se buscan por la forma corta (`C1-A`, `D1`);
   *Ir a…* y el autocompletado también aceptan el tipo o la descripción sin tildes (`deposito`).
-- `product_locations`: un producto puede estar en varias ubicaciones; una es la **principal** (la primera que se asigna;
-  los triggers mantienen una sola y, al quitarla, pasa a otra). `qty` es **referencial**: el stock real es
-  `products.stock` (movimientos). Cada venta la descuenta (trigger `stock_movements_locations`): primero de la
-  principal y el resto de las otras, sin bajar de 0; una anulación la repone en la primera con cantidad. Las
-  ubicaciones sin cantidad (`null`) no se tocan, y compras y ajustes tampoco las mueven.
+- `product_locations`: un producto puede estar en varias ubicaciones; una es la **principal** (la que se ve en Ventas: la
+  primera que se asigna, salvo que sea un depósito y después se agregue una de la tienda, que pasa a serlo; los triggers
+  mantienen una sola y, al quitarla, pasa a otra, de la tienda antes que del depósito; un depósito se puede marcar a mano).
+  `qty` es **referencial**: el stock real es `products.stock` (movimientos). Cada venta la descuenta (trigger
+  `stock_movements_locations`): **primero de la tienda y después del depósito** (y dentro de cada una, la principal y
+  luego las más antiguas), sin bajar de 0; una anulación o devolución la repone en la primera con cantidad, en el mismo
+  orden (migración `20261127180000_vender_desde_tienda`). Las ubicaciones sin cantidad (`null`) no se tocan, y compras y
+  ajustes tampoco las mueven.
+- **Stock negativo** (vendido sin stock en el sistema): aviso rojo en *Ubicaciones* con enlace a *Inventario → Stock
+  negativo* y un punto rojo en cada casillero que tiene alguno (admin y almacén); en el detalle del casillero su stock sale
+  en rojo. Se corrige contándolo (*Contar este casillero*).
 - Pantalla *Ubicaciones*: mueble → cuadrícula por nivel/sección con cuántos productos hay; tocar un casillero muestra
   sus productos y permite agregar buscando o **escaneando seguido** (código desconocido → alta rápida). *Ir a…* acepta
   `e2n5`. *+ Ubicación* crea una o un mueble entero (niveles desde/hasta × secciones). Con productos no se elimina:
@@ -281,6 +287,10 @@ hook `useProductMatcher`) en Ventas, Inventario, Conteo, Precios, Ubicaciones, �
   el resto (y los productos sin categoría) a **Ferretería**. Para mover un producto de caja, cambia su categoría.
 - En **Ventas** se elige la caja arriba (queda guardada en el equipo). Cada caja tiene su color, su catálogo, sus
   categorías como filtros y su propio ticket (se puede dejar uno a medias y atender en la otra).
+- **Vender sin stock en el sistema** (`features/pos/stock.ts`): no se bloquea (lo que está en el mostrador se vende), pero
+  al agregar un producto cuyo ticket pasa lo que hay en el sistema sale un aviso (una vez por producto: «sin stock en el
+  sistema» o «solo hay N»), y la línea del ticket lo dice mientras lo pase. Después de cobrar, el producto queda en negativo
+  y aparece en *Inventario → Stock negativo* para contarlo. Servicios y lo devuelto en un cambio no cuentan.
 - Cada venta queda con su caja (`sales.caja`, la envía `create_sale`). Escanear un producto de la otra caja lo lleva a su
   ticket y cambia de caja; al buscar, se avisa cuántos resultados hay en la otra caja.
 - Copias e impresiones (servicios) abren un teclado de cantidad: tocar *Fotocopia B/N* → `1` `5` → *Agregar*, o los
